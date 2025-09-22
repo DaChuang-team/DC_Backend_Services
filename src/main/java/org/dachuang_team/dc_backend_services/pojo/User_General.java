@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "userGeneral")
-public class UserGeneral {
+public class User_General {
 
     @Id // Primary Key
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -25,7 +25,7 @@ public class UserGeneral {
     private String UserPreference;
 
     @Column(name = "User_Gender")
-    private boolean UserGender; //规则：true-男，false-女
+    private char UserGender; //规则: 'M'-男, 'F'-女, 'U'-未知
 
     @Column(name = "User_Avatar_URL", length = 200)
     private String UserAvatarURL;
@@ -51,7 +51,7 @@ public class UserGeneral {
 //    private int UserPoints = 0; //用户积分，初始为0
 
     @Column(name = "User_Permissions")
-    private int UserPermissions;  //ps:本来还打算加个UserStatus的，但是想想直接在Permissions里设置就好了：0-普通用户，1-管理员，-1-封禁用户
+    private int UserPermissions = 0;  //ps:本来还打算加个UserStatus的，但是想想直接在Permissions里设置就好了：0-普通用户，1-管理员，-1-封禁用户
 
 
 
@@ -105,11 +105,11 @@ public class UserGeneral {
         UserPreference = userPreference;
     }
 
-    public boolean isUserGender() {
+    public char isUserGender() {
         return UserGender;
     }
 
-    public void setUserGender(boolean userGender) {
+    public void setUserGender(char userGender) {
         UserGender = userGender;
     }
 
