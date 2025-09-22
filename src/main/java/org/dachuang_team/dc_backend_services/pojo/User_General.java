@@ -10,37 +10,28 @@ public class User_General {
     @Id // Primary Key
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "User_id", nullable = false)
-    private int UserID;
+    private Integer userId;
 
     @Column(name = "User_name", nullable = false, length = 45 , unique = true)
     private String UserName;
-
     @Column(name = "User_phone", nullable = false, length = 13, unique = true)
     private String UserPhone;
-
     @Column(name = "User_password", nullable = false, length = 20)
     private String UserPassword;
-
     @Column(name = "User_Preference", length = 100)
     private String UserPreference;
-
     @Column(name = "User_Gender")
     private char UserGender; //规则: 'M'-男, 'F'-女, 'U'-未知
-
     @Column(name = "User_Avatar_URL", length = 200)
     private String UserAvatarURL;
-
-    @Column(name = "Create_Time", length = 20)
+    @Column(name = "Create_Time")
     private LocalDateTime CreateTime;
-
     // 最后一次登录时间，可以为 null
     @Column(name = "Last_Login")
     private LocalDateTime lastLoginAt;
-
     // 更新时间（每次修改自动更新）
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-
     @Column(name = "User_Birthday")
     private LocalDateTime UserBirthday;
 
@@ -66,11 +57,11 @@ public class User_General {
     }
 
     public int getUserID() {
-        return UserID;
+        return userId;
     }
 
     public void setUserID(int userID) {
-        UserID = userID;
+        userId = userID;
     }
 
     public String getUserName() {
