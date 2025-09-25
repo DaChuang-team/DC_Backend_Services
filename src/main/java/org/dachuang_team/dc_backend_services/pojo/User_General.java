@@ -10,7 +10,7 @@ public class User_General {
     @Id // Primary Key
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "User_id", nullable = false)
-    private Integer userId;
+    private Long userId;
 
     @Column(name = "User_name", nullable = false, length = 45 , unique = true)
     private String UserName;
@@ -56,11 +56,11 @@ public class User_General {
         this.lastLoginAt = lastLoginAt;
     }
 
-    public int getUserID() {
+    public long getUserID() {
         return userId;
     }
 
-    public void setUserID(int userID) {
+    public void setUserID(long userID) {
         userId = userID;
     }
 
