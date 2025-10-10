@@ -4,36 +4,36 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "userGeneral")
+@Table(name = "user_general")
 public class User_General {
 
     @Id // Primary Key
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "User_id", nullable = false)
+    @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    @Column(name = "User_name", nullable = false, length = 45 , unique = true)
-    private String UserName;
-    @Column(name = "User_phone", nullable = false, length = 13, unique = true)
-    private String UserPhone;
-    @Column(name = "User_password", nullable = false, length = 20)
-    private String UserPassword;
-    @Column(name = "User_Preference", length = 100)
-    private String UserPreference;
-    @Column(name = "User_Gender")
-    private char UserGender; //规则: 'M'-男, 'F'-女, 'U'-未知
-    @Column(name = "User_Avatar_URL", length = 200)
-    private String UserAvatarURL;
-    @Column(name = "Create_Time")
-    private LocalDateTime CreateTime;
+    @Column(name = "user_name", nullable = false, length = 45 , unique = true)
+    private String userName;
+    @Column(name = "user_phone", nullable = false, length = 13, unique = true)
+    private String userPhone;
+    @Column(name = "user_password", nullable = false, length = 62)
+    private String userPassword;
+    @Column(name = "user_preference", length = 100)
+    private String userPreference;
+    @Column(name = "user_gender")
+    private char userGender; //规则: 'M'-男, 'F'-女, 'U'-未知
+    @Column(name = "user_avatar_url", length = 200)
+    private String userAvatarURL;
+    @Column(name = "create_time")
+    private LocalDateTime createTime;
     // 最后一次登录时间，可以为 null
-    @Column(name = "Last_Login")
+    @Column(name = "last_login")
     private LocalDateTime lastLoginAt;
     // 更新时间（每次修改自动更新）
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-    @Column(name = "User_Birthday")
-    private LocalDateTime UserBirthday;
+    @Column(name = "user_birthday")
+    private LocalDateTime userBirthday;
 
 //    @Column(name = "User_Level")
 //    private int UserLevel = 1; //或许后续可以推出用户积分和等级系统？
@@ -42,11 +42,72 @@ public class User_General {
 //    private int UserPoints = 0; //用户积分，初始为0
 
     @Column(name = "User_Permissions")
-    private int UserPermissions = 0;  //ps:本来还打算加个UserStatus的，但是想想直接在Permissions里设置就好了：0-普通用户，1-管理员，-1-封禁用户
-
-
+    private int userPermissions;  //ps:本来还打算加个UserStatus的，但是想想直接在Permissions里设置就好了：0-普通用户，1-管理员，-1-封禁用户
 
     // Getters and Setters
+    public String getUserPhone() {
+        return userPhone;
+    }
+
+    public void setUserPhone(String userPhone) {
+        this.userPhone = userPhone;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
+
+    public String getUserName() {
+        return userName;
+    }
+
+    public void setUserName(String userName) {
+        this.userName = userName;
+    }
+
+    public String getUserPassword() {
+        return userPassword;
+    }
+
+    public void setUserPassword(String userPassword) {
+        this.userPassword = userPassword;
+    }
+
+    public String getUserPreference() {
+        return userPreference;
+    }
+
+    public void setUserPreference(String userPreference) {
+        this.userPreference = userPreference;
+    }
+
+    public char getUserGender() {
+        return userGender;
+    }
+
+    public void setUserGender(char userGender) {
+        this.userGender = userGender;
+    }
+
+    public String getUserAvatarURL() {
+        return userAvatarURL;
+    }
+
+    public void setUserAvatarURL(String userAvatarURL) {
+        this.userAvatarURL = userAvatarURL;
+    }
+
+    public LocalDateTime getCreateTime() {
+        return createTime;
+    }
+
+    public void setCreateTime(LocalDateTime createTime) {
+        this.createTime = createTime;
+    }
 
     public LocalDateTime getLastLoginAt() {
         return lastLoginAt;
@@ -54,70 +115,6 @@ public class User_General {
 
     public void setLastLoginAt(LocalDateTime lastLoginAt) {
         this.lastLoginAt = lastLoginAt;
-    }
-
-    public long getUserID() {
-        return userId;
-    }
-
-    public void setUserID(long userID) {
-        userId = userID;
-    }
-
-    public String getUserName() {
-        return UserName;
-    }
-
-    public void setUserName(String userName) {
-        UserName = userName;
-    }
-
-    public String getUserPhone() {
-        return UserPhone;
-    }
-
-    public void setUserPhone(String userPhone) {
-        UserPhone = userPhone;
-    }
-
-    public String getUserPassword() {
-        return UserPassword;
-    }
-
-    public void setUserPassword(String userPassword) {
-        UserPassword = userPassword;
-    }
-
-    public String getUserPreference() {
-        return UserPreference;
-    }
-
-    public void setUserPreference(String userPreference) {
-        UserPreference = userPreference;
-    }
-
-    public char isUserGender() {
-        return UserGender;
-    }
-
-    public void setUserGender(char userGender) {
-        UserGender = userGender;
-    }
-
-    public String getUserAvatarURL() {
-        return UserAvatarURL;
-    }
-
-    public void setUserAvatarURL(String userAvatarURL) {
-        UserAvatarURL = userAvatarURL;
-    }
-
-    public LocalDateTime getCreateTime() {
-        return CreateTime;
-    }
-
-    public void setCreateTime(LocalDateTime createTime) {
-        CreateTime = createTime;
     }
 
     public LocalDateTime getUpdatedAt() {
@@ -129,18 +126,27 @@ public class User_General {
     }
 
     public LocalDateTime getUserBirthday() {
-        return UserBirthday;
+        return userBirthday;
     }
 
     public void setUserBirthday(LocalDateTime userBirthday) {
-        UserBirthday = userBirthday;
+        this.userBirthday = userBirthday;
     }
 
     public int getUserPermissions() {
-        return UserPermissions;
+        return userPermissions;
     }
 
     public void setUserPermissions(int userPermissions) {
-        UserPermissions = userPermissions;
+        this.userPermissions = userPermissions;
+    }
+
+    @Override
+    public String toString() {
+        return "User_General{" +
+                "userPhone='" + userPhone + '\'' +
+                ", userName='" + userName + '\'' +
+                ", userPassword='" + userPassword + '\'' +
+                '}';
     }
 }
