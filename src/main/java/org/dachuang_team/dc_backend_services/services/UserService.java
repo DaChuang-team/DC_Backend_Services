@@ -50,4 +50,9 @@ public class UserService implements IUserServices {
         }
         return false;
     }
+
+    @Override
+    public User_General getUserByUserName(String userName) {
+        return userRepository.findByUserName(userName);
+    }
 }
