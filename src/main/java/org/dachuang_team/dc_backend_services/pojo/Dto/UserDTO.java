@@ -8,6 +8,8 @@ public class UserDTO {
     private String userPhone;
     @JsonProperty("userPassword")
     private String userPassword;
+    @JsonProperty("userGender")
+    private Character userGender;
 
     // Getters and Setters
     public String getUserName() {
@@ -32,6 +34,14 @@ public class UserDTO {
 
     public void setUserPhone(String userPhone) {
         this.userPhone = userPhone;
+    }
+
+    public Character getUserGender() {
+        return userGender;
+    }
+
+    public void setUserGender(Character userGender) {
+        this.userGender = userGender;
     }
 
     @Override

@@ -31,7 +31,8 @@ public class UserController {
     public ResponseEntity<String> login(@RequestBody UserDTO userDTO) {
         boolean isAuthenticated = userService.authenticateUser(userDTO.getUserName(), userDTO.getUserPassword());
         if (isAuthenticated) {
-            return ResponseEntity.status(201).body("登录成功");
+            return ResponseEntity.status(201).body("用户: " + userDTO.getUserName() + " 登录成功");
+
         } else {
             return ResponseEntity.status(401).body("用户名或密码错误");
         }
