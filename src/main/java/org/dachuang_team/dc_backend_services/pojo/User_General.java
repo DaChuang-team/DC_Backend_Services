@@ -26,14 +26,13 @@ public class User_General {
     private String userAvatarURL;
     @Column(name = "create_time")
     private LocalDateTime createTime;
-    // 最后一次登录时间，可以为 null
+
     @Column(name = "last_login")
-    private LocalDateTime lastLoginAt;
-    // 更新时间（每次修改自动更新）
+    private LocalDateTime lastLoginAt;// 最后一次登录时间，可以为 null，（每次登录时更新）
     @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    private LocalDateTime updatedAt;// 更新时间（每次修改自动更新）
     @Column(name = "user_birthday")
-    private LocalDateTime userBirthday;
+    private String userBirthday; //用户生日，格式YYYY-MM-DD
 
 //    @Column(name = "User_Level")
 //    private int UserLevel = 1; //或许后续可以推出用户积分和等级系统？
@@ -125,11 +124,11 @@ public class User_General {
         this.updatedAt = updatedAt;
     }
 
-    public LocalDateTime getUserBirthday() {
+    public String getUserBirthday() {
         return userBirthday;
     }
 
-    public void setUserBirthday(LocalDateTime userBirthday) {
+    public void setUserBirthday(String userBirthday) {
         this.userBirthday = userBirthday;
     }
 

@@ -1,6 +1,7 @@
 package org.dachuang_team.dc_backend_services.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.dachuang_team.dc_backend_services.pojo.Dto.userUpdateDTO;
 import org.dachuang_team.dc_backend_services.pojo.User_General;
 import org.dachuang_team.dc_backend_services.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,4 +58,37 @@ public class UserController {
             return ResponseEntity.status(401).body("用户名或密码错误");
         }
     }
+
+    @PutMapping("/updateInfo")
+    public ResponseEntity<String> updateUserInfo(
+            @RequestParam String userName,
+            @RequestBody userUpdateDTO userUpdateDTO) {
+        try {
+            System.out.println("<UC-UPD-TEST>start update user info for: " + userName);
+            // 更新用户信息
+            userService.updateInfo(userName, userUpdateDTO);
+            if(userUpdateDTO.getUserName() != null){
+                userName = userUpdateDTO.getUserName(); // 如果用户名被更新，使用新的用户名获取信息
+            }
+            User_General updatedUser = userService.getUserByUserName(userName);
+            System.out.println("<UC-UPD-TEST>" + userUpdateDTO.toString());
+            // 构造 JSON 响应
+            Map<String, Object> responseBody = new HashMap<>();
+            responseBody.put("userName", updatedUser.getUserName());
+            responseBody.put("userPhone", updatedUser.getUserPhone());
+            responseBody.put("userGender", updatedUser.getUserGender());
+            responseBody.put("userPermissions", updatedUser.getUserPermissions());
+            responseBody.put("userBirthday", updatedUser.getUserBirthday());
+            responseBody.put("userPreference", updatedUser.getUserPreference());
+            responseBody.put("userAvatarURL", updatedUser.getUserAvatarURL());
+            ObjectMapper mapper = new ObjectMapper();
+            String jsonResponse = mapper.writeValueAsString(responseBody);
+            return ResponseEntity.status(202).body(jsonResponse);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(402).body("用户信息更新失败: " + e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("服务器错误: " + e.getMessage());
+        }
+    }
+
 }
