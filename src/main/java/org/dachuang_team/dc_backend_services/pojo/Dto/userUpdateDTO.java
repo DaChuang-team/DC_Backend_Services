@@ -3,7 +3,6 @@ package org.dachuang_team.dc_backend_services.pojo.Dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotNull;
 
-import java.time.LocalDateTime;
 
 public class userUpdateDTO {
     @JsonProperty("newName")//前端传入的新用户名,可选，用于验证的用户名通过Query参数传入

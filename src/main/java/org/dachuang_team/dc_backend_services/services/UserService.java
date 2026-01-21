@@ -10,6 +10,7 @@ import org.dachuang_team.dc_backend_services.pojo.Dto.UserDTO;
 import org.dachuang_team.dc_backend_services.pojo.Dto.userUpdateDTO;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class UserService implements IUserServices {
@@ -103,5 +104,15 @@ public class UserService implements IUserServices {
         userRepository.save(user);
         System.out.println("<US-UPD-TSET> User info updated for userName: " + userUpdateDTO.toString() );
         return true;
+    }
+
+    /**
+     * 获取所有用户信息
+     * @return 包含所有用户的列表
+     */
+    @Override
+    public List<User_General> getAllUsers() {
+        // 使用 JpaRepository 的 findAll 方法获取所有用户
+        return userRepository.findAll();
     }
 }

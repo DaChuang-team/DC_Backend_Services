@@ -15,7 +15,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         //要使用的接口须在这里配置
-                        .requestMatchers("/api/users/register", "/api/users/login","/api/users/updateInfo").permitAll()
+                        .requestMatchers("/api/users/register", "/api/users/login","/api/users/updateInfo", "/api/users/all").permitAll()
                         .anyRequest().authenticated()
                 )
                 .httpBasic(Customizer.withDefaults());
