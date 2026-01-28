@@ -11,6 +11,19 @@ public interface IUserServices {
     User_General getUserByUserName(String userName);
     boolean updateInfo(String userName, userUpdateDTO userUpdateDTO);
     /**
+     * 管理员修改用户状态
+     * @param userName 用户名
+     * @param status 新状态
+     * @return 是否修改成功
+     */
+    boolean updateUserStatusByAdmin(String userName, String status);
+    /**
+     * 删除用户
+     * @param userName 用户名
+     * @return 是否删除成功
+     */
+    boolean deleteUser(String userName);
+    /**
      * 获取所有用户信息
      * @return 用户列表
      */

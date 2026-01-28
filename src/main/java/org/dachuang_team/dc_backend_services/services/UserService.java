@@ -43,6 +43,10 @@ public class UserService implements IUserServices {
     public boolean authenticateUser(String userName, String rawPassword) {
         User_General user = userRepository.findByUserName(userName);
         if(user != null && passwordEncoder.matches(rawPassword, user.getUserPassword())){
+            // 检查用户状态是否正常
+            if ("异常".equals(user.getUserStatus())) {
+                throw new IllegalArgumentException("该用户状态异常，禁止登录");
+            }
             LocalDateTime now = LocalDateTime.now();
             user.setLastLoginAt(now);
             userRepository.save(user);
@@ -63,12 +67,20 @@ public class UserService implements IUserServices {
             throw new IllegalArgumentException("用户不存在: " + userName);
         }
 
-        if (!passwordEncoder.matches(userUpdateDTO.getOldPassword(), user.getUserPassword())) {
-            throw new IllegalArgumentException("用户名或密码不正确");
+        // 判断是否涉及敏感修改（修改密码或修改手机号）
+        // 逻辑优化：如果传入了新密码字段且不为空，则自动视为需要修改密码，NPC 标志现在作为辅助确认
+        boolean isChangingPassword = userUpdateDTO.isNeedPasswordChange() || (userUpdateDTO.getUserPassword() != null && !userUpdateDTO.getUserPassword().isEmpty());
+        boolean isChangingPhone = userUpdateDTO.getUserPhone() != null && !userUpdateDTO.getUserPhone().equals(user.getUserPhone());
+
+        // 如果涉及敏感修改，则必须验证旧密码
+        if (isChangingPassword || isChangingPhone) {
+            if (userUpdateDTO.getOldPassword() == null || !passwordEncoder.matches(userUpdateDTO.getOldPassword(), user.getUserPassword())) {
+                throw new IllegalArgumentException("修改密码或手机号需要正确的旧密码验证");
+            }
         }
 
-        // 更新密码,需要验证旧密码
-        if (userUpdateDTO.isNeedPasswordChange()) {
+        // 1. 修改密码逻辑
+        if (isChangingPassword) {
             if (userUpdateDTO.getUserPassword() == null || userUpdateDTO.getUserPassword().isEmpty()) {
                 throw new IllegalArgumentException("需要提供新密码以修改密码");
             }
@@ -76,7 +88,19 @@ public class UserService implements IUserServices {
             user.setUserPassword(encodedPassword);
         }
 
-        // 更新用户名，需检查新用户名是否已存在
+        // 2. 修改手机号逻辑 (需验证原手机号)
+        if (isChangingPhone) {
+            if (userUpdateDTO.getOldPhone() == null || !userUpdateDTO.getOldPhone().equals(user.getUserPhone())) {
+                throw new IllegalArgumentException("原手机号验证失败，无法修改手机号");
+            }
+            // 检查新手机号是否已存在
+            if (userRepository.findAll().stream().anyMatch(u -> u.getUserPhone() != null && u.getUserPhone().equals(userUpdateDTO.getUserPhone()))) {
+                throw new IllegalArgumentException("手机号: " + userUpdateDTO.getUserPhone() + " 已被占用");
+            }
+            user.setUserPhone(userUpdateDTO.getUserPhone());
+        }
+
+        // 3. 修改用户名 (昵称)
         if (userUpdateDTO.getUserName() != null && !userUpdateDTO.getUserName().equals(userName)) {
             if (userRepository.findByUserName(userUpdateDTO.getUserName()) != null) {
                 throw new IllegalArgumentException("用户名: " + userUpdateDTO.getUserName() + " 已存在");
@@ -84,9 +108,7 @@ public class UserService implements IUserServices {
             user.setUserName(userUpdateDTO.getUserName());
         }
 
-        if (userUpdateDTO.getUserPhone() != null) {
-            user.setUserPhone(userUpdateDTO.getUserPhone());
-        }
+        // 4. 其他字段更新 (若未输入则维持原值)
         if (userUpdateDTO.getUserPreference() != null) {
             user.setUserPreference(userUpdateDTO.getUserPreference());
         }
@@ -99,10 +121,37 @@ public class UserService implements IUserServices {
         if (userUpdateDTO.getUserBirthday() != null) {
             user.setUserBirthday(userUpdateDTO.getUserBirthday());
         }
+        if (userUpdateDTO.getUserStatus() != null) {
+            user.setUserStatus(userUpdateDTO.getUserStatus());
+        }
 
         user.setUpdatedAt(LocalDateTime.now());
         userRepository.save(user);
-        System.out.println("<US-UPD-TSET> User info updated for userName: " + userUpdateDTO.toString() );
+        return true;
+    }
+
+    @Override
+    public boolean updateUserStatusByAdmin(String userName, String status) {
+        User_General user = userRepository.findByUserName(userName);
+        if (user == null) {
+            throw new IllegalArgumentException("用户不存在: " + userName);
+        }
+        if (!"正常".equals(status) && !"异常".equals(status)) {
+            throw new IllegalArgumentException("非法的状态值，仅支持 '正常' 或 '异常'");
+        }
+        user.setUserStatus(status);
+        user.setUpdatedAt(LocalDateTime.now());
+        userRepository.save(user);
+        return true;
+    }
+
+    @Override
+    public boolean deleteUser(String userName) {
+        User_General user = userRepository.findByUserName(userName);
+        if (user == null) {
+            throw new IllegalArgumentException("用户不存在: " + userName);
+        }
+        userRepository.delete(user);
         return true;
     }
 

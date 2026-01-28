@@ -34,11 +34,8 @@ public class User_General {
     @Column(name = "user_birthday")
     private String userBirthday; //用户生日，格式YYYY-MM-DD
 
-//    @Column(name = "User_Level")
-//    private int UserLevel = 1; //或许后续可以推出用户积分和等级系统？
-//
-//    @Column(name = "User_Points")
-//    private int UserPoints = 0; //用户积分，初始为0
+    @Column(name = "user_status", nullable = false, length = 10)
+    private String userStatus = "正常"; // 用户状态：'正常', '异常'
 
     @Column(name = "User_Permissions")
     private int userPermissions;  //ps:本来还打算加个UserStatus的，但是想想直接在Permissions里设置就好了：0-普通用户，1-管理员，-1-封禁用户
@@ -138,6 +135,14 @@ public class User_General {
 
     public void setUserPermissions(int userPermissions) {
         this.userPermissions = userPermissions;
+    }
+
+    public String getUserStatus() {
+        return userStatus;
+    }
+
+    public void setUserStatus(String userStatus) {
+        this.userStatus = userStatus;
     }
 
     @Override

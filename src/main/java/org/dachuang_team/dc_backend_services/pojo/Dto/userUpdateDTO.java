@@ -9,10 +9,9 @@ public class userUpdateDTO {
     private String userName;
     @JsonProperty("userPhone")
     private String userPhone;
-    @JsonProperty("newPassword")
+    @JsonProperty("userPassword")
     private String userPassword;
-    @NotNull
-    @JsonProperty("oldPassword")//为保证安全，修改信息时需要提供旧密码以验证身份
+    @JsonProperty("oldPassword")// 仅在修改密码或手机号时需要提供旧密码以验证身份
     private String oldPassword;
     @JsonProperty("userPreference")
     private String userPreference;
@@ -22,8 +21,12 @@ public class userUpdateDTO {
     private String userAvatarURL;
     @JsonProperty("userBirthday")
     private String userBirthday;
+    @JsonProperty("oldPhone")// 修改手机号时需要提供原手机号进行验证
+    private String oldPhone;
+    @JsonProperty("userStatus")// 用户状态
+    private String userStatus;
     @NotNull
-    @JsonProperty("NPC")//为保证安全，需要前端发送是否需要修改密码的标志，如果无需修改密码，则将原密码传回后端通过oldPassword验证即可
+    @JsonProperty("NPC")// 强制修改密码标志（可选，若 userPassword 不为空则自动视为修改）
     private boolean needPasswordChange = false;
 
     public String getUserName() {
@@ -40,6 +43,22 @@ public class userUpdateDTO {
 
     public void setUserPhone(String userPhone) {
         this.userPhone = userPhone;
+    }
+
+    public String getOldPhone() {
+        return oldPhone;
+    }
+
+    public void setOldPhone(String oldPhone) {
+        this.oldPhone = oldPhone;
+    }
+
+    public String getUserStatus() {
+        return userStatus;
+    }
+
+    public void setUserStatus(String userStatus) {
+        this.userStatus = userStatus;
     }
 
     public String getUserPassword() {
@@ -108,7 +127,9 @@ public class userUpdateDTO {
                 ", userPreference='" + userPreference + '\'' +
                 ", userGender=" + userGender +
                 ", userAvatarURL='" + userAvatarURL + '\'' +
-                ", userBirthday=" + userBirthday +
+                ", userBirthday='" + userBirthday + '\'' +
+                ", oldPhone='" + oldPhone + '\'' +
+                ", userStatus='" + userStatus + '\'' +
                 ", needPasswordChange=" + needPasswordChange +
                 '}';
     }
