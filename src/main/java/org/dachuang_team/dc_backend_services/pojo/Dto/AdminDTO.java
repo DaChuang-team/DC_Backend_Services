@@ -13,6 +13,7 @@ public class AdminDTO {
     private String adminPassword; // 管理员密码
     private String adminRole;     // 管理员角色
     private LocalDateTime lastLogin; // 最后登录时间
+    private String inviteCode;    // 邀请码
 
     // --- Getters and Setters ---
 
@@ -56,13 +57,21 @@ public class AdminDTO {
         this.lastLogin = lastLogin;
     }
 
+    public String getInviteCode() {
+        return inviteCode;
+    }
+
+    public void setInviteCode(String inviteCode) {
+        this.inviteCode = inviteCode;
+    }
     @Override
     public String toString() {
         return "AdminDTO{" +
                 "adminId=" + adminId +
                 ", adminName='" + adminName + '\'' +
                 ", adminRole='" + adminRole + '\'' +
-                ", lastLogin=" + lastLogin +
+                ", lastLogin=" + lastLogin + '\'' +
+                ", inviteCode='" + inviteCode +
                 '}';
     }
 }

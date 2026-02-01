@@ -23,13 +23,13 @@ public class Admin {
     @Column(name = "admin_password", nullable = false, length = 62) // 登录密码，不允许为空
     private String adminPassword;
 
-    @Column(name = "admin_role", nullable = false, length = 20) // 角色 (例如：最高管理员、内容管理、操作员)
+    @Column(name = "admin_role", nullable = false, length = 20) // 角色（权限）：ADMIN / SUPER_ADMIN，由传入的邀请码区分
     private String adminRole;
 
     @Column(name = "last_login") // 最近登录时间
     private LocalDateTime lastLogin;
 
-    // --- Getters and Setters (用于获取和设置属性值) ---
+    // --- Getters and Setters ---
 
     public Long getAdminId() {
         return adminId;

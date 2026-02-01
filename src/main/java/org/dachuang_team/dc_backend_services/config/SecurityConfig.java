@@ -16,7 +16,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         //要使用的接口须在这里配置
                         .requestMatchers("/api/users/register", "/api/users/login","/api/users/updateInfo", "/api/users/all", "/api/users/delete").permitAll()
-                        .requestMatchers("/api/admins/register", "/api/admins/login", "/api/admins/all", "/api/admins/updateUserStatus", "/api/admins/delete").permitAll()
+                        .requestMatchers("/api/admins/register", "/api/admins/login", "/api/admins/all", "/api/admins/updateUserStatus", "/api/admins/admindelete").permitAll()
                         .anyRequest().authenticated()
                 )
                 .httpBasic(Customizer.withDefaults());

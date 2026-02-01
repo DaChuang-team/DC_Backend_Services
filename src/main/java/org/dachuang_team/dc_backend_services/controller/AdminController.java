@@ -29,6 +29,7 @@ public class AdminController {
 
     /**
      * 管理员注册接口
+     *
      * @param adminDTO 接收 JSON 格式的注册信息
      * @return 响应结果
      */
@@ -50,6 +51,7 @@ public class AdminController {
 
     /**
      * 管理员登录接口
+     *
      * @param adminDTO 接收 JSON 格式的登录信息
      * @return 登录结果及管理员基本信息
      */
@@ -57,16 +59,16 @@ public class AdminController {
     public Result<Map<String, Object>> login(@RequestBody AdminDTO adminDTO) {
         // 1. 调用服务层验证用户名和密码
         boolean isAuthenticated = adminService.authenticateAdmin(adminDTO.getAdminName(), adminDTO.getAdminPassword());
-        
+
         if (isAuthenticated) {
             // 2. 验证成功，获取管理员详细信息
             AdminDTO admin = adminService.getAdminByAdminName(adminDTO.getAdminName());
-            
+
             // 3. 构造返回给前端的数据
             Map<String, Object> responseBody = new HashMap<>();
             responseBody.put("adminName", admin.getAdminName());
             responseBody.put("adminRole", admin.getAdminRole());
-            
+
             return Result.success("登录成功", responseBody);
         } else {
             // 4. 验证失败
@@ -76,27 +78,28 @@ public class AdminController {
 
     /**
      * 获取所有管理员信息接口
+     *
      * @return 格式化后的管理员列表
      */
     @GetMapping("/all")
     public Result<List<Map<String, Object>>> getAllAdmins() {
         // 1. 调用服务层获取所有管理员 DTO 列表
         List<AdminDTO> adminList = adminService.getAllAdmins();
-        
+
         // 2. 准备返回的数据列表
         List<Map<String, Object>> resultList = new ArrayList<>();
-        
+
         // 定义日期格式：年-月-日
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
         for (AdminDTO admin : adminList) {
             Map<String, Object> adminMap = new HashMap<>();
-            
+
             // 映射字段 (按照 Navicat 中的字段名)
             adminMap.put("admin_id", admin.getAdminId());
             adminMap.put("admin_name", admin.getAdminName());
             adminMap.put("admin_role", admin.getAdminRole());
-            
+
             // 格式化日期：最后登录时间
             if (admin.getLastLogin() != null) {
                 adminMap.put("last_login", admin.getLastLogin().format(formatter));
@@ -113,8 +116,9 @@ public class AdminController {
 
     /**
      * 管理员修改用户状态接口
+     *
      * @param userName 用户名
-     * @param status 新状态 ('正常' 或 '异常')
+     * @param status   新状态 ('正常' 或 '异常')
      * @return 响应结果
      */
     @PutMapping("/updateUserStatus")
@@ -135,13 +139,17 @@ public class AdminController {
 
     /**
      * 删除管理员接口
-     * @param adminName 管理员用户名
+     *
+     * @param params 包含 targetAdminName, currentAdminName, currentAdminPassword，以JSON格式传递
      * @return 响应结果
      */
-    @DeleteMapping("/delete")
-    public Result<String> deleteAdmin(@RequestParam String adminName) {
+    @DeleteMapping("/admindelete")
+    public Result<String> deleteAdmin(@RequestBody Map<String, String> params) {
+        String targetAdminName = params.get("targetAdminName");
+        String currentAdminName = params.get("currentAdminName");
+        String currentAdminPassword = params.get("currentAdminPassword");
         try {
-            boolean success = adminService.deleteAdmin(adminName);
+            boolean success = adminService.deleteAdmin(targetAdminName, currentAdminName, currentAdminPassword);
             if (success) {
                 return Result.success("管理员删除成功", null);
             } else {

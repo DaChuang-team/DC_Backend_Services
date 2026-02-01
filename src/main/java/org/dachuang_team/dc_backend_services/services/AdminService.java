@@ -24,11 +24,27 @@ public class AdminService implements IAdminServices {
     // 密码加密器，用于对管理员密码进行加密存储
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
+    private static final String NROMAL_ADMIN_INVITE_CODE = "$2a$10$RKiUjcBWpgkdfAt9XtqWe.B2PgUZ5ouKgFz7a0EHE.uD5xfp6qI7m";
+    // 这里的哈希值是对预设邀请码进行 BCrypt 加密后的结果，普通管理员静态邀请码：xczlAdmin
+
+    private static final String SUPER_ADMIN_INVITE_CODE = "$2a$10$ssaGpWklAl8Z1VtcMNc/mun.MwZA2QngfhhyNBDtfISe9zQRFL9CC";
+    // 超级管理员静态邀请码：xczlAdminPro
+
     /**
      * 注册管理员逻辑
      */
     @Override
     public void registerAdmin(AdminDTO adminDTO) {
+
+        String adminRole;
+        if (adminDTO.getInviteCode() != null && passwordEncoder.matches(adminDTO.getInviteCode(), NROMAL_ADMIN_INVITE_CODE)) {
+            adminRole = "ADMIN"; // 普通管理员
+        } else if (adminDTO.getInviteCode() != null && passwordEncoder.matches(adminDTO.getInviteCode(), SUPER_ADMIN_INVITE_CODE)) {
+            adminRole = "SUPER_ADMIN"; // 超级管理员
+        } else {
+            throw new IllegalArgumentException("无效的邀请码");
+        }
+
         // 1. 检查用户名是否已存在
         if (adminRepository.findByAdminName(adminDTO.getAdminName()) != null) {
             throw new IllegalArgumentException("管理员名称: " + adminDTO.getAdminName() + " 已存在");
@@ -43,7 +59,7 @@ public class AdminService implements IAdminServices {
         newAdmin.setAdminPassword(encodedPassword);
         
         // 4. 设置管理员角色
-        newAdmin.setAdminRole(adminDTO.getAdminRole());
+        newAdmin.setAdminRole(adminRole);
 
         // 5. 保存到数据库
         adminRepository.save(newAdmin);
@@ -108,14 +124,31 @@ public class AdminService implements IAdminServices {
     }
 
     @Override
-    public boolean deleteAdmin(String adminName) {
-        // 1. 查找管理员是否存在
-        Admin admin = adminRepository.findByAdminName(adminName);
-        if (admin == null) {
-            throw new IllegalArgumentException("管理员不存在: " + adminName);
+    public boolean deleteAdmin(String targetAdminName, String currentAdminName, String currentAdminPassword) {
+        // 获取当前操作的管理员
+        Admin currentAdmin = adminRepository.findByAdminName(currentAdminName);
+
+        // 验证当前管理员身份和密码
+        if (currentAdmin == null || !passwordEncoder.matches(currentAdminPassword, currentAdmin.getAdminPassword())) {
+            throw new IllegalArgumentException("当前管理员身份验证失败");
         }
-        
-        // 2. 执行删除
+
+        if (!"SUPER_ADMIN".equals(currentAdmin.getAdminRole())) {
+            throw new IllegalArgumentException("只有超级管理员可以删除管理员");
+        }
+
+        // 查找目标管理员
+        Admin admin = adminRepository.findByAdminName(targetAdminName);
+        if (admin == null) {
+            throw new IllegalArgumentException("管理员不存在: " + targetAdminName);
+        }
+
+        // 防止超级管理员删除自己
+        if (targetAdminName.equals(currentAdminName)) {
+            throw new IllegalArgumentException("超级管理员不能删除自己");
+        }
+
+        // 删除管理员
         adminRepository.delete(admin);
         return true;
     }

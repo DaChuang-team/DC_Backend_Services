@@ -26,7 +26,7 @@ public class UserController {
     // 用户注册
     @PostMapping("/register")
     public Result<String> register(@RequestBody UserDTO userDTO) {
-        System.out.println("****UC-TEST**** UserDTO info received: " + userDTO.toString());
+//        System.out.println("****UC-TEST**** UserDTO info received: " + userDTO.toString());
         try {
             userService.registerUser(userDTO);
             // 返回 JSON 格式的成功信息
@@ -70,7 +70,7 @@ public class UserController {
             @RequestParam String userName,
             @RequestBody userUpdateDTO userUpdateDTO) {
         try {
-            System.out.println("<UC-UPD-TEST>start update user info for: " + userName);
+//            System.out.println("<UC-UPD-TEST>start update user info for: " + userName);
             // 更新用户信息
             userService.updateInfo(userName, userUpdateDTO);
             if(userUpdateDTO.getUserName() != null){

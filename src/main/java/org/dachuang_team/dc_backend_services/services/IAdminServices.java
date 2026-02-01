@@ -37,8 +37,9 @@ public interface IAdminServices {
 
     /**
      * 删除管理员
-     * @param adminName 管理员用户名
+     * @param targetAdminName 欲删除管理员用户名
+     * @param currentAdminName 当前操作管理员用户名
      * @return 是否删除成功
      */
-    boolean deleteAdmin(String adminName);
+    boolean deleteAdmin(String targetAdminName, String currentAdminName, String currentAdminPassword);
 }
