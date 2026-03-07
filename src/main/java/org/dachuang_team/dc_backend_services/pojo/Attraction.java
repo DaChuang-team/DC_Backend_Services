@@ -14,9 +14,9 @@ public class Attraction {
     private String attractionName;
     @Column(name = "attraction_description", length = 200)
     private String attractionDescription;
-    @Column(name = "latitude", nullable = false)
+    @Column(name = "latitude")
     private Double latitude;
-    @Column(name = "longitude", nullable = false)
+    @Column(name = "longitude")
     private Double longitude;
     @Column(name = "attraction_image_URL", length = 200)
     private String attractionImageURL;

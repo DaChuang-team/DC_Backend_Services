@@ -17,7 +17,9 @@ public class SecurityConfig {
                         //要使用的接口须在这里配置
                         .requestMatchers("/api/users/register", "/api/users/login","/api/users/updateInfo", "/api/users/all", "/api/users/delete").permitAll()
                         .requestMatchers("/api/admins/register", "/api/admins/login", "/api/admins/all", "/api/admins/updateUserStatus", "/api/admins/admindelete").permitAll()
+                        .requestMatchers("/api/attractions/all", "/api/hotels/all", "/api/attractions/delete","/api/attractions/add","/api/attractions/update").permitAll()
                         .requestMatchers("/api/ai/plan").permitAll()
+                        .requestMatchers("/api/images/all").permitAll()
                         .anyRequest().authenticated()
                 )
                 .httpBasic(Customizer.withDefaults());

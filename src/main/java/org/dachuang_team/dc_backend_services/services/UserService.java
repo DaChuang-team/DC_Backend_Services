@@ -33,6 +33,7 @@ public class UserService implements IUserServices {
         newUser.setUserPassword(encodedPassword);
         newUser.setUserPermissions(0);
         newUser.setCreateTime(now);
+        newUser.setUserStatus("正常");
         //处理userGender：若DTO中为null，则设为'U'，否则设为JSON传入值
         newUser.setUserGender(user.getUserGender() != null ? user.getUserGender() : 'U');
         userRepository.save(newUser);
@@ -120,9 +121,6 @@ public class UserService implements IUserServices {
         }
         if (userUpdateDTO.getUserBirthday() != null) {
             user.setUserBirthday(userUpdateDTO.getUserBirthday());
-        }
-        if (userUpdateDTO.getUserStatus() != null) {
-            user.setUserStatus(userUpdateDTO.getUserStatus());
         }
 
         user.setUpdatedAt(LocalDateTime.now());
