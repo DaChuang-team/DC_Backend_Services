@@ -7,7 +7,7 @@ import java.util.List;
 
 public interface IUserServices {
     void registerUser(UserDTO user);
-    boolean authenticateUser(String userName, String rawPassword);
+    String authenticateUser(String userName, String rawPassword);
     User_General getUserByUserName(String userName);
     boolean updateInfo(String userName, userUpdateDTO userUpdateDTO);
     /**

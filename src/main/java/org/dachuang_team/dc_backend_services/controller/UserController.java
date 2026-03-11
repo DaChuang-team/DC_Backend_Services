@@ -41,10 +41,11 @@ public class UserController {
     @PostMapping("/login")
     public Result<Map<String, Object>> login(@RequestBody UserDTO userDTO) {
         try {
-            boolean isAuthenticated = userService.authenticateUser(userDTO.getUserName(), userDTO.getUserPassword());
-            if (isAuthenticated) {
+            String token = userService.authenticateUser(userDTO.getUserName(), userDTO.getUserPassword());
+            if (token != null) {
                 User_General user = userService.getUserByUserName(userDTO.getUserName());
                 Map<String, Object> responseBody = new HashMap<>();
+                responseBody.put("token", token);
                 responseBody.put("userName", user.getUserName());
                 responseBody.put("userPhone", user.getUserPhone());
                 responseBody.put("userGender", user.getUserGender());

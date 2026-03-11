@@ -1,7 +1,10 @@
 package org.dachuang_team.dc_backend_services.services;
 
+import jakarta.transaction.Transactional;
+import org.dachuang_team.dc_backend_services.pojo.UserSession;
 import org.dachuang_team.dc_backend_services.pojo.User_General;
 import org.dachuang_team.dc_backend_services.repository.UserRepository;
+import org.dachuang_team.dc_backend_services.repository.UserSessionRepository;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -11,12 +14,16 @@ import org.dachuang_team.dc_backend_services.pojo.Dto.userUpdateDTO;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class UserService implements IUserServices {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private UserSessionRepository sessionRepository;
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
@@ -29,7 +36,7 @@ public class UserService implements IUserServices {
         LocalDateTime now = LocalDateTime.now();
         String encodedPassword = passwordEncoder.encode(user.getUserPassword());
         User_General newUser = new User_General();
-        BeanUtils.copyProperties(user, newUser, "userPassword"); // 复制除 userPassword 外的字段
+        BeanUtils.copyProperties(user, newUser, "userPassword", "userGender"); // 复制除 userPassword 和 userGender 以外的属性
         newUser.setUserPassword(encodedPassword);
         newUser.setUserPermissions(0);
         newUser.setCreateTime(now);
@@ -39,21 +46,39 @@ public class UserService implements IUserServices {
         userRepository.save(newUser);
     }
 
-    // 验证用户登录
+    // 用户登录验证
     @Override
-    public boolean authenticateUser(String userName, String rawPassword) {
+    @Transactional
+    public String authenticateUser(String userName, String rawPassword) {
         User_General user = userRepository.findByUserName(userName);
-        if(user != null && passwordEncoder.matches(rawPassword, user.getUserPassword())){
-            // 检查用户状态是否正常
-            if ("异常".equals(user.getUserStatus())) {
-                throw new IllegalArgumentException("该用户状态异常，禁止登录");
-            }
-            LocalDateTime now = LocalDateTime.now();
-            user.setLastLoginAt(now);
-            userRepository.save(user);
-            return true;
+
+        // 1. 基础校验
+        if (user == null || !passwordEncoder.matches(rawPassword, user.getUserPassword())) {
+            throw new IllegalArgumentException("用户名或密码错误");
         }
-        return false;
+
+        // 2. 状态校验
+        if ("异常".equals(user.getUserStatus())) {
+            throw new IllegalArgumentException("该用户状态异常，禁止登录");
+        }
+
+        // 3. 更新最后登录时间
+        LocalDateTime now = LocalDateTime.now();
+        user.setLastLoginAt(now);
+        userRepository.save(user);
+
+        // 4. 生成并存储 Token
+        // 先清理该用户之前的旧 session (限制单点登录)
+        sessionRepository.deleteByUserId(user.getUserId());
+
+        String token = UUID.randomUUID().toString().replace("-", "");
+        UserSession session = new UserSession();
+        session.setUserId(user.getUserId());
+        session.setToken(token);
+        session.setExpiredAt(now.plusDays(7)); // 设置7天过期
+        sessionRepository.save(session);
+
+        return token;
     }
 
     @Override
