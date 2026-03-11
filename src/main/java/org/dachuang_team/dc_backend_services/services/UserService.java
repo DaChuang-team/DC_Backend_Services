@@ -86,24 +86,26 @@ public class UserService implements IUserServices {
         User_General user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
 
-        // 2. 敏感操作校验或手机号
+        // 2. 敏感信息修改需要额外验证
         boolean isChangingPassword = (dto.getUserPassword() != null && !dto.getUserPassword().isEmpty());
         boolean isChangingPhone = (dto.getUserPhone() != null && !dto.getUserPhone().equals(user.getUserPhone()));
 
-        if (isChangingPassword || isChangingPhone) {
-            // 验证旧密码是否匹配
-            if (dto.getOldPassword() == null || !passwordEncoder.matches(dto.getOldPassword(), user.getUserPassword())) {
-                throw new IllegalArgumentException("修改敏感信息需提供正确的旧密码");
-            }
-        }
-
-        // 3. 处理密码更新
         if (isChangingPassword) {
+            // 修改密码需要验证旧密码
+            if (dto.getOldPassword() == null || !passwordEncoder.matches(dto.getOldPassword(), user.getUserPassword())) {
+                throw new IllegalArgumentException("修改密码需提供正确的旧密码");
+            }
             user.setUserPassword(passwordEncoder.encode(dto.getUserPassword()));
         }
 
-        // 4. 处理手机号更新（需验证唯一性）
         if (isChangingPhone) {
+            // 修改手机号需要验证旧密码和旧手机号
+            if (dto.getOldPassword() == null || !passwordEncoder.matches(dto.getOldPassword(), user.getUserPassword())) {
+                throw new IllegalArgumentException("修改手机号需提供正确的旧密码");
+            }
+            if (dto.getOldPhone() == null || !user.getUserPhone().equals(dto.getOldPhone())) {
+                throw new IllegalArgumentException("修改手机号需提供正确的旧手机号");
+            }
             // 检查新手机号是否冲突
             if (userRepository.existsByUserPhone(dto.getUserPhone())) {
                 throw new IllegalArgumentException("手机号已存在");
