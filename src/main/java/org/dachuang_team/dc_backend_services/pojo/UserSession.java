@@ -45,4 +45,14 @@ public class UserSession {
     public void setExpiredAt(LocalDateTime expiredAt) {
         this.expiredAt = expiredAt;
     }
+
+    @Override
+    public String toString() {
+        return "UserSession{" +
+                "id=" + id +
+                ", userId=" + userId +
+                ", token='" + token + '\'' +
+                ", expiredAt=" + expiredAt +
+                '}';
+    }
 }

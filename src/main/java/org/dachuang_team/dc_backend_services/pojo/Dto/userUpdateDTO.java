@@ -25,9 +25,6 @@ public class userUpdateDTO {
     private String oldPhone;
     @JsonProperty("userStatus")// 用户状态
     private String userStatus;
-    @NotNull
-    @JsonProperty("NPC")// 强制修改密码标志（可选，若 userPassword 不为空则自动视为修改）
-    private boolean needPasswordChange = false;
 
     public String getUserName() {
         return userName;
@@ -109,13 +106,6 @@ public class userUpdateDTO {
         this.oldPassword = oldPassword;
     }
 
-    public boolean isNeedPasswordChange() {
-        return needPasswordChange;
-    }
-
-    public void setNeedPasswordChange(boolean needPasswordChange) {
-        this.needPasswordChange = needPasswordChange;
-    }
 
     @Override
     public String toString() {
@@ -130,7 +120,6 @@ public class userUpdateDTO {
                 ", userBirthday='" + userBirthday + '\'' +
                 ", oldPhone='" + oldPhone + '\'' +
                 ", userStatus='" + userStatus + '\'' +
-                ", needPasswordChange=" + needPasswordChange +
                 '}';
     }
 }

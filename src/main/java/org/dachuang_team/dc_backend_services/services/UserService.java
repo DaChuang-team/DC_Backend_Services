@@ -25,6 +25,9 @@ public class UserService implements IUserServices {
     @Autowired
     private UserSessionRepository sessionRepository;
 
+    @Autowired
+    private AuthService authService;
+
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     // 注册用户
@@ -68,17 +71,7 @@ public class UserService implements IUserServices {
         userRepository.save(user);
 
         // 4. 生成并存储 Token
-        // 先清理该用户之前的旧 session (限制单点登录)
-        sessionRepository.deleteByUserId(user.getUserId());
-
-        String token = UUID.randomUUID().toString().replace("-", "");
-        UserSession session = new UserSession();
-        session.setUserId(user.getUserId());
-        session.setToken(token);
-        session.setExpiredAt(now.plusDays(7)); // 设置7天过期
-        sessionRepository.save(session);
-
-        return token;
+        return authService.generateToken(user.getUserId());
     }
 
     @Override
@@ -87,70 +80,59 @@ public class UserService implements IUserServices {
     }
 
     @Override
-    public boolean updateInfo(String userName, userUpdateDTO userUpdateDTO) {
-        User_General user = userRepository.findByUserName(userName);
-        if (user == null) {
-            throw new IllegalArgumentException("用户不存在: " + userName);
-        }
+    @Transactional
+    public boolean updateInfo(Long userId, userUpdateDTO dto) {
+        // 1. 直接根据 ID 找用户，效率更高
+        User_General user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
 
-        // 判断是否涉及敏感修改（修改密码或修改手机号）
-        // 逻辑优化：如果传入了新密码字段且不为空，则自动视为需要修改密码，NPC 标志现在作为辅助确认
-        boolean isChangingPassword = userUpdateDTO.isNeedPasswordChange() || (userUpdateDTO.getUserPassword() != null && !userUpdateDTO.getUserPassword().isEmpty());
-        boolean isChangingPhone = userUpdateDTO.getUserPhone() != null && !userUpdateDTO.getUserPhone().equals(user.getUserPhone());
+        // 2. 敏感操作校验或手机号
+        boolean isChangingPassword = (dto.getUserPassword() != null && !dto.getUserPassword().isEmpty());
+        boolean isChangingPhone = (dto.getUserPhone() != null && !dto.getUserPhone().equals(user.getUserPhone()));
 
-        // 如果涉及敏感修改，则必须验证旧密码
         if (isChangingPassword || isChangingPhone) {
-            if (userUpdateDTO.getOldPassword() == null || !passwordEncoder.matches(userUpdateDTO.getOldPassword(), user.getUserPassword())) {
-                throw new IllegalArgumentException("修改密码或手机号需要正确的旧密码验证");
+            // 验证旧密码是否匹配
+            if (dto.getOldPassword() == null || !passwordEncoder.matches(dto.getOldPassword(), user.getUserPassword())) {
+                throw new IllegalArgumentException("修改敏感信息需提供正确的旧密码");
             }
         }
 
-        // 1. 修改密码逻辑
+        // 3. 处理密码更新
         if (isChangingPassword) {
-            if (userUpdateDTO.getUserPassword() == null || userUpdateDTO.getUserPassword().isEmpty()) {
-                throw new IllegalArgumentException("需要提供新密码以修改密码");
-            }
-            String encodedPassword = passwordEncoder.encode(userUpdateDTO.getUserPassword());
-            user.setUserPassword(encodedPassword);
+            user.setUserPassword(passwordEncoder.encode(dto.getUserPassword()));
         }
 
-        // 2. 修改手机号逻辑 (需验证原手机号)
+        // 4. 处理手机号更新（需验证唯一性）
         if (isChangingPhone) {
-            if (userUpdateDTO.getOldPhone() == null || !userUpdateDTO.getOldPhone().equals(user.getUserPhone())) {
-                throw new IllegalArgumentException("原手机号验证失败，无法修改手机号");
+            // 检查新手机号是否冲突
+            if (userRepository.existsByUserPhone(dto.getUserPhone())) {
+                throw new IllegalArgumentException("手机号已存在");
             }
-            // 检查新手机号是否已存在
-            if (userRepository.findAll().stream().anyMatch(u -> u.getUserPhone() != null && u.getUserPhone().equals(userUpdateDTO.getUserPhone()))) {
-                throw new IllegalArgumentException("手机号: " + userUpdateDTO.getUserPhone() + " 已被占用");
-            }
-            user.setUserPhone(userUpdateDTO.getUserPhone());
+            user.setUserPhone(dto.getUserPhone());
         }
 
-        // 3. 修改用户名 (昵称)
-        if (userUpdateDTO.getUserName() != null && !userUpdateDTO.getUserName().equals(userName)) {
-            if (userRepository.findByUserName(userUpdateDTO.getUserName()) != null) {
-                throw new IllegalArgumentException("用户名: " + userUpdateDTO.getUserName() + " 已存在");
+        // 5. 处理用户名/昵称更新
+        if (dto.getUserName() != null && !dto.getUserName().equals(user.getUserName())) {
+            if (userRepository.existsByUserName(dto.getUserName())) {
+                throw new IllegalArgumentException("该用户名已被占用");
             }
-            user.setUserName(userUpdateDTO.getUserName());
+            user.setUserName(dto.getUserName());
         }
 
-        // 4. 其他字段更新 (若未输入则维持原值)
-        if (userUpdateDTO.getUserPreference() != null) {
-            user.setUserPreference(userUpdateDTO.getUserPreference());
-        }
-        if (userUpdateDTO.getUserGender() != null) {
-            user.setUserGender(userUpdateDTO.getUserGender());
-        }
-        if (userUpdateDTO.getUserAvatarURL() != null) {
-            user.setUserAvatarURL(userUpdateDTO.getUserAvatarURL());
-        }
-        if (userUpdateDTO.getUserBirthday() != null) {
-            user.setUserBirthday(userUpdateDTO.getUserBirthday());
-        }
+        // 6. 其他普通字段
+        updateNormalFields(user, dto);
 
         user.setUpdatedAt(LocalDateTime.now());
         userRepository.save(user);
         return true;
+    }
+
+    // 抽取非敏感字段更新逻辑
+    private void updateNormalFields(User_General user, userUpdateDTO dto) {
+        if (dto.getUserPreference() != null) user.setUserPreference(dto.getUserPreference());
+        if (dto.getUserGender() != null) user.setUserGender(dto.getUserGender());
+        if (dto.getUserAvatarURL() != null) user.setUserAvatarURL(dto.getUserAvatarURL());
+        if (dto.getUserBirthday() != null) user.setUserBirthday(dto.getUserBirthday());
     }
 
     @Override
@@ -186,5 +168,12 @@ public class UserService implements IUserServices {
     public List<User_General> getAllUsers() {
         // 使用 JpaRepository 的 findAll 方法获取所有用户
         return userRepository.findAll();
+    }
+
+    @Override
+    public User_General getUserById(Long userId) {
+        // 使用 findById(id)，如果找不到则抛出异常，这能保证后续业务拿到的一定是有效对象
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("未找到 ID 为 " + userId + " 的用户"));
     }
 }

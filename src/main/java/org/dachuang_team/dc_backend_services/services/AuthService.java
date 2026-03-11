@@ -40,7 +40,7 @@ public class AuthService {
         UserSession session = new UserSession();
         session.setUserId(userId);
         session.setToken(token);
-        session.setExpiredAt(LocalDateTime.now().plusDays(1)); // 设置1天有效期
+        session.setExpiredAt(LocalDateTime.now().plusDays(14)); // 设置14天有效期
 
         sessionRepository.save(session);
         return token;

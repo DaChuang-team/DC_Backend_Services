@@ -5,6 +5,7 @@ import org.dachuang_team.dc_backend_services.pojo.Dto.userUpdateDTO;
 import org.dachuang_team.dc_backend_services.pojo.User_General;
 import org.dachuang_team.dc_backend_services.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.dachuang_team.dc_backend_services.pojo.Dto.UserDTO;
 
@@ -42,7 +43,7 @@ public class UserController {
     public Result<Map<String, Object>> login(@RequestBody UserDTO userDTO) {
         try {
             String token = userService.authenticateUser(userDTO.getUserName(), userDTO.getUserPassword());
-            if (token != null) {
+            if (token != null) { //如果身份验证成功，返回用户信息和 token
                 User_General user = userService.getUserByUserName(userDTO.getUserName());
                 Map<String, Object> responseBody = new HashMap<>();
                 responseBody.put("token", token);
@@ -67,29 +68,18 @@ public class UserController {
     }
 
     @PutMapping("/updateInfo")
-    public Result<Map<String, Object>> updateUserInfo(
-            @RequestParam String userName,
-            @RequestBody userUpdateDTO userUpdateDTO) {
+    public Result<Map<String, Object>> updateUserInfo(@RequestBody userUpdateDTO userUpdateDTO) {
         try {
-//            System.out.println("<UC-UPD-TEST>start update user info for: " + userName);
-            // 更新用户信息
-            userService.updateInfo(userName, userUpdateDTO);
-            if(userUpdateDTO.getUserName() != null){
-                userName = userUpdateDTO.getUserName(); // 如果用户名被更新，使用新的用户名获取信息
-            }
-            User_General updatedUser = userService.getUserByUserName(userName);
-            
-            // 构造返回数据
-            Map<String, Object> responseBody = new HashMap<>();
-            responseBody.put("userName", updatedUser.getUserName());
-            responseBody.put("userPhone", updatedUser.getUserPhone());
-            responseBody.put("userGender", updatedUser.getUserGender());
-            responseBody.put("userPermissions", updatedUser.getUserPermissions());
-            responseBody.put("userBirthday", updatedUser.getUserBirthday());
-            responseBody.put("userPreference", updatedUser.getUserPreference());
-            responseBody.put("userAvatarURL", updatedUser.getUserAvatarURL());
-            responseBody.put("userStatus", updatedUser.getUserStatus());
-            
+            // 1. 从安全上下文中获取 Filter 存入的 userId
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+            // 2. 调用业务层更新信息
+            userService.updateInfo(currentUserId, userUpdateDTO);
+
+            // 3. 获取更新后的用户信息
+            User_General updatedUser = userService.getUserById(currentUserId);
+            Map<String, Object> responseBody = buildUserResponse(updatedUser);
+
             return Result.success("更新成功", responseBody);
         } catch (IllegalArgumentException e) {
             return Result.error(402, "用户信息更新失败: " + e.getMessage());
@@ -97,6 +87,8 @@ public class UserController {
             return Result.error(500, "服务器错误: " + e.getMessage());
         }
     }
+
+
 
     /**
      * 获取所有用户信息接口
@@ -170,4 +162,17 @@ public class UserController {
         }
     }
 
+    // 辅助方法：构建用户信息的响应数据
+    private Map<String, Object> buildUserResponse(User_General user) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("userName", user.getUserName());
+        map.put("userPhone", user.getUserPhone());
+        map.put("userGender", user.getUserGender());
+        map.put("userPermissions", user.getUserPermissions());
+        map.put("userBirthday", user.getUserBirthday());
+        map.put("userPreference", user.getUserPreference());
+        map.put("userAvatarURL", user.getUserAvatarURL());
+        map.put("userStatus", user.getUserStatus());
+        return map;
+    }
 }

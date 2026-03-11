@@ -9,7 +9,7 @@ public interface IUserServices {
     void registerUser(UserDTO user);
     String authenticateUser(String userName, String rawPassword);
     User_General getUserByUserName(String userName);
-    boolean updateInfo(String userName, userUpdateDTO userUpdateDTO);
+    boolean updateInfo(Long userId, userUpdateDTO dto);
     /**
      * 管理员修改用户状态
      * @param userName 用户名
@@ -28,4 +28,10 @@ public interface IUserServices {
      * @return 用户列表
      */
     List<User_General> getAllUsers();
+    /**
+     * 根据用户ID获取用户实体
+     * @param userId 用户唯一标识
+     * @return User_General 实体
+     */
+    User_General getUserById(Long userId);
 }
