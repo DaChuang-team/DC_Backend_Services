@@ -30,9 +30,6 @@ public class AIService implements IAIServices{
     @Value("${volcengine.ark.endpoint-id}")
     private String endpointId;
 
-    @Autowired
-    private UserRepository userRepository;
-
     public AIService(@Value("${volcengine.ark.api-key}") String apiKey, ObjectMapper mapper) {
         this.arkService = ArkService.builder()
                 .connectionPool(new ConnectionPool(5, 1, TimeUnit.SECONDS))
@@ -50,7 +47,7 @@ public class AIService implements IAIServices{
             List<ChatMessage> messages = new ArrayList<>();
             messages.add(ChatMessage.builder()
                     .role(ChatMessageRole.SYSTEM)
-                    .content("你是一位专业的乡村旅游规划师。请根据用户的提示词提供游玩路线和文化体验规划。不要推荐具体的酒店、餐厅或商品。")
+                    .content("你是一位专业的乡村旅游规划师。请根据用户的提示词提供游玩路线和文化体验规划。不要推荐具体的酒店、餐厅或商品")
                     .build());
             messages.add(ChatMessage.builder()
                     .role(ChatMessageRole.USER)

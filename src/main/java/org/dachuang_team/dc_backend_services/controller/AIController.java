@@ -37,9 +37,16 @@ public class AIController {
 
             // 调用 Service 时传入 request 中的 content
             AIInteractionDTO.RuralTravelPlan plan = aiService.generateTravelPlan(request.content());
+            AIInteractionDTO.RuralTravelPlan updatedPlan = new AIInteractionDTO.RuralTravelPlan(
+                    plan.routeTheme(),
+                    plan.experienceValue(),
+                    plan.steps(),
+                    plan.finalCultureSummary(),
+                    "Doubao-Seed-1.6 251015" // 模型版本信息
+            );
             // 扣减用户积分
             userService.deductPoints(currentUserId, 3); // 扣减 3 积分
-            return ResponseEntity.ok(plan);
+            return ResponseEntity.ok(updatedPlan);
 
         } catch (Exception e) {
             e.printStackTrace();

@@ -139,7 +139,7 @@ public class UserService implements IUserServices {
     }
 
 
-
+    // 用户签到
     @Override
     @Transactional
     public boolean checkIn(Long userId) {
@@ -177,6 +177,7 @@ public class UserService implements IUserServices {
         return true;
     }
 
+    // 扣除用户积分
     @Override
     public void deductPoints(Long userId, int pointsToDeduct) {
         // 查询用户

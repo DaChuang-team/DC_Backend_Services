@@ -9,13 +9,15 @@ public class AIInteractionDTO {
             String routeTheme,
             String experienceValue,
             List<ActivityStep> steps, // 对应 Schema 中的 steps 数组
-            String finalCultureSummary // 对应 Schema 中的 finalAnswer 位置
+            String finalCultureSummary, // 对应 Schema 中的 finalAnswer 位置
+            String modelVersion
     ) {}
 
     /**
      * 对应 Schema 中的 Step 定义
      */
     public record ActivityStep(
+            int dayIndex, // 第几天
             String explanation, // 游玩逻辑说明
             String output       // 具体活动内容
     ) {}
@@ -23,4 +25,6 @@ public class AIInteractionDTO {
     public record UserPlanRequest(
             String content  // 仅包含请求内容
     ) {}
+
+
 }
