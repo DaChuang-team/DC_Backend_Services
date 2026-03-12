@@ -46,7 +46,7 @@ public class AIController {
 
             String modelVersionInfo = switch (request.modelVersion()) {
                 case 0 -> "Doubao-Seed-1.6 251015";
-                case 1 -> "Doubao-Seed-1.8 251015";
+                case 1 -> "Doubao-Seed-1.8 251228";
                 default -> "Unknown Model Version";
             };
 
