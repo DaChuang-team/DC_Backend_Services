@@ -29,7 +29,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/admins/register", "/api/admins/login").permitAll()
 
                         // 2. 受保护接口：必须携带合法 Token 才能访问
-                        .requestMatchers("/api/users/updateInfo", "/api/ai/**", "/api/users/checkIn","/api/users/points", "/api/users/info").authenticated()
+                        .requestMatchers("/api/users/updateInfo", "/api/users/checkIn","/api/users/points", "/api/users/info").authenticated()
+                        .requestMatchers("/api/ai/**").authenticated()
+                        .requestMatchers("/api/products/**").authenticated()
 
                         // 3. 测试阶段接口：暂时放行
                         .requestMatchers("/api/users/all", "/api/users/delete").permitAll()

@@ -4,10 +4,15 @@ import org.dachuang_team.dc_backend_services.common.Result;
 import org.dachuang_team.dc_backend_services.pojo.Product;
 import org.dachuang_team.dc_backend_services.repository.ProductRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.data.domain.Pageable;
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -17,10 +22,36 @@ public class ProductController {
     private ProductRepository productRepository;
 
     @GetMapping("/products/all")
-    public Result<List<Product>> getAllProducts() {
+    public Result<Map<String, Object>> getAllProducts(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
         try {
-            List<Product> products = productRepository.findAll();
-            return Result.success("获取产品成功", products);
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            if (currentUserId == null) {
+                return Result.error(401, "未认证");
+            }
+
+            // 验证页码和大小参数
+            if (page < 1) {
+                return Result.error(400, "页码必须大于或等于1");
+            }
+            if (size < 1) {
+                return Result.error(400, "每页大小必须大于或等于1");
+            }
+
+            // 将页码从1开始调整为从0开始
+            int adjustedPage = Math.max(page - 1, 0);
+            Pageable pageable = PageRequest.of(adjustedPage, size);
+            Page<Product> productPage = productRepository.findAll(pageable);
+
+            // 构建分页响应数据
+            Map<String, Object> response = new HashMap<>();
+            response.put("products", productPage.getContent());
+            response.put("currentPage", productPage.getNumber() + 1); // 返回给前端的页码从1开始
+            response.put("totalItems", productPage.getTotalElements());
+            response.put("totalPages", productPage.getTotalPages());
+
+            return Result.success("获取产品成功", response);
         } catch (Exception e) {
             return Result.error(500, "获取产品失败: " + e.getMessage());
         }
@@ -29,6 +60,10 @@ public class ProductController {
     @PostMapping("/products/add")
     public Result<Product> addProduct(@RequestBody Product product) {
         try {
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            if(currentUserId == null) {
+                return Result.error(401, "未认证");
+            }
             if (product.getProductName() == null || product.getProductName().isBlank()) {
                 return Result.error(400, "产品名称不能为空");
             }
@@ -48,6 +83,10 @@ public class ProductController {
     @PutMapping("/products/update")
     public Result<Product> updateProduct(@RequestBody Product product) {
         try {
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            if(currentUserId == null) {
+                return Result.error(401, "未认证");
+            }
             if (product.getProductId() == null) {
                 return Result.error(400, "缺少ID");
             }
@@ -74,6 +113,10 @@ public class ProductController {
     @DeleteMapping("/products/delete")
     public Result<Void> deleteProduct(@RequestParam Long id) {
         try {
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            if(currentUserId == null) {
+                return Result.error(401, "未认证");
+            }
             if (!productRepository.existsById(id)) {
                 return Result.error(404, "数据不存在");
             }

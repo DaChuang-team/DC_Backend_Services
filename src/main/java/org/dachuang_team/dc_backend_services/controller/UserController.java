@@ -129,6 +129,9 @@ public class UserController {
     public Result<Map<String,Object>> getUserInfo() {
         try {
             Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            if(currentUserId == null) {
+                return Result.error(401, "未认证");
+            }
             User_General user = userService.getUserById(currentUserId);
             Map<String, Object> responseBody = buildUserResponse(user);
             return Result.success("获取用户信息成功", responseBody);
