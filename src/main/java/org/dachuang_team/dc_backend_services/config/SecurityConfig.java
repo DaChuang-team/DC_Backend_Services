@@ -34,7 +34,7 @@ public class SecurityConfig {
                         // 3. 测试阶段接口：暂时放行
                         .requestMatchers("/api/users/all", "/api/users/delete").permitAll()
                         .requestMatchers("/api/admins/all", "/api/admins/updateUserStatus", "/api/admins/admindelete").permitAll()
-                        .requestMatchers("/api/attractions/**", "/api/hotels/**", "/api/ai/**", "/api/images/**").permitAll()
+                        .requestMatchers("/api/attractions/**", "/api/hotels/**", "/api/ai/**", "/api/images/**","api/products/**").permitAll()
 
                         // 4. 其他所有请求默认需要认证
                         .anyRequest().authenticated()
