@@ -124,7 +124,20 @@ public class UserController {
         }
     }
 
-
+    // 获取用户详细信息接口
+    @GetMapping("/info")
+    public Result<Map<String,Object>> getUserInfo() {
+        try {
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            User_General user = userService.getUserById(currentUserId);
+            Map<String, Object> responseBody = buildUserResponse(user);
+            return Result.success("获取用户信息成功", responseBody);
+        } catch (IllegalArgumentException e) {
+            return Result.error(402, e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "服务器开小差了: " + e.getMessage());
+        }
+    }
 
     /**
      * 获取所有用户信息接口
@@ -209,6 +222,7 @@ public class UserController {
         map.put("userPreference", user.getUserPreference());
         map.put("userAvatarURL", user.getUserAvatarURL());
         map.put("userStatus", user.getUserStatus());
+        map.put("points", user.getPoints());
         return map;
     }
 }

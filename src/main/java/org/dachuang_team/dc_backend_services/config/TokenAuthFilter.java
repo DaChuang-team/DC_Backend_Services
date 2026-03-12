@@ -29,7 +29,6 @@ public class TokenAuthFilter extends OncePerRequestFilter {
 
         if (token != null && !token.isEmpty()) {
             authService.validateToken(token).ifPresent(session -> {
-                // 如果 Token 有效，告诉 Spring Security 这个用户已经登录了
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(session.getUserId(), null, new ArrayList<>());
                 SecurityContextHolder.getContext().setAuthentication(authentication);

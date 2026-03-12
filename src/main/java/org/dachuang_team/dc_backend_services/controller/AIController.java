@@ -56,7 +56,7 @@ public class AIController {
                 default -> 0;
             };
 
-            // 调用 Service 时传入 request 中的 content
+            // 调用AI服务生成旅行计划
             AIInteractionDTO.RuralTravelPlan plan = aiService.generateTravelPlan(request.content(), request.modelVersion());
             AIInteractionDTO.RuralTravelPlan updatedPlan = new AIInteractionDTO.RuralTravelPlan(
                     plan.routeTheme(),
