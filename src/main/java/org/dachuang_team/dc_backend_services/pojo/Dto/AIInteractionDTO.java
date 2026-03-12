@@ -23,6 +23,7 @@ public class AIInteractionDTO {
     ) {}
 
     public record UserPlanRequest(
+            int modelVersion,
             String content  // 仅包含请求内容
     ) {}
 

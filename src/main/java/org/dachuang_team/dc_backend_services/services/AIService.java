@@ -27,9 +27,6 @@ public class AIService implements IAIServices{
     private final ArkService arkService;
     private final ObjectMapper mapper;
 
-    @Value("${volcengine.ark.endpoint-id}")
-    private String endpointId;
-
     public AIService(@Value("${volcengine.ark.api-key}") String apiKey, ObjectMapper mapper) {
         this.arkService = ArkService.builder()
                 .connectionPool(new ConnectionPool(5, 1, TimeUnit.SECONDS))
@@ -41,13 +38,13 @@ public class AIService implements IAIServices{
     }
 
     @Override
-    public AIInteractionDTO.RuralTravelPlan generateTravelPlan(String query) {
+    public AIInteractionDTO.RuralTravelPlan generateTravelPlan(String query, int modelVersion) {
         try {
             //定义消息列表
             List<ChatMessage> messages = new ArrayList<>();
             messages.add(ChatMessage.builder()
                     .role(ChatMessageRole.SYSTEM)
-                    .content("你是一位专业的乡村旅游规划师。请根据用户的提示词提供游玩路线和文化体验规划。不要推荐具体的酒店、餐厅或商品")
+                    .content("你是一位专业的乡村旅游规划师。请根据用户的提示词提供合理的游玩路线和文化体验规划，需要综合考虑地点之间的交通时间、交通便利程度、用户预算等、用户偏好等。不要推荐具体的酒店、餐厅或商品")
                     .build());
             messages.add(ChatMessage.builder()
                     .role(ChatMessageRole.USER)
@@ -90,6 +87,13 @@ public class AIService implements IAIServices{
                             true // 严格模式
                     )
             );
+
+            String endpointId = switch (modelVersion) {
+                case 0 -> "ep-20260202151315-zvslq"; //1.6
+                case 1 -> "ep-20260312135710-f8kfz"; //1.8
+                // 预留接口
+                default -> throw new IllegalArgumentException("Unsupported model version: " + modelVersion);
+            };
 
             //发起请求
             ChatCompletionRequest request = ChatCompletionRequest.builder()
