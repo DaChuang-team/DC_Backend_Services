@@ -53,6 +53,7 @@ public class UserController {
                 responseBody.put("userPermissions", user.getUserPermissions());
                 responseBody.put("userBirthday", user.getUserBirthday());
                 responseBody.put("userStatus", user.getUserStatus());
+                responseBody.put("userPoints", user.getPoints());
 
                 // 直接返回 Result 对象，Spring 会自动转为 JSON
                 return Result.success("登录成功", responseBody);
@@ -85,6 +86,41 @@ public class UserController {
             return Result.error(402, "用户信息更新失败: " + e.getMessage());
         } catch (Exception e) {
             return Result.error(500, "服务器错误: " + e.getMessage());
+        }
+    }
+
+    // 用户签到接口
+    @PostMapping("/checkIn")
+    public Result<Integer> userCheckIn() {
+        try {
+            // 自动获取当前登录用户的 ID
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+            // 执行签到
+            userService.checkIn(currentUserId);
+
+            // 获取最新积分返回给前端
+            User_General user = userService.getUserById(currentUserId);
+            return Result.success("签到成功，获得 10 积分", user.getPoints()); //message 中说明获得了多少积分，data 中返回最新的积分总数
+
+        } catch (IllegalArgumentException e) {
+            return Result.error(402, e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "服务器开小差了: " + e.getMessage());
+        }
+    }
+
+    // 获取用户积分接口
+    @GetMapping("/points")
+    public Result<Integer> getUserPoints() {
+        try {
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            User_General user = userService.getUserById(currentUserId);
+            return Result.success("获取积分成功", user.getPoints());
+        } catch (IllegalArgumentException e) {
+            return Result.error(402, e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "服务器开小差了: " + e.getMessage());
         }
     }
 

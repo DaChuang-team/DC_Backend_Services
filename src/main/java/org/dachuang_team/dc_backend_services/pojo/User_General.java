@@ -38,7 +38,10 @@ public class User_General {
     private String userStatus = "正常"; // 用户状态：'正常', '异常'
 
     @Column(name = "User_Permissions")
-    private int userPermissions;  //ps:本来还打算加个UserStatus的，但是想想直接在Permissions里设置就好了：0-普通用户，1-管理员，-1-封禁用户
+    private Integer userPermissions;  //ps:本来还打算加个UserStatus的，但是想想直接在Permissions里设置就好了：0-普通用户，1-管理员，-1-封禁用户
+
+    @Column(name = "points", columnDefinition = "INT DEFAULT 0") // 用户积分，初始为0，通过签到可以增加积分，积分可以用于AI个性化推荐请求
+    private Integer points;
 
     // Getters and Setters
     public String getUserPhone() {
@@ -143,6 +146,14 @@ public class User_General {
 
     public void setUserStatus(String userStatus) {
         this.userStatus = userStatus;
+    }
+
+    public Integer getPoints() {
+        return points;
+    }
+
+    public void setPoints(int points) {
+        this.points = points;
     }
 
     @Override

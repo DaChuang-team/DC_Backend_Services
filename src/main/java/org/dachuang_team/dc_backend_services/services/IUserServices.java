@@ -34,4 +34,17 @@ public interface IUserServices {
      * @return User_General 实体
      */
     User_General getUserById(Long userId);
+    /**
+     * 根据用户ID进行签到
+     * @param userId 用户唯一标识
+     * @return 是否签到成功
+     */
+    boolean checkIn(Long userId);
+
+    /**
+     * 扣除用户积分
+     * @param userId 用户唯一标识
+     * @param pointsToDeduct 要扣除的积分数量
+     */
+    void deductPoints(Long userId, int pointsToDeduct);
 }

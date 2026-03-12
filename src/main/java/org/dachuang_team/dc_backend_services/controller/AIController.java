@@ -2,8 +2,10 @@ package org.dachuang_team.dc_backend_services.controller;
 
 import org.dachuang_team.dc_backend_services.pojo.Dto.AIInteractionDTO;
 import org.dachuang_team.dc_backend_services.services.AIService;
+import org.dachuang_team.dc_backend_services.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -13,18 +15,30 @@ public class AIController {
     @Autowired
     private AIService aiService;
 
+    @Autowired
+    private UserService userService;
+
     @PostMapping("/plan")
     public ResponseEntity<AIInteractionDTO.RuralTravelPlan> getPlan(
             @RequestBody AIInteractionDTO.UserPlanRequest request) {
 
         try {
-            // 校验请求内容是否为空
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+            // 验证用户是否已认证
+            if (currentUserId == null) {
+                return ResponseEntity.status(401).build(); // 未认证
+            }
+
+            // 验证请求内容是否有效
             if (request.content() == null || request.content().isBlank()) {
                 return ResponseEntity.badRequest().build();
             }
 
             // 调用 Service 时传入 request 中的 content
             AIInteractionDTO.RuralTravelPlan plan = aiService.generateTravelPlan(request.content());
+            // 扣减用户积分
+            userService.deductPoints(currentUserId, 3); // 扣减 3 积分
             return ResponseEntity.ok(plan);
 
         } catch (Exception e) {

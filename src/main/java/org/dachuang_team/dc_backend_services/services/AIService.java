@@ -11,6 +11,9 @@ import com.volcengine.ark.runtime.model.completion.chat.ResponseFormatJSONSchema
 import com.volcengine.ark.runtime.service.ArkService;
 import jakarta.annotation.PreDestroy;
 import org.dachuang_team.dc_backend_services.pojo.Dto.AIInteractionDTO;
+import org.dachuang_team.dc_backend_services.pojo.User_General;
+import org.dachuang_team.dc_backend_services.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -26,6 +29,9 @@ public class AIService implements IAIServices{
 
     @Value("${volcengine.ark.endpoint-id}")
     private String endpointId;
+
+    @Autowired
+    private UserRepository userRepository;
 
     public AIService(@Value("${volcengine.ark.api-key}") String apiKey, ObjectMapper mapper) {
         this.arkService = ArkService.builder()

@@ -1,8 +1,10 @@
 package org.dachuang_team.dc_backend_services.services;
 
 import jakarta.transaction.Transactional;
+import org.dachuang_team.dc_backend_services.pojo.UserCheckIn;
 import org.dachuang_team.dc_backend_services.pojo.UserSession;
 import org.dachuang_team.dc_backend_services.pojo.User_General;
+import org.dachuang_team.dc_backend_services.repository.UserCheckInRepository;
 import org.dachuang_team.dc_backend_services.repository.UserRepository;
 import org.dachuang_team.dc_backend_services.repository.UserSessionRepository;
 import org.springframework.beans.BeanUtils;
@@ -14,7 +16,6 @@ import org.dachuang_team.dc_backend_services.pojo.Dto.userUpdateDTO;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 public class UserService implements IUserServices {
@@ -23,10 +24,10 @@ public class UserService implements IUserServices {
     private UserRepository userRepository;
 
     @Autowired
-    private UserSessionRepository sessionRepository;
+    private AuthService authService;
 
     @Autowired
-    private AuthService authService;
+    private UserCheckInRepository checkInRepository;
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
@@ -82,7 +83,7 @@ public class UserService implements IUserServices {
     @Override
     @Transactional
     public boolean updateInfo(Long userId, userUpdateDTO dto) {
-        // 1. 直接根据 ID 找用户，效率更高
+        // 1. 直接根据 ID 找用户
         User_General user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
 
@@ -135,6 +136,67 @@ public class UserService implements IUserServices {
         if (dto.getUserGender() != null) user.setUserGender(dto.getUserGender());
         if (dto.getUserAvatarURL() != null) user.setUserAvatarURL(dto.getUserAvatarURL());
         if (dto.getUserBirthday() != null) user.setUserBirthday(dto.getUserBirthday());
+    }
+
+
+
+    @Override
+    @Transactional
+    public boolean checkIn(Long userId) {
+        // 获取用户信息
+        User_General user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+
+        if ("异常".equals(user.getUserStatus())) {
+            throw new IllegalArgumentException("该用户状态异常，禁止签到");
+        }
+
+        // 时间范围判定：今日 00:00:00 到 23:59:59
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime todayStart = now.toLocalDate().atStartOfDay();
+        LocalDateTime todayEnd = todayStart.plusDays(1).minusNanos(1);
+
+        // 校验今日是否已签到
+        if (checkInRepository.existsByUserIdAndCheckInTimeBetween(userId, todayStart, todayEnd)) {
+            throw new IllegalArgumentException("今日已签到，请明天再来");
+        }
+
+        // 在签到表插入一条签到记录
+        UserCheckIn checkIn = new UserCheckIn();
+        checkIn.setUserId(userId);
+        checkIn.setCheckInTime(LocalDateTime.now());
+        checkIn.setPointsEarned(10);
+        checkInRepository.save(checkIn);
+
+        // 在用户表更新积分余额
+        user = userRepository.findById(userId).get();
+        int newPoints = (user.getPoints() == null ? 0 : user.getPoints()) + 10;
+        user.setPoints(newPoints);
+
+        userRepository.save(user); // 更新用户表
+        return true;
+    }
+
+    @Override
+    public void deductPoints(Long userId, int pointsToDeduct) {
+        // 查询用户
+        User_General user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+
+        // 校验用户状态
+        if ("异常".equals(user.getUserStatus())) {
+            throw new IllegalArgumentException("该用户状态异常，AI功能受限");
+        }
+
+        // 获取当前积分并校验
+        int currentPoints = user.getPoints() == null ? 0 : user.getPoints();
+        if (currentPoints < pointsToDeduct) {
+            throw new IllegalArgumentException("积分不足，无法扣除");
+        }
+
+        // 扣除积分并保存
+        user.setPoints(currentPoints - pointsToDeduct);
+        userRepository.save(user);
     }
 
     @Override
