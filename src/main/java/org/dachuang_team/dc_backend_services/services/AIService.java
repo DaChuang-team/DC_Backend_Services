@@ -27,7 +27,6 @@ public class AIService implements IAIServices{
     private final ArkService arkService;
     private final ObjectMapper mapper;
 
-    @Value("${volcengine.ark.endpoint-id}")
     private String endpointId;
 
     public AIService(@Value("${volcengine.ark.api-key}") String apiKey, ObjectMapper mapper) {
@@ -41,7 +40,7 @@ public class AIService implements IAIServices{
     }
 
     @Override
-    public AIInteractionDTO.RuralTravelPlan generateTravelPlan(String query) {
+    public AIInteractionDTO.RuralTravelPlan generateTravelPlan(String query, int modelVersion) {
         try {
             //定义消息列表
             List<ChatMessage> messages = new ArrayList<>();
@@ -90,6 +89,12 @@ public class AIService implements IAIServices{
                             true // 严格模式
                     )
             );
+
+            endpointId = switch (modelVersion) {
+                case 0 -> "ep-20260202151315-zvslq"; //1.6
+                case 1 -> "ep-20260312135710-f8kfz"; //1.8
+                default -> throw new IllegalArgumentException("Unsupported model version: " + modelVersion);
+            };
 
             //发起请求
             ChatCompletionRequest request = ChatCompletionRequest.builder()

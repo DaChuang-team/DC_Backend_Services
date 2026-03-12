@@ -35,17 +35,34 @@ public class AIController {
                 return ResponseEntity.badRequest().build();
             }
 
+            // 验证模型版本是否有效
+            if (request.modelVersion() < 0 || request.modelVersion() > 1) { // 目前仅支持 0（豆包1.6）和 1（豆包1.8），后续可根据实际情况增加版本
+                return ResponseEntity.badRequest().body(null); // modelVersion 无效
+            }
+
+            String modelVersionInfo = switch (request.modelVersion()) {
+                case 0 -> "Doubao-Seed-1.6 251015";
+                case 1 -> "Doubao-Seed-1.8 251015";
+                default -> "Unknown Model Version";
+            };
+
+            int modelPrice = switch (request.modelVersion()) {
+                case 0 -> 3; // 豆包1.6积分费用
+                case 1 -> 5; // 豆包1.8积分费用
+                default -> 0; // 默认价格
+            };
+
             // 调用 Service 时传入 request 中的 content
-            AIInteractionDTO.RuralTravelPlan plan = aiService.generateTravelPlan(request.content());
+            AIInteractionDTO.RuralTravelPlan plan = aiService.generateTravelPlan(request.content(), request.modelVersion());
             AIInteractionDTO.RuralTravelPlan updatedPlan = new AIInteractionDTO.RuralTravelPlan(
                     plan.routeTheme(),
                     plan.experienceValue(),
                     plan.steps(),
                     plan.finalCultureSummary(),
-                    "Doubao-Seed-1.6 251015" // 模型版本信息
+                    modelVersionInfo
             );
             // 扣减用户积分
-            userService.deductPoints(currentUserId, 3); // 扣减 3 积分
+            userService.deductPoints(currentUserId, modelPrice); // 扣减 3 积分
             return ResponseEntity.ok(updatedPlan);
 
         } catch (Exception e) {
