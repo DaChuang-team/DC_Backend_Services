@@ -22,6 +22,7 @@ public class AIInteractionDTO {
             String output       // 具体活动内容
     ) {}
 
+    // 模型版本modelVersion暂定0为豆包1.6; 1为豆包1.8,后续可根据实际情况增加
     public record UserPlanRequest(
             int modelVersion,
             String content  // 仅包含请求内容
