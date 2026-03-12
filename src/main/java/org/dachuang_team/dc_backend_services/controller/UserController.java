@@ -27,7 +27,6 @@ public class UserController {
     // 用户注册
     @PostMapping("/register")
     public Result<String> register(@RequestBody UserDTO userDTO) {
-//        System.out.println("****UC-TEST**** UserDTO info received: " + userDTO.toString());
         try {
             userService.registerUser(userDTO);
             // 返回 JSON 格式的成功信息

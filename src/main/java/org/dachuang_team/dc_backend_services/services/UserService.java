@@ -2,11 +2,9 @@ package org.dachuang_team.dc_backend_services.services;
 
 import jakarta.transaction.Transactional;
 import org.dachuang_team.dc_backend_services.pojo.UserCheckIn;
-import org.dachuang_team.dc_backend_services.pojo.UserSession;
 import org.dachuang_team.dc_backend_services.pojo.User_General;
 import org.dachuang_team.dc_backend_services.repository.UserCheckInRepository;
 import org.dachuang_team.dc_backend_services.repository.UserRepository;
-import org.dachuang_team.dc_backend_services.repository.UserSessionRepository;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;

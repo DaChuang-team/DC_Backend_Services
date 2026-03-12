@@ -16,19 +16,23 @@ public class Product {
     @Column(name = "product_name", nullable = false, length = 50)
     private String productName;
     @Column(nullable = false)
-    private double price;
-    private int category;
+    private double price; //价格
+    @Column(name = "category", nullable = false)
+    private int category; //分类
     @Column(name = "origin", length = 30)
-    private String origin;
+    private String origin; //地区
     @Column(name = "image_URL", length = 100)
-    private String imageUrl;
+    private String imageUrl; //图片URL
     @Column(name = "approved")
-    private Boolean approved = false;
-    private LocalDateTime publishedAt;
+    private Boolean approved = false; //审核状态，默认为 false，表示未审核通过
+    @Column(name = "published_at")
+    private LocalDateTime publishedAt; //发布时间，记录商品被创建的时间
+    @Column(name = "last_modified_at")
+    private LocalDateTime lastModifiedAt; //最后修改时间，记录商品被修改的时间
 
     //外键：指向 User_General（卖家）
     @ManyToOne
-    @JoinColumn(name = "seller_id")
+    @JoinColumn(name = "seller")
     private User_General seller;
 
     @OneToMany(mappedBy = "product")
@@ -100,11 +104,11 @@ public class Product {
         this.approved = approved;
     }
 
-    public User_General getSeller() {
+    public User_General getseller() {
         return seller;
     }
 
-    public void setSeller(User_General seller) {
+    public void setseller(User_General seller) {
         this.seller = seller;
     }
 
@@ -114,5 +118,13 @@ public class Product {
 
     public void setOrderItems(List<Order_Item> orderItems) {
         this.orderItems = orderItems;
+    }
+
+    public LocalDateTime getLastModifiedAt() {
+        return lastModifiedAt;
+    }
+
+    public void setLastModifiedAt(LocalDateTime lastModifiedAt) {
+        this.lastModifiedAt = lastModifiedAt;
     }
 }
