@@ -21,8 +21,6 @@ public class AIInteractionDTO {
     ) {}
 
     public record UserPlanRequest(
-            String content  // 测试阶段仅包含请求内容
-            // String username, // 预留
-            // String password
+            String content  // 仅包含请求内容
     ) {}
 }

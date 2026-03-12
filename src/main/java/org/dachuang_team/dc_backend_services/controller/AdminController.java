@@ -35,7 +35,7 @@ public class AdminController {
      */
     @PostMapping("/register")
     public Result<String> register(@RequestBody AdminDTO adminDTO) {
-        System.out.println("****AC-TEST**** AdminDTO received: " + adminDTO.toString());
+        // System.out.println("****AC-TEST**** AdminDTO received: " + adminDTO.toString());
         try {
             // 调用服务层进行注册
             adminService.registerAdmin(adminDTO);
