@@ -3,8 +3,11 @@ package org.dachuang_team.dc_backend_services.controller;
 import org.dachuang_team.dc_backend_services.common.Result;
 import org.dachuang_team.dc_backend_services.pojo.Dto.ProductDTO;
 import org.dachuang_team.dc_backend_services.pojo.Product;
+import org.dachuang_team.dc_backend_services.pojo.User_General;
 import org.dachuang_team.dc_backend_services.repository.ProductRepository;
+import org.dachuang_team.dc_backend_services.repository.UserRepository;
 import org.dachuang_team.dc_backend_services.services.ProductService;
+import org.dachuang_team.dc_backend_services.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -24,40 +27,114 @@ public class ProductController {
     private ProductRepository productRepository;
 
     @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
     private ProductService productService;
 
-    @GetMapping("/products/all")
-    public Result<Map<String, Object>> getAllProducts(
+    //返回所有已经审核通过的产品，分页返回
+    @GetMapping("/products/approved")
+    public Result<Map<String, Object>> getApprovedProducts(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
         try {
-            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-            if (currentUserId == null) {
-                return Result.error(401, "未认证");
-            }
+            Long currentUserId = getCurrentUserId();
+            Pageable pageable = validateAndPreparePageable(page, size);
+            Page<Product> productPage = productRepository.findByApprovedTrue(pageable);
 
-            // 验证页码和大小参数
-            if (page < 1 || size < 1) {
-                return Result.error(400, "非法的页码和页大小");
-            }
-
-            // 将页码从1开始调整为从0开始
-            int adjustedPage = Math.max(page - 1, 0);
-            Pageable pageable = PageRequest.of(adjustedPage, size);
-            Page<Product> productPage = productRepository.findAll(pageable);
-
-            // 构建分页响应数据
-            Map<String, Object> response = new HashMap<>();
-            response.put("products", productPage.getContent());
-            response.put("currentPage", productPage.getNumber() + 1); // 返回给前端的页码从1开始
-            response.put("totalItems", productPage.getTotalElements());
-            response.put("totalPages", productPage.getTotalPages());
-
-            return Result.success("获取产品成功", response);
+            return getProductsMapResult(productPage);
         } catch (Exception e) {
             return Result.error(500, "获取产品失败: " + e.getMessage());
         }
     }
+
+    //返回所有未审核的产品，分页返回
+    @GetMapping("/products/unApproved")
+    public Result<Map<String, Object>> getUnapprovedProducts(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size){
+        try {
+            Long currentUserId = getCurrentUserId();
+            Pageable pageable = validateAndPreparePageable(page, size);
+            Page<Product> productPage = productRepository.findByApprovedFalse(pageable);
+
+            // 构建分页响应数据
+            return getProductsMapResult(productPage);
+        } catch (Exception e) {
+            return Result.error(500, "获取产品失败: " + e.getMessage());
+        }
+    }
+
+    //返回所有产品，分页返回
+    @GetMapping("/products/all")
+    public Result<Map<String, Object>> getAllProducts(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size){
+        try {
+            Long currentUserId = getCurrentUserId();
+            Pageable pageable = validateAndPreparePageable(page, size);
+            Page<Product> productPage = productRepository.findAll(pageable);
+
+            return getProductsMapResult(productPage);
+        } catch (Exception e) {
+            return Result.error(500, "获取产品失败: " + e.getMessage());
+        }
+    }
+
+    //返回当前用户的所有产品，分页返回
+    @GetMapping("/products/currentUser")
+    public Result<Map<String, Object>> getCurrentUserProducts(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        try {
+            Long currentUserId = getCurrentUserId();
+
+            // 根据userId查询User_General实例
+            User_General seller = userRepository.findById(currentUserId)
+                    .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+
+            Pageable pageable = validateAndPreparePageable(page, size);
+
+            // 查询与该User_General关联的产品
+            Page<Product> productPage = productRepository.findBySeller(seller, pageable);
+
+            return getProductsMapResult(productPage);
+        } catch (IllegalArgumentException e) {
+            return Result.error(400, e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "获取产品失败: " + e.getMessage());
+        }
+    }
+
+    private Result<Map<String, Object>> getProductsMapResult(Page<Product> productPage) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("products", productPage.getContent());
+        response.put("currentPage", productPage.getNumber() + 1); // 返回给前端的页码从1开始
+        response.put("totalItems", productPage.getTotalElements());
+        response.put("totalPages", productPage.getTotalPages());
+
+        return Result.success("获取产品成功", response);
+    }
+
+    private Pageable validateAndPreparePageable(int page, int size) {
+        // 验证页码和大小参数
+        if (page < 1 || size < 1) {
+            throw new IllegalArgumentException("非法的页码和页大小");
+        }
+
+        // 将页码从1开始调整为从0开始
+        int adjustedPage = Math.max(page - 1, 0);
+        return PageRequest.of(adjustedPage, size);
+    }
+
+    private Long getCurrentUserId() {
+        Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (currentUserId == null) {
+            throw new SecurityException("未认证");
+        }
+        return currentUserId;
+    }
+
 
     @PostMapping("/products/add")
     public Result<Map<String, Object>> addProduct(@RequestBody ProductDTO productDTO) {
@@ -83,7 +160,6 @@ public class ProductController {
         } catch (Exception e) {
             return Result.error(500, "添加失败: " + e.getMessage());
         }
-
     }
 
     @PutMapping("/products/update")
@@ -113,6 +189,26 @@ public class ProductController {
             return Result.success("修改成功", saved);
         } catch (Exception e) {
             return Result.error(500, "修改失败: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/products/approve")
+    public Result<Product> approveProduct(@RequestParam Long Pid) {
+        try {
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            if(currentUserId == null) {
+                return Result.error(401, "未认证");
+            }
+            Optional<Product> existing = productRepository.findById(Pid);
+            if (existing.isEmpty()) {
+                return Result.error(404, "数据不存在");
+            }
+            Product product = existing.get();
+            product.setApproved(true);
+            Product saved = productRepository.save(product);
+            return Result.success("审核通过", saved);
+        } catch (Exception e) {
+            return Result.error(500, "审核失败: " + e.getMessage());
         }
     }
 
