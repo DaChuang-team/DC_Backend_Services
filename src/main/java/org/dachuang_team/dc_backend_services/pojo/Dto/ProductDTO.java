@@ -15,6 +15,9 @@ public class ProductDTO {
     @JsonProperty("origin")
     private String origin;
 
+    @JsonProperty("description")
+    private String description;
+
     public String getProductName() {
         return productName;
     }
@@ -45,5 +48,13 @@ public class ProductDTO {
 
     public void setPrice(double price) {
         this.price = price;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 }

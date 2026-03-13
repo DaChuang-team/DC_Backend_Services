@@ -39,10 +39,14 @@ public class SecurityConfig {
                         .requestMatchers("/api/admins/register", "/api/admins/login").permitAll()
 
                         // 受保护接口
-                        .requestMatchers("/api/users/updateInfo", "/api/users/checkIn", "/api/users/points", "/api/users/info").hasRole("USER")
+                        .requestMatchers("/api/users/updateInfo", "/api/users/checkIn").hasRole("USER")
+                        .requestMatchers("/api/users/info", "/api/users/points").authenticated()
+
                         .requestMatchers("/api/ai/**").hasRole("USER")
+
                         .requestMatchers("/api/products/approved", "/products/currentUser").hasRole("USER")
-                        .requestMatchers("/api/products/all", "/api/products/unApproved", "/products/approve").hasRole("ADMIN")
+                        .requestMatchers("/api/products/all", "/api/products/unApproved", "/api/products/approve", "/api/products/disApprove").hasRole("ADMIN")
+                        .requestMatchers("/api/products/details", "/api/products/search").authenticated()
 
                         // 测试/临时放行接口
                         .requestMatchers("/api/users/all", "/api/users/delete").permitAll()

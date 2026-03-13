@@ -120,6 +120,7 @@ public class ProductController {
             productMap.put("publishedAt", product.getPublishedAt());
             productMap.put("imageUrl", product.getImageUrl());
             productMap.put("sellerId", sellerId);
+            productMap.put("description", product.getDescription());
 
             return productMap;
         }).toList();
@@ -215,18 +216,88 @@ public class ProductController {
             if(currentUserId == null) {
                 return Result.error(401, "未认证");
             }
-            Optional<Product> existing = productRepository.findById(Pid);
+            Optional<Product> existing = productRepository.findByproductId(Pid);
             if (existing.isEmpty()) {
                 return Result.error(404, "数据不存在");
             }
             Product product = existing.get();
             product.setApproved(true);
             Product saved = productRepository.save(product);
-            return Result.success("审核通过", saved);
+            return Result.success("商品已审核", null);
         } catch (Exception e) {
-            return Result.error(500, "审核失败: " + e.getMessage());
+            return Result.error(500, "审核状态设置失败: " + e.getMessage());
         }
     }
+
+    @PostMapping("/products/disApprove")
+    public Result<Product> disApproveProduct(@RequestParam Long Pid) {
+        try {
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            if(currentUserId == null) {
+                return Result.error(401, "未认证");
+            }
+            Optional<Product> existing = productRepository.findByproductId(Pid);
+            if (existing.isEmpty()) {
+                return Result.error(404, "数据不存在");
+            }
+            Product product = existing.get();
+            product.setApproved(false);
+            Product saved = productRepository.save(product);
+            return Result.success("商品已封禁", null);
+        } catch (Exception e) {
+            return Result.error(500, "审核状态设置失败: " + e.getMessage());
+        }
+    }
+
+    //通过传入商品id返回商品的详细信息
+    @GetMapping("/products/details")
+    public Result<Map<String, Object>> getProductDetailsById(@RequestParam Long Pid) {
+        try {
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            if (currentUserId == null) {
+                return Result.error(401, "未认证");
+            }
+            Optional<Product> existing = productRepository.findByproductId(Pid);
+            return existing.map(product -> {
+                Map<String, Object> productDetails = new HashMap<>();
+                productDetails.put("productId", product.getProductId());
+                productDetails.put("productName", product.getProductName());
+                productDetails.put("price", product.getPrice());
+                productDetails.put("category", product.getCategory());
+                productDetails.put("origin", product.getOrigin());
+                productDetails.put("approved", product.getApproved());
+                productDetails.put("publishedAt", product.getPublishedAt());
+                productDetails.put("imageUrl", product.getImageUrl());
+                productDetails.put("description", product.getDescription());
+                productDetails.put("sellerId", currentUserId);
+
+                return Result.success("获取商品详情成功", productDetails);
+            }).orElseGet(() -> Result.error(404, "数据不存在"));
+        } catch (Exception e) {
+            return Result.error(500, "获取商品详情失败: " + e.getMessage());
+        }
+    }
+
+    //通过商品名称模糊搜索商品，分页返回
+    @GetMapping("/products/search")
+    public Result<Map<String, Object>> searchProductByKeyword(
+            @RequestParam String keyword,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        try {
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            if(currentUserId == null) {
+                return Result.error(401, "未认证");
+            }
+            Pageable pageable = validateAndPreparePageable(page, size);
+            Page<Product> productPage = productRepository.findByProductNameContainingIgnoreCase(keyword, pageable);
+
+            return getProductsMapResult(productPage, currentUserId);
+        } catch (Exception e) {
+            return Result.error(500, "搜索商品失败: " + e.getMessage());
+        }
+    }
+    
 
     @DeleteMapping("/products/delete")
     public Result<Void> deleteProduct(@RequestParam Long id) {

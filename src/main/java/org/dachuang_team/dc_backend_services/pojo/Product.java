@@ -29,6 +29,8 @@ public class Product {
     private LocalDateTime publishedAt; //发布时间，记录商品被创建的时间
     @Column(name = "last_modified_at")
     private LocalDateTime lastModifiedAt; //最后修改时间，记录商品被修改的时间
+    @Column(name = "description", length = 500)
+    private String description; //商品描述
 
     //外键：指向 User_General（卖家）
     @ManyToOne
@@ -126,5 +128,13 @@ public class Product {
 
     public void setLastModifiedAt(LocalDateTime lastModifiedAt) {
         this.lastModifiedAt = lastModifiedAt;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 }

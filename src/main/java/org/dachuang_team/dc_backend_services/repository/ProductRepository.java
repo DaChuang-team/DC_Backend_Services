@@ -7,6 +7,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
+
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Long> {
     Page<Product> findByApprovedTrue(Pageable pageable);
@@ -14,4 +16,8 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     Page<Product> findByApprovedFalse(Pageable pageable);
 
     Page<Product> findBySeller(User_General seller, Pageable pageable);
+
+    Page<Product> findByProductNameContainingIgnoreCase(String keyword, Pageable pageable);
+
+    Optional<Product> findByproductId(Long pid);
 }
