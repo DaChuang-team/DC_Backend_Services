@@ -1,12 +1,12 @@
 package org.dachuang_team.dc_backend_services.repository;
 
-import org.dachuang_team.dc_backend_services.pojo.UserSession;
+import org.dachuang_team.dc_backend_services.pojo.tokenSession;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
-public interface UserSessionRepository extends JpaRepository<UserSession, Long> {
-    Optional<UserSession> findByToken(String token);
-    void deleteByUserId(Long userId); // 用于单点登录：新登录踢掉旧登录
+public interface UserSessionRepository extends JpaRepository<tokenSession, Long> {
+    Optional<tokenSession> findByToken(String token);
+
+    void deleteByUserIdAndUserRole(Long id, String role);
 }

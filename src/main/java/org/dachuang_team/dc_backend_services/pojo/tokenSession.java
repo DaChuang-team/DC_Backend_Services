@@ -5,14 +5,17 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "user_session")
-public class UserSession {
+@Table(name = "token_session")
+public class tokenSession {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private Long userId;
+
+    private Long userId;    // 储存系统用户的id，包括管理员和普通用户
     private String token;
+    private String userRole; // 记录身份，USER或ADMIN
     private LocalDateTime expiredAt;
+
 
     public Long getId() {
         return id;
@@ -44,6 +47,14 @@ public class UserSession {
 
     public void setExpiredAt(LocalDateTime expiredAt) {
         this.expiredAt = expiredAt;
+    }
+
+    public String getUserRole() {
+        return userRole;
+    }
+
+    public void setUserRole(String userRole) {
+        this.userRole = userRole;
     }
 
     @Override

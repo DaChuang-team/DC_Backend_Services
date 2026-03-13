@@ -70,7 +70,7 @@ public class UserService implements IUserServices {
         userRepository.save(user);
 
         // 4. 生成并存储 Token
-        return authService.generateToken(user.getUserId());
+        return authService.generateToken(user.getUserId(),"USER");
     }
 
     @Override

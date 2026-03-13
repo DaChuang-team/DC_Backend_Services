@@ -1,6 +1,6 @@
 package org.dachuang_team.dc_backend_services.services;
 
-import org.dachuang_team.dc_backend_services.pojo.UserSession;
+import org.dachuang_team.dc_backend_services.pojo.tokenSession;
 import org.dachuang_team.dc_backend_services.repository.UserSessionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -18,9 +18,9 @@ public class AuthService {
 
     /**
      * 校验 Token 是否存在且未过期
-     * 对应你 Filter 中的 authService.validateToken(token)
+     * 对应 Filter 中的 authService.validateToken(token)
      */
-    public Optional<UserSession> validateToken(String token) {
+    public Optional<tokenSession> validateToken(String token) {
         return sessionRepository.findByToken(token)
                 .filter(session -> session.getExpiredAt().isAfter(LocalDateTime.now()));
     }
@@ -29,18 +29,17 @@ public class AuthService {
      * 登录成功后生成 Token 并存入数据库
      */
     @Transactional
-    public String generateToken(Long userId) {
-        // 1. 删除之前的旧 Token（限制单设备登录）
-        sessionRepository.deleteByUserId(userId);
+    public String generateToken(Long id, String role) {
+        // 清理该角色下的旧 Token
+        sessionRepository.deleteByUserIdAndUserRole(id, role);
 
-        // 2. 生成新 Token
+        // 生成新记录
         String token = UUID.randomUUID().toString().replace("-", "");
-
-        // 3. 封装并保存
-        UserSession session = new UserSession();
-        session.setUserId(userId);
+        tokenSession session = new tokenSession();
+        session.setUserId(id);
+        session.setUserRole(role);
         session.setToken(token);
-        session.setExpiredAt(LocalDateTime.now().plusDays(14)); // 设置14天有效期
+        session.setExpiredAt(LocalDateTime.now().plusDays(7));
 
         sessionRepository.save(session);
         return token;
