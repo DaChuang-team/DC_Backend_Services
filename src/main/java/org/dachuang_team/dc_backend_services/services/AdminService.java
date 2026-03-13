@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
  * 处理管理员注册的具体逻辑，包括用户名检查和密码加密
  */
 @Service
-public class AdminService implements IAdminServices {
+public class AdminService implements IAdminService {
 
     @Autowired
     private AdminRepository adminRepository;

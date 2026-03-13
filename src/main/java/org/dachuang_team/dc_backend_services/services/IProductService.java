@@ -5,4 +5,5 @@ import org.dachuang_team.dc_backend_services.pojo.Product;
 
 public interface IProductService {
     Product addProduct(ProductDTO product, Long userId);
+    Product updateProductFields(Product existingProduct, ProductDTO productDTO);
 }

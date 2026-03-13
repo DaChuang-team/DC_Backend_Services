@@ -42,4 +42,26 @@ public class ProductService implements IProductService {
             return null;
         }
     }
+
+    @Override
+    public Product updateProductFields(Product existingProduct, ProductDTO productDTO) {
+        if (productDTO.getProductName() != null && !productDTO.getProductName().isEmpty()) {
+            existingProduct.setProductName(productDTO.getProductName());
+        }
+        if (productDTO.getPrice() >= 0) {
+            existingProduct.setPrice(productDTO.getPrice());
+        }
+        if (productDTO.getCategory() > 0) {
+            existingProduct.setCategory(productDTO.getCategory());
+        }
+        if (productDTO.getOrigin() != null && !productDTO.getOrigin().isEmpty()) {
+            existingProduct.setOrigin(productDTO.getOrigin());
+        }
+        if (productDTO.getDescription() != null && !productDTO.getDescription().isEmpty()) {
+            existingProduct.setDescription(productDTO.getDescription());
+        }
+        existingProduct.setLastModifiedAt(LocalDateTime.now());
+
+        return existingProduct;
+    }
 }

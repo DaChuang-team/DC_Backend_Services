@@ -7,7 +7,6 @@ import org.dachuang_team.dc_backend_services.pojo.User_General;
 import org.dachuang_team.dc_backend_services.repository.ProductRepository;
 import org.dachuang_team.dc_backend_services.repository.UserRepository;
 import org.dachuang_team.dc_backend_services.services.ProductService;
-import org.dachuang_team.dc_backend_services.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -16,10 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import org.springframework.data.domain.Pageable;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api")
@@ -107,6 +103,180 @@ public class ProductController {
         }
     }
 
+
+
+
+    @PostMapping("/products/add")
+    public Result<Map<String, Object>> addProduct(@RequestBody ProductDTO productDTO) {
+        try {
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            if (currentUserId == null) {
+                return Result.error(401, "未认证");
+            }
+            if (productDTO.getProductName() == null || productDTO.getProductName().isEmpty()) {
+                return Result.error(400, "产品名称不能为空");
+            }
+            if (productDTO.getPrice() < 0) {
+                return Result.error(400, "价格不能为负数");
+            }
+            Product newProduct =  productService.addProduct(productDTO, currentUserId);
+            Map<String, Object> responseBody = new HashMap<>();
+            responseBody.put("productName", newProduct.getProductName());
+            responseBody.put("price", newProduct.getPrice());
+            responseBody.put("category", newProduct.getCategory());
+            responseBody.put("origin", newProduct.getOrigin());
+            responseBody.put("description", newProduct.getDescription());
+            responseBody.put("productId", newProduct.getProductId());
+
+            return Result.success("添加成功", responseBody);
+        } catch (Exception e) {
+            return Result.error(500, "添加失败: " + e.getMessage());
+        }
+    }
+
+    // 更新商品信息，传入一个包含商品id和需要更新的字段的DTO对象，返回更新后的商品信息
+    @PutMapping("/products/update")
+    public Result<Map<String, Object>> updateProduct(
+            @RequestBody ProductDTO productDTO,
+            @RequestParam Long Pid) {
+        try {
+            Long currentUserId = getCurrentUserId();
+            String currentUserRole = getCurrentUserRole();
+            // 查询商品是否存在
+            Product existingProduct = productRepository.findById(Pid)
+                    .orElseThrow(() -> new IllegalArgumentException("商品不存在"));
+            // 权限校验,用户只能更新自己的商品，管理员可以更新所有商品
+            if (Objects.equals(currentUserRole, "ROLE_USER")) {
+                if (!existingProduct.getseller().getUserId().equals(currentUserId)) {
+                    return Result.error(403, "权限不足：您只能更新自己的商品");
+                }
+            } else if (!Objects.equals(currentUserRole, "ROLE_ADMIN")) {
+                return Result.error(401, "未知权限");
+            }
+            // 调用服务层更新商品信息
+            Product updatedProduct = productService.updateProductFields(existingProduct, productDTO);
+            // 保存更新后的商品
+            Product savedProduct = productRepository.save(updatedProduct);
+            // 构建返回体
+            Map<String, Object> productDetails = getProductDetails(currentUserId, savedProduct);
+
+            return Result.success("商品更新成功", productDetails);
+        } catch (IllegalArgumentException e) {
+            return Result.error(400, e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "更新商品失败: " + e.getMessage());
+        }
+    }
+
+
+
+    @PostMapping("/products/approve")
+    public Result<Product> approveProduct(@RequestParam Long Pid) {
+        try {
+            Long currentUserId = getCurrentUserId();
+            Optional<Product> existing = productRepository.findByproductId(Pid);
+            if (existing.isEmpty()) {
+                return Result.error(404, "数据不存在");
+            }
+            Product product = existing.get();
+            product.setApproved(true);
+            Product saved = productRepository.save(product);
+            return Result.success("商品已审核", null);
+        } catch (Exception e) {
+            return Result.error(500, "审核状态设置失败: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/products/disApprove")
+    public Result<Product> disApproveProduct(@RequestParam Long Pid) {
+        try {
+            Long currentUserId = getCurrentUserId();
+            Optional<Product> existing = productRepository.findByproductId(Pid);
+            if (existing.isEmpty()) {
+                return Result.error(404, "数据不存在");
+            }
+            Product product = existing.get();
+            product.setApproved(false);
+            Product saved = productRepository.save(product);
+            return Result.success("商品已封禁", null);
+        } catch (Exception e) {
+            return Result.error(500, "审核状态设置失败: " + e.getMessage());
+        }
+    }
+
+    //通过传入商品id返回商品的详细信息
+    @GetMapping("/products/details")
+    public Result<Map<String, Object>> getProductDetailsById(@RequestParam Long Pid) {
+        try {
+            Long currentUserId = getCurrentUserId();
+            Optional<Product> existing = productRepository.findByproductId(Pid);
+            return existing.map(product -> {
+                Map<String, Object> productDetails = getProductDetails(currentUserId, product);
+
+                return Result.success("获取商品详情成功", productDetails);
+            }).orElseGet(() -> Result.error(404, "数据不存在"));
+        } catch (Exception e) {
+            return Result.error(500, "获取商品详情失败: " + e.getMessage());
+        }
+    }
+
+    //通过商品名称模糊搜索商品，分页返回
+    @GetMapping("/products/search")
+    public Result<Map<String, Object>> searchProductByKeyword(
+            @RequestParam String keyword,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        try {
+            Long currentUserId = getCurrentUserId();
+            Pageable pageable = validateAndPreparePageable(page, size);
+            Page<Product> productPage = productRepository.findByProductNameContainingIgnoreCase(keyword, pageable);
+
+            return getProductsMapResult(productPage, currentUserId);
+        } catch (Exception e) {
+            return Result.error(500, "搜索商品失败: " + e.getMessage());
+        }
+    }
+
+
+    @DeleteMapping("/products/delete")
+    public Result<Void> deleteProduct(@RequestParam Long Pid) {
+        try {
+            Long currentUserId = getCurrentUserId();
+            String currentUserRole = getCurrentUserRole();
+            // 查询商品是否存在
+            Product existingProduct = productRepository.findById(Pid)
+                    .orElseThrow(() -> new IllegalArgumentException("商品不存在"));
+            // 权限校验，用户只能删除自己的商品，管理员可以删除所有商品
+            if (Objects.equals(currentUserRole, "ROLE_USER")) {
+                if (!existingProduct.getseller().getUserId().equals(currentUserId)) {
+                    return Result.error(403, "权限不足：您只能删除自己的商品");
+                }
+            } else if (!Objects.equals(currentUserRole, "ROLE_ADMIN")) {
+                return Result.error(401, "未知权限");
+            }
+            // 删除商品
+            productRepository.deleteById(Pid);
+            return Result.success("删除成功", null);
+        } catch (IllegalArgumentException e) {
+            return Result.error(400, e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "删除失败: " + e.getMessage());
+        }
+    }
+
+    private Long getCurrentUserId() {
+        Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (currentUserId == null) {
+            throw new SecurityException("未认证");
+        }
+        return currentUserId;
+    }
+
+    private String getCurrentUserRole() {
+        return SecurityContextHolder.getContext().getAuthentication()
+                .getAuthorities().iterator().next().getAuthority();
+    }
+
     //分页查询时只返回产品的部分信息，需要使用/products/details来获取完整信息
     private Result<Map<String, Object>> getProductsMapResult(Page<Product> productPage, long sellerId) {
         Map<String, Object> response = new HashMap<>();
@@ -130,187 +300,30 @@ public class ProductController {
         return Result.success("获取产品成功", response);
     }
 
+    private Map<String, Object> getProductDetails(Long currentUserId, Product savedProduct) {
+        Map<String, Object> productDetails = new HashMap<>();
+        productDetails.put("productId", savedProduct.getProductId());
+        productDetails.put("productName", savedProduct.getProductName());
+        productDetails.put("price", savedProduct.getPrice());
+        productDetails.put("category", savedProduct.getCategory());
+        productDetails.put("origin", savedProduct.getOrigin());
+        productDetails.put("approved", savedProduct.getApproved());
+        productDetails.put("publishedAt", savedProduct.getPublishedAt());
+        productDetails.put("lastModifiedAt", savedProduct.getLastModifiedAt());
+        productDetails.put("imageUrl", savedProduct.getImageUrl());
+        productDetails.put("description", savedProduct.getDescription());
+        productDetails.put("sellerId", currentUserId);
+        return productDetails;
+    }
+
     private Pageable validateAndPreparePageable(int page, int size) {
         // 验证页码和大小参数
-        if (page < 1 || size < 1) {
+        if (page < 1 || size < 1 || size > 100) {
             throw new IllegalArgumentException("非法的页码和页大小");
         }
 
         // 将页码从1开始调整为从0开始
         int adjustedPage = Math.max(page - 1, 0);
         return PageRequest.of(adjustedPage, size);
-    }
-
-    private Long getCurrentUserId() {
-        Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (currentUserId == null) {
-            throw new SecurityException("未认证");
-        }
-        return currentUserId;
-    }
-
-
-    @PostMapping("/products/add")
-    public Result<Map<String, Object>> addProduct(@RequestBody ProductDTO productDTO) {
-        try {
-            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-            if (currentUserId == null) {
-                return Result.error(401, "未认证");
-            }
-            if (productDTO.getProductName() == null || productDTO.getProductName().isEmpty()) {
-                return Result.error(400, "产品名称不能为空");
-            }
-            if (productDTO.getPrice() < 0) {
-                return Result.error(400, "价格不能为负数");
-            }
-            Product newProduct =  productService.addProduct(productDTO, currentUserId);
-            Map<String, Object> responseBody = new HashMap<>();
-            responseBody.put("productName", newProduct.getProductName());
-            responseBody.put("price", newProduct.getPrice());
-            responseBody.put("category", newProduct.getCategory());
-            responseBody.put("origin", newProduct.getOrigin());
-
-            return Result.success("添加成功", responseBody);
-        } catch (Exception e) {
-            return Result.error(500, "添加失败: " + e.getMessage());
-        }
-    }
-
-    @PutMapping("/products/update")
-    public Result<Product> updateProduct(@RequestBody Product productDTO) {
-        try {
-            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-            if(currentUserId == null) {
-                return Result.error(401, "未认证");
-            }
-            if (productDTO.getProductId() == null) {
-                return Result.error(400, "缺少ID");
-            }
-            Optional<Product> existing = productRepository.findById(productDTO.getProductId());
-            if (existing.isEmpty()) {
-                return Result.error(404, "数据不存在");
-            }
-            if (productDTO.getProductName() == null || productDTO.getProductName().isBlank()) {
-                return Result.error(400, "产品名称不能为空");
-            }
-            if (productDTO.getPrice() < 0) {
-                return Result.error(400, "价格不能为负数");
-            }
-            if (productDTO.getPublishedAt() == null) {
-                productDTO.setPublishedAt(existing.get().getPublishedAt());
-            }
-            Product saved = productRepository.save(productDTO);
-            return Result.success("修改成功", saved);
-        } catch (Exception e) {
-            return Result.error(500, "修改失败: " + e.getMessage());
-        }
-    }
-
-    @PostMapping("/products/approve")
-    public Result<Product> approveProduct(@RequestParam Long Pid) {
-        try {
-            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-            if(currentUserId == null) {
-                return Result.error(401, "未认证");
-            }
-            Optional<Product> existing = productRepository.findByproductId(Pid);
-            if (existing.isEmpty()) {
-                return Result.error(404, "数据不存在");
-            }
-            Product product = existing.get();
-            product.setApproved(true);
-            Product saved = productRepository.save(product);
-            return Result.success("商品已审核", null);
-        } catch (Exception e) {
-            return Result.error(500, "审核状态设置失败: " + e.getMessage());
-        }
-    }
-
-    @PostMapping("/products/disApprove")
-    public Result<Product> disApproveProduct(@RequestParam Long Pid) {
-        try {
-            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-            if(currentUserId == null) {
-                return Result.error(401, "未认证");
-            }
-            Optional<Product> existing = productRepository.findByproductId(Pid);
-            if (existing.isEmpty()) {
-                return Result.error(404, "数据不存在");
-            }
-            Product product = existing.get();
-            product.setApproved(false);
-            Product saved = productRepository.save(product);
-            return Result.success("商品已封禁", null);
-        } catch (Exception e) {
-            return Result.error(500, "审核状态设置失败: " + e.getMessage());
-        }
-    }
-
-    //通过传入商品id返回商品的详细信息
-    @GetMapping("/products/details")
-    public Result<Map<String, Object>> getProductDetailsById(@RequestParam Long Pid) {
-        try {
-            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-            if (currentUserId == null) {
-                return Result.error(401, "未认证");
-            }
-            Optional<Product> existing = productRepository.findByproductId(Pid);
-            return existing.map(product -> {
-                Map<String, Object> productDetails = new HashMap<>();
-                productDetails.put("productId", product.getProductId());
-                productDetails.put("productName", product.getProductName());
-                productDetails.put("price", product.getPrice());
-                productDetails.put("category", product.getCategory());
-                productDetails.put("origin", product.getOrigin());
-                productDetails.put("approved", product.getApproved());
-                productDetails.put("publishedAt", product.getPublishedAt());
-                productDetails.put("lastModifiedAt", product.getLastModifiedAt());
-                productDetails.put("imageUrl", product.getImageUrl());
-                productDetails.put("description", product.getDescription());
-                productDetails.put("sellerId", currentUserId);
-
-                return Result.success("获取商品详情成功", productDetails);
-            }).orElseGet(() -> Result.error(404, "数据不存在"));
-        } catch (Exception e) {
-            return Result.error(500, "获取商品详情失败: " + e.getMessage());
-        }
-    }
-
-    //通过商品名称模糊搜索商品，分页返回
-    @GetMapping("/products/search")
-    public Result<Map<String, Object>> searchProductByKeyword(
-            @RequestParam String keyword,
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        try {
-            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-            if(currentUserId == null) {
-                return Result.error(401, "未认证");
-            }
-            Pageable pageable = validateAndPreparePageable(page, size);
-            Page<Product> productPage = productRepository.findByProductNameContainingIgnoreCase(keyword, pageable);
-
-            return getProductsMapResult(productPage, currentUserId);
-        } catch (Exception e) {
-            return Result.error(500, "搜索商品失败: " + e.getMessage());
-        }
-    }
-    
-
-    @DeleteMapping("/products/delete")
-    public Result<Void> deleteProduct(@RequestParam Long id) {
-        try {
-            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-            if(currentUserId == null) {
-                return Result.error(401, "未认证");
-            }
-            if (!productRepository.existsById(id)) {
-                return Result.error(404, "数据不存在");
-            }
-            productRepository.deleteById(id);
-            return Result.success("删除成功", null);
-        } catch (Exception e) {
-            return Result.error(500, "删除失败: " + e.getMessage());
-        }
     }
 }

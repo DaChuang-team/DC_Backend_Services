@@ -7,7 +7,7 @@ import java.util.List;
  * 管理员服务接口
  * 定义管理员相关的业务逻辑方法
  */
-public interface IAdminServices {
+public interface IAdminService {
     /**
      * 注册管理员
      * @param adminDTO 包含注册信息的 DTO 对象
