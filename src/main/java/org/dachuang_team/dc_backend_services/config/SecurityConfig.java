@@ -5,43 +5,59 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.config.Customizer;
 
 @Configuration
+@EnableWebSecurity
 public class SecurityConfig {
 
     @Autowired
-    private AuthService authService; // 注入你刚创建的 AuthService
+    private AuthService authService;
+
+    @Autowired
+    private RestAccessDeniedHandler restAccessDeniedHandler;
+
+    @Autowired
+    private RestAuthenticationEntryPoint restAuthenticationEntryPoint;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        // 实例化过滤器
         TokenAuthFilter tokenAuthFilter = new TokenAuthFilter(authService);
 
         http
-                .csrf(csrf -> csrf.disable())
+                .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // 1. 公开接口：允许匿名访问（注册、登录等）
+                        // 公开接口
                         .requestMatchers("/api/users/register", "/api/users/login").permitAll()
                         .requestMatchers("/api/admins/register", "/api/admins/login").permitAll()
 
-                        // 2. 受保护接口：必须携带合法 Token 才能访问
-                        .requestMatchers("/api/users/updateInfo", "/api/users/checkIn","/api/users/points", "/api/users/info").authenticated()
-                        .requestMatchers("/api/ai/**").authenticated()
+                        // 受保护接口
+                        .requestMatchers("/api/users/updateInfo", "/api/users/checkIn", "/api/users/points", "/api/users/info").hasRole("USER")
+                        .requestMatchers("/api/ai/**").hasRole("USER")
                         .requestMatchers("/api/products/**").authenticated()
 
-                        // 3. 测试阶段接口：暂时放行
+                        // 测试/临时放行接口
                         .requestMatchers("/api/users/all", "/api/users/delete").permitAll()
                         .requestMatchers("/api/admins/all", "/api/admins/updateUserStatus", "/api/admins/admindelete").permitAll()
                         .requestMatchers("/api/attractions/**", "/api/hotels/**", "/api/images/**").permitAll()
 
-                        // 4. 其他所有请求默认需要认证
+                        // 默认
                         .anyRequest().authenticated()
                 )
-                // 在用户名密码过滤器之前，先执行 Token 校验过滤器
+                // 异常处理
+                .exceptionHandling(exceptions -> exceptions
+                        // Token无效或缺失时触发
+                        .authenticationEntryPoint(restAuthenticationEntryPoint)
+                        // 无权访问接口时触发
+                        .accessDeniedHandler(restAccessDeniedHandler)
+                )
                 .addFilterBefore(tokenAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .httpBasic(Customizer.withDefaults());
 
