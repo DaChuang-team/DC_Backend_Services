@@ -54,22 +54,22 @@ public class UserService implements IUserServices {
     public String authenticateUser(String userName, String rawPassword) {
         User_General user = userRepository.findByUserName(userName);
 
-        // 1. 基础校验
+        // 基础校验
         if (user == null || !passwordEncoder.matches(rawPassword, user.getUserPassword())) {
             throw new IllegalArgumentException("用户名或密码错误");
         }
 
-        // 2. 状态校验
+        // 状态校验
         if ("异常".equals(user.getUserStatus())) {
             throw new IllegalArgumentException("该用户状态异常，禁止登录");
         }
 
-        // 3. 更新最后登录时间
+        // 更新最后登录时间
         LocalDateTime now = LocalDateTime.now();
         user.setLastLoginAt(now);
         userRepository.save(user);
 
-        // 4. 生成并存储 Token
+        // 生成并存储Token
         return authService.generateToken(user.getUserId(),"USER");
     }
 

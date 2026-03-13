@@ -35,7 +35,6 @@ public class ProductService implements IProductService {
             product.setPublishedAt(LocalDateTime.now());
             product.setLastModifiedAt(LocalDateTime.now());
 
-            // 保存到数据库
             productRepository.save(product);
             return product;
         } catch (Exception e) {
