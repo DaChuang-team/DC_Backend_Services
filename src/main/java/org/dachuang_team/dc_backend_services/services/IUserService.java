@@ -5,7 +5,7 @@ import org.dachuang_team.dc_backend_services.pojo.User_General;
 
 import java.util.List;
 
-public interface IUserServices {
+public interface IUserService {
     void registerUser(UserDTO user);
     String authenticateUser(String userName, String rawPassword);
     User_General getUserByUserName(String userName);
