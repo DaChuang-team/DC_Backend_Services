@@ -107,6 +107,7 @@ public class ProductController {
         }
     }
 
+    //分页查询时只返回产品的部分信息，需要使用/products/details来获取完整信息
     private Result<Map<String, Object>> getProductsMapResult(Page<Product> productPage, long sellerId) {
         Map<String, Object> response = new HashMap<>();
         List<Map<String, Object>> filteredProducts = productPage.getContent().stream().map(product -> {
@@ -115,12 +116,8 @@ public class ProductController {
             productMap.put("productName", product.getProductName());
             productMap.put("price", product.getPrice());
             productMap.put("category", product.getCategory());
-            productMap.put("origin", product.getOrigin());
             productMap.put("approved", product.getApproved());
-            productMap.put("publishedAt", product.getPublishedAt());
             productMap.put("imageUrl", product.getImageUrl());
-            productMap.put("sellerId", sellerId);
-            productMap.put("description", product.getDescription());
 
             return productMap;
         }).toList();
@@ -267,6 +264,7 @@ public class ProductController {
                 productDetails.put("origin", product.getOrigin());
                 productDetails.put("approved", product.getApproved());
                 productDetails.put("publishedAt", product.getPublishedAt());
+                productDetails.put("lastModifiedAt", product.getLastModifiedAt());
                 productDetails.put("imageUrl", product.getImageUrl());
                 productDetails.put("description", product.getDescription());
                 productDetails.put("sellerId", currentUserId);
