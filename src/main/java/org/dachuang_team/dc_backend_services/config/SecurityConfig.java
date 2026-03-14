@@ -48,6 +48,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/products/all", "/api/products/unApproved", "/api/products/approve", "/api/products/disApprove").hasRole("ADMIN")
                         .requestMatchers("/api/products/details", "/api/products/search", "/api/products/delete", "/api/products/update").authenticated()
 
+                        .requestMatchers("/api/image/upload", "/api/image/purge").hasRole("USER")
+
                         // 测试/临时放行接口
                         .requestMatchers("/api/users/all", "/api/users/delete").permitAll()
                         .requestMatchers("/api/admins/all", "/api/admins/updateUserStatus", "/api/admins/admindelete").permitAll()

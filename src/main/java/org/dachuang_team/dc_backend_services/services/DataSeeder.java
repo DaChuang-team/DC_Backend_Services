@@ -19,8 +19,8 @@ import java.util.Random;
 public class DataSeeder implements ApplicationRunner {
 
     private final AttractionRepository attractionRepository;
-    private final ImageRepository imageRepository;
     private final Random random = new Random();
+    private final ImageRepository imageRepository;
 
     public DataSeeder(AttractionRepository attractionRepository, ImageRepository imageRepository) {
         this.attractionRepository = attractionRepository;

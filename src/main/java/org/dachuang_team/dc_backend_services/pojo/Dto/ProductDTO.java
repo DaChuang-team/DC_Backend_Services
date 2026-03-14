@@ -18,6 +18,9 @@ public class ProductDTO {
     @JsonProperty("description")
     private String description;
 
+    @JsonProperty("imgUrl")
+    private String imgUrl;
+
     public String getProductName() {
         return productName;
     }
@@ -56,5 +59,13 @@ public class ProductDTO {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public String getImgUrl() {
+        return imgUrl;
+    }
+
+    public void setImgUrl(String imgUrl) {
+        this.imgUrl = imgUrl;
     }
 }
