@@ -21,7 +21,7 @@ public class Product {
     private int category; //分类
     @Column(name = "origin", length = 30)
     private String origin; //地区
-    @Column(name = "image_URL", length = 100)
+    @Column(name = "image_URL", length = 255)
     private String imageUrl; //图片URL
     @Column(name = "approved")
     private Boolean approved = false; //审核状态，默认为 false，表示未审核通过

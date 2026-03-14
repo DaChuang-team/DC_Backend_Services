@@ -127,6 +127,7 @@ public class ProductController {
             responseBody.put("origin", newProduct.getOrigin());
             responseBody.put("description", newProduct.getDescription());
             responseBody.put("productId", newProduct.getProductId());
+            responseBody.put("imageUrl", newProduct.getImageUrl());
 
             return Result.success("添加成功", responseBody);
         } catch (Exception e) {
@@ -243,22 +244,14 @@ public class ProductController {
         try {
             Long currentUserId = getCurrentUserId();
             String currentUserRole = getCurrentUserRole();
-            // 查询商品是否存在
-            Product existingProduct = productRepository.findById(Pid)
-                    .orElseThrow(() -> new IllegalArgumentException("商品不存在"));
-            // 权限校验，用户只能删除自己的商品，管理员可以删除所有商品
-            if (Objects.equals(currentUserRole, "ROLE_USER")) {
-                if (!existingProduct.getseller().getUserId().equals(currentUserId)) {
-                    return Result.error(403, "权限不足：您只能删除自己的商品");
-                }
-            } else if (!Objects.equals(currentUserRole, "ROLE_ADMIN")) {
-                return Result.error(401, "未知权限");
-            }
-            // 删除商品
-            productRepository.deleteById(Pid);
+
+            productService.deleteProduct(Pid, currentUserId, currentUserRole);
+
             return Result.success("删除成功", null);
         } catch (IllegalArgumentException e) {
             return Result.error(400, e.getMessage());
+        } catch (SecurityException e) {
+            return Result.error(403, e.getMessage());
         } catch (Exception e) {
             return Result.error(500, "删除失败: " + e.getMessage());
         }
@@ -300,6 +293,7 @@ public class ProductController {
         return Result.success("获取产品成功", response);
     }
 
+    // 构建单个商品的详细信息返回体
     private Map<String, Object> getProductDetails(Long currentUserId, Product savedProduct) {
         Map<String, Object> productDetails = new HashMap<>();
         productDetails.put("productId", savedProduct.getProductId());
