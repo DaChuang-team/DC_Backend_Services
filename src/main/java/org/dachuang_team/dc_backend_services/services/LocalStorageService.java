@@ -50,6 +50,4 @@ public class LocalStorageService implements IStorageService {
             file.delete();
         }
     }
-
-
 }
