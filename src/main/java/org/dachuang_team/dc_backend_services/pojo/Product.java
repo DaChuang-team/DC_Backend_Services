@@ -35,10 +35,10 @@ public class Product {
     //外键：指向 User_General（卖家）
     @ManyToOne
     @JoinColumn(name = "seller")
-    private User_General seller;
+    private userGeneral seller;
 
     @OneToMany(mappedBy = "product")
-    private List<Order_Item> orderItems; // 关联的订单项（也就是说谁买了这个商品）
+    private List<orderItem> orderItems; // 关联的订单项（也就是说谁买了这个商品）
 
     // Getters and Setters
 
@@ -106,19 +106,19 @@ public class Product {
         this.approved = approved;
     }
 
-    public User_General getseller() {
+    public userGeneral getseller() {
         return seller;
     }
 
-    public void setseller(User_General seller) {
+    public void setseller(userGeneral seller) {
         this.seller = seller;
     }
 
-    public List<Order_Item> getOrderItems() {
+    public List<orderItem> getOrderItems() {
         return orderItems;
     }
 
-    public void setOrderItems(List<Order_Item> orderItems) {
+    public void setOrderItems(List<orderItem> orderItems) {
         this.orderItems = orderItems;
     }
 

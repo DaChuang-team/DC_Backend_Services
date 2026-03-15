@@ -1,7 +1,7 @@
 package org.dachuang_team.dc_backend_services.services;
 
 import org.dachuang_team.dc_backend_services.pojo.tokenSession;
-import org.dachuang_team.dc_backend_services.repository.UserSessionRepository;
+import org.dachuang_team.dc_backend_services.repository.userSessionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,7 +14,7 @@ import java.util.UUID;
 public class AuthService {
 
     @Autowired
-    private UserSessionRepository sessionRepository;
+    private userSessionRepository sessionRepository;
 
     /**
      * 校验 Token 是否存在且未过期

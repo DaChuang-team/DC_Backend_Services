@@ -1,7 +1,7 @@
 package org.dachuang_team.dc_backend_services.services;
 
 import org.dachuang_team.dc_backend_services.pojo.Attraction;
-import org.dachuang_team.dc_backend_services.repository.AttractionRepository;
+import org.dachuang_team.dc_backend_services.repository.attractionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -11,7 +11,7 @@ import java.util.List;
 public class AttractionService implements IAttractionService {
 
     @Autowired
-    private AttractionRepository attractionRepository;
+    private attractionRepository attractionRepository;
 
     @Override
     public List<Attraction> getAllAttractions() {

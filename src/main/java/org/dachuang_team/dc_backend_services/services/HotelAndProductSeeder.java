@@ -1,9 +1,9 @@
 package org.dachuang_team.dc_backend_services.services;
 
-import org.dachuang_team.dc_backend_services.pojo.HotelHomestay;
+import org.dachuang_team.dc_backend_services.pojo.hotelHomestay;
 import org.dachuang_team.dc_backend_services.pojo.Product;
-import org.dachuang_team.dc_backend_services.repository.HotelHomestayRepository;
-import org.dachuang_team.dc_backend_services.repository.ProductRepository;
+import org.dachuang_team.dc_backend_services.repository.hotelHomestayRepository;
+import org.dachuang_team.dc_backend_services.repository.productRepository;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.annotation.Order;
@@ -17,10 +17,10 @@ import java.util.List;
 @Component
 @Order(3)
 public class HotelAndProductSeeder implements ApplicationRunner {
-    private final HotelHomestayRepository hotelHomestayRepository;
-    private final ProductRepository productRepository;
+    private final hotelHomestayRepository hotelHomestayRepository;
+    private final productRepository productRepository;
 
-    public HotelAndProductSeeder(HotelHomestayRepository hotelHomestayRepository, ProductRepository productRepository) {
+    public HotelAndProductSeeder(hotelHomestayRepository hotelHomestayRepository, productRepository productRepository) {
         this.hotelHomestayRepository = hotelHomestayRepository;
         this.productRepository = productRepository;
     }
@@ -29,7 +29,7 @@ public class HotelAndProductSeeder implements ApplicationRunner {
     @Transactional
     public void run(ApplicationArguments args) {
         if (hotelHomestayRepository.count() == 0) {
-            List<HotelHomestay> items = new ArrayList<>();
+            List<hotelHomestay> items = new ArrayList<>();
             items.add(makeHotel("溪田山房", "广州市从化区良口镇溪头村", 23.70, 113.95, 888.0, "https://example.com/images/hotel1.jpg", "13800138001", true));
             items.add(makeHotel("静水莲山", "广州市增城区派潭镇白水寨大道", 23.58, 113.82, 1280.0, "https://example.com/images/hotel2.jpg", "13800138002", true));
             items.add(makeHotel("稻香里", "广州市花都区梯面镇红山村", 23.50, 113.30, 680.0, "https://example.com/images/hotel3.jpg", "13800138003", false));
@@ -78,8 +78,8 @@ public class HotelAndProductSeeder implements ApplicationRunner {
         }
     }
 
-    private HotelHomestay makeHotel(String name, String addr, double lat, double lon, double price, String img, String phone, boolean available) {
-        HotelHomestay h = new HotelHomestay();
+    private hotelHomestay makeHotel(String name, String addr, double lat, double lon, double price, String img, String phone, boolean available) {
+        hotelHomestay h = new hotelHomestay();
         h.setHotelName(name);
         h.setAddress(addr);
         h.setLatitude(lat);

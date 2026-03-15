@@ -9,7 +9,7 @@ import org.springframework.stereotype.Repository;
  * 继承 JpaRepository 后，Spring 会自动实现基本的增删改查功能
  */
 @Repository
-public interface AdminRepository extends JpaRepository<Admin, Long> {
+public interface adminRepository extends JpaRepository<Admin, Long> {
     
     /**
      * 根据用户名查找管理员

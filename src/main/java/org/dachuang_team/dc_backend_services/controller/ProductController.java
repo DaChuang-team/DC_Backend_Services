@@ -3,9 +3,9 @@ package org.dachuang_team.dc_backend_services.controller;
 import org.dachuang_team.dc_backend_services.common.Result;
 import org.dachuang_team.dc_backend_services.pojo.Dto.ProductDTO;
 import org.dachuang_team.dc_backend_services.pojo.Product;
-import org.dachuang_team.dc_backend_services.pojo.User_General;
-import org.dachuang_team.dc_backend_services.repository.ProductRepository;
-import org.dachuang_team.dc_backend_services.repository.UserRepository;
+import org.dachuang_team.dc_backend_services.pojo.userGeneral;
+import org.dachuang_team.dc_backend_services.repository.productRepository;
+import org.dachuang_team.dc_backend_services.repository.userRepository;
 import org.dachuang_team.dc_backend_services.services.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -21,10 +21,10 @@ import java.util.*;
 @RequestMapping("/api")
 public class ProductController {
     @Autowired
-    private ProductRepository productRepository;
+    private productRepository productRepository;
 
     @Autowired
-    private UserRepository userRepository;
+    private userRepository userRepository;
 
     @Autowired
     private ProductService productService;
@@ -35,11 +35,10 @@ public class ProductController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
         try {
-            Long currentUserId = getCurrentUserId();
             Pageable pageable = validateAndPreparePageable(page, size);
             Page<Product> productPage = productRepository.findByApprovedTrue(pageable);
 
-            return getProductsMapResult(productPage, currentUserId);
+            return getProductsMapResult(productPage);
         } catch (Exception e) {
             return Result.error(500, "获取产品失败: " + e.getMessage());
         }
@@ -56,7 +55,7 @@ public class ProductController {
             Page<Product> productPage = productRepository.findByApprovedFalse(pageable);
 
             // 构建分页响应数据
-            return getProductsMapResult(productPage, currentUserId);
+            return getProductsMapResult(productPage);
         } catch (Exception e) {
             return Result.error(500, "获取产品失败: " + e.getMessage());
         }
@@ -72,7 +71,7 @@ public class ProductController {
             Pageable pageable = validateAndPreparePageable(page, size);
             Page<Product> productPage = productRepository.findAll(pageable);
 
-            return getProductsMapResult(productPage, currentUserId);
+            return getProductsMapResult(productPage);
         } catch (Exception e) {
             return Result.error(500, "获取产品失败: " + e.getMessage());
         }
@@ -87,7 +86,7 @@ public class ProductController {
             Long currentUserId = getCurrentUserId();
 
             // 根据userId查询User_General实例
-            User_General seller = userRepository.findById(currentUserId)
+            userGeneral seller = userRepository.findById(currentUserId)
                     .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
 
             Pageable pageable = validateAndPreparePageable(page, size);
@@ -95,7 +94,7 @@ public class ProductController {
             // 查询与该User_General关联的产品
             Page<Product> productPage = productRepository.findBySeller(seller, pageable);
 
-            return getProductsMapResult(productPage, currentUserId);
+            return getProductsMapResult(productPage);
         } catch (IllegalArgumentException e) {
             return Result.error(400, e.getMessage());
         } catch (Exception e) {
@@ -228,11 +227,10 @@ public class ProductController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
         try {
-            Long currentUserId = getCurrentUserId();
             Pageable pageable = validateAndPreparePageable(page, size);
             Page<Product> productPage = productRepository.findByProductNameContainingIgnoreCase(keyword, pageable);
 
-            return getProductsMapResult(productPage, currentUserId);
+            return getProductsMapResult(productPage);
         } catch (Exception e) {
             return Result.error(500, "搜索商品失败: " + e.getMessage());
         }
@@ -271,7 +269,7 @@ public class ProductController {
     }
 
     //分页查询时只返回产品的部分信息，需要使用/products/details来获取完整信息
-    private Result<Map<String, Object>> getProductsMapResult(Page<Product> productPage, long sellerId) {
+    private Result<Map<String, Object>> getProductsMapResult(Page<Product> productPage) {
         Map<String, Object> response = new HashMap<>();
         List<Map<String, Object>> filteredProducts = productPage.getContent().stream().map(product -> {
             Map<String, Object> productMap = new HashMap<>();

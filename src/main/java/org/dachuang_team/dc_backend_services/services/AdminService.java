@@ -2,7 +2,7 @@ package org.dachuang_team.dc_backend_services.services;
 
 import org.dachuang_team.dc_backend_services.pojo.Admin;
 import org.dachuang_team.dc_backend_services.pojo.Dto.AdminDTO;
-import org.dachuang_team.dc_backend_services.repository.AdminRepository;
+import org.dachuang_team.dc_backend_services.repository.adminRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
 public class AdminService implements IAdminService {
 
     @Autowired
-    private AdminRepository adminRepository;
+    private adminRepository adminRepository;
 
     // 密码加密器，用于对管理员密码进行加密存储
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();

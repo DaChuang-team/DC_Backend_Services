@@ -1,10 +1,10 @@
 package org.dachuang_team.dc_backend_services.services;
 
 import jakarta.transaction.Transactional;
-import org.dachuang_team.dc_backend_services.pojo.UserCheckIn;
-import org.dachuang_team.dc_backend_services.pojo.User_General;
-import org.dachuang_team.dc_backend_services.repository.UserCheckInRepository;
-import org.dachuang_team.dc_backend_services.repository.UserRepository;
+import org.dachuang_team.dc_backend_services.pojo.userCheckIn;
+import org.dachuang_team.dc_backend_services.pojo.userGeneral;
+import org.dachuang_team.dc_backend_services.repository.userCheckInRepository;
+import org.dachuang_team.dc_backend_services.repository.userRepository;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -19,13 +19,13 @@ import java.util.List;
 public class UserService implements IUserService {
 
     @Autowired
-    private UserRepository userRepository;
+    private userRepository userRepository;
 
     @Autowired
     private AuthService authService;
 
     @Autowired
-    private UserCheckInRepository checkInRepository;
+    private userCheckInRepository checkInRepository;
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
@@ -37,7 +37,7 @@ public class UserService implements IUserService {
         }
         LocalDateTime now = LocalDateTime.now();
         String encodedPassword = passwordEncoder.encode(user.getUserPassword());
-        User_General newUser = new User_General();
+        userGeneral newUser = new userGeneral();
         BeanUtils.copyProperties(user, newUser, "userPassword", "userGender"); // 复制除 userPassword 和 userGender 以外的属性
         newUser.setUserPassword(encodedPassword);
         newUser.setUserPermissions(0);
@@ -52,7 +52,7 @@ public class UserService implements IUserService {
     @Override
     @Transactional
     public String authenticateUser(String userName, String rawPassword) {
-        User_General user = userRepository.findByUserName(userName);
+        userGeneral user = userRepository.findByUserName(userName);
 
         // 基础校验
         if (user == null || !passwordEncoder.matches(rawPassword, user.getUserPassword())) {
@@ -74,7 +74,7 @@ public class UserService implements IUserService {
     }
 
     @Override
-    public User_General getUserByUserName(String userName) {
+    public userGeneral getUserByUserName(String userName) {
         return userRepository.findByUserName(userName);
     }
 
@@ -82,7 +82,7 @@ public class UserService implements IUserService {
     @Transactional
     public boolean updateInfo(Long userId, userUpdateDTO dto) {
         // 1. 直接根据 ID 找用户
-        User_General user = userRepository.findById(userId)
+        userGeneral user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
 
         // 2. 敏感信息修改需要额外验证
@@ -129,7 +129,7 @@ public class UserService implements IUserService {
     }
 
     // 抽取非敏感字段更新逻辑
-    private void updateNormalFields(User_General user, userUpdateDTO dto) {
+    private void updateNormalFields(userGeneral user, userUpdateDTO dto) {
         if (dto.getUserPreference() != null) user.setUserPreference(dto.getUserPreference());
         if (dto.getUserGender() != null) user.setUserGender(dto.getUserGender());
         if (dto.getUserAvatarURL() != null) user.setUserAvatarURL(dto.getUserAvatarURL());
@@ -142,7 +142,7 @@ public class UserService implements IUserService {
     @Transactional
     public boolean checkIn(Long userId) {
         // 获取用户信息
-        User_General user = userRepository.findById(userId)
+        userGeneral user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
 
         if ("异常".equals(user.getUserStatus())) {
@@ -160,7 +160,7 @@ public class UserService implements IUserService {
         }
 
         // 在签到表插入一条签到记录
-        UserCheckIn checkIn = new UserCheckIn();
+        userCheckIn checkIn = new userCheckIn();
         checkIn.setUserId(userId);
         checkIn.setCheckInTime(LocalDateTime.now());
         checkIn.setPointsEarned(10);
@@ -179,7 +179,7 @@ public class UserService implements IUserService {
     @Override
     public void deductPoints(Long userId, int pointsToDeduct) {
         // 查询用户
-        User_General user = userRepository.findById(userId)
+        userGeneral user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
 
         // 校验用户状态
@@ -200,7 +200,7 @@ public class UserService implements IUserService {
 
     @Override
     public boolean updateUserStatusByAdmin(String userName, String status) {
-        User_General user = userRepository.findByUserName(userName);
+        userGeneral user = userRepository.findByUserName(userName);
         if (user == null) {
             throw new IllegalArgumentException("用户不存在: " + userName);
         }
@@ -215,7 +215,7 @@ public class UserService implements IUserService {
 
     @Override
     public boolean deleteUser(String userName) {
-        User_General user = userRepository.findByUserName(userName);
+        userGeneral user = userRepository.findByUserName(userName);
         if (user == null) {
             throw new IllegalArgumentException("用户不存在: " + userName);
         }
@@ -228,13 +228,13 @@ public class UserService implements IUserService {
      * @return 包含所有用户的列表
      */
     @Override
-    public List<User_General> getAllUsers() {
+    public List<userGeneral> getAllUsers() {
         // 使用 JpaRepository 的 findAll 方法获取所有用户
         return userRepository.findAll();
     }
 
     @Override
-    public User_General getUserById(Long userId) {
+    public userGeneral getUserById(Long userId) {
         // 使用 findById(id)，如果找不到则抛出异常，这能保证后续业务拿到的一定是有效对象
         return userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("未找到 ID 为 " + userId + " 的用户"));
