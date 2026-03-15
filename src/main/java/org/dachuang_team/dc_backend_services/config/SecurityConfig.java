@@ -37,6 +37,8 @@ public class SecurityConfig {
                         // 公开接口
                         .requestMatchers("/api/users/register", "/api/users/login").permitAll()
                         .requestMatchers("/api/admins/register", "/api/admins/login").permitAll()
+                        .requestMatchers("/api/products/approved", "/api/products/search").permitAll()
+                        .requestMatchers("/api/sysImg/get").permitAll()
 
                         // 受保护接口
                         .requestMatchers("/api/users/updateInfo", "/api/users/checkIn").hasRole("USER")
@@ -44,11 +46,12 @@ public class SecurityConfig {
 
                         .requestMatchers("/api/ai/**").hasRole("USER")
 
-                        .requestMatchers("/api/products/approved", "/products/currentUser").hasRole("USER")
+                        .requestMatchers("/products/currentUser", "/api/products/details").hasRole("USER")
                         .requestMatchers("/api/products/all", "/api/products/unApproved", "/api/products/approve", "/api/products/disApprove").hasRole("ADMIN")
-                        .requestMatchers("/api/products/details", "/api/products/search", "/api/products/delete", "/api/products/update").authenticated()
+                        .requestMatchers("/api/products/delete", "/api/products/update").authenticated()
 
                         .requestMatchers("/api/image/upload", "/api/image/purge").hasRole("USER")
+                        .requestMatchers("/api/sysImg/upload").hasRole("ADMIN")
 
                         // 测试/临时放行接口
                         .requestMatchers("/api/users/all", "/api/users/delete").permitAll()

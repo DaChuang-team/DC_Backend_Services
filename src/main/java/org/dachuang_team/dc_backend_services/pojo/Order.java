@@ -21,10 +21,10 @@ public class Order {
     // 外键：指向 User_General（买家）
     @ManyToOne
     @JoinColumn(name = "user_id")
-    private User_General user;
+    private userGeneral user;
 
     @OneToMany(mappedBy = "order")
-    private List<Order_Item> orderItems; // 关联的订单项
+    private List<orderItem> orderItems; // 关联的订单项
 
     // Getters and Setters
 
@@ -76,19 +76,19 @@ public class Order {
         this.deliveryAddress = deliveryAddress;
     }
 
-    public User_General getUser() {
+    public userGeneral getUser() {
         return user;
     }
 
-    public void setUser(User_General user) {
+    public void setUser(userGeneral user) {
         this.user = user;
     }
 
-    public List<Order_Item> getOrderItems() {
+    public List<orderItem> getOrderItems() {
         return orderItems;
     }
 
-    public void setOrderItems(List<Order_Item> orderItems) {
+    public void setOrderItems(List<orderItem> orderItems) {
         this.orderItems = orderItems;
     }
 }

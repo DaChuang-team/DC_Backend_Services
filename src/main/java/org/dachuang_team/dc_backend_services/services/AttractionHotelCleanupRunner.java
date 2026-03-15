@@ -1,6 +1,6 @@
 package org.dachuang_team.dc_backend_services.services;
 
-import org.dachuang_team.dc_backend_services.repository.AttractionRepository;
+import org.dachuang_team.dc_backend_services.repository.attractionRepository;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.annotation.Order;
@@ -10,9 +10,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 @Order(1)
 public class AttractionHotelCleanupRunner implements ApplicationRunner {
-    private final AttractionRepository attractionRepository;
+    private final attractionRepository attractionRepository;
 
-    public AttractionHotelCleanupRunner(AttractionRepository attractionRepository) {
+    public AttractionHotelCleanupRunner(attractionRepository attractionRepository) {
         this.attractionRepository = attractionRepository;
     }
 

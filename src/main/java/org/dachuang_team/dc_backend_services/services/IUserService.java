@@ -1,14 +1,14 @@
 package org.dachuang_team.dc_backend_services.services;
 import org.dachuang_team.dc_backend_services.pojo.Dto.UserDTO;
 import org.dachuang_team.dc_backend_services.pojo.Dto.userUpdateDTO;
-import org.dachuang_team.dc_backend_services.pojo.User_General;
+import org.dachuang_team.dc_backend_services.pojo.userGeneral;
 
 import java.util.List;
 
 public interface IUserService {
     void registerUser(UserDTO user);
     String authenticateUser(String userName, String rawPassword);
-    User_General getUserByUserName(String userName);
+    userGeneral getUserByUserName(String userName);
     boolean updateInfo(Long userId, userUpdateDTO dto);
     /**
      * 管理员修改用户状态
@@ -27,13 +27,13 @@ public interface IUserService {
      * 获取所有用户信息
      * @return 用户列表
      */
-    List<User_General> getAllUsers();
+    List<userGeneral> getAllUsers();
     /**
      * 根据用户ID获取用户实体
      * @param userId 用户唯一标识
      * @return User_General 实体
      */
-    User_General getUserById(Long userId);
+    userGeneral getUserById(Long userId);
     /**
      * 根据用户ID进行签到
      * @param userId 用户唯一标识

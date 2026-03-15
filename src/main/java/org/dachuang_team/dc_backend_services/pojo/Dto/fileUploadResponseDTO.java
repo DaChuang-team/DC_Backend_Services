@@ -5,11 +5,11 @@ import lombok.Data;
 
 @Data
 @AllArgsConstructor
-public class FileUploadResponse {
+public class fileUploadResponseDTO {
     private String url;      // 给前端显示的预览地址
     private String fileName; // 文件名
 
-    public FileUploadResponse() {
+    public fileUploadResponseDTO() {
 
     }
 }

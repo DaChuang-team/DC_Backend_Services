@@ -51,7 +51,6 @@ public class OssStorageService implements IStorageService {
             // 格式为: https://bucketName.endpoint/fileName
             String fileUrl = "https://" + bucketName + "." + endpoint + "/" + fileName;
 
-            // 对于 OSS 来说，没有本地物理路径，此处 physicalPath 建议存储 fileName (Object Name)
             // 方便后续调用 delete 方法时直接提取
             return new StorageResult(fileUrl, fileName, fileName);
         } catch (IOException e) {

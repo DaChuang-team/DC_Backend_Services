@@ -1,9 +1,9 @@
 package org.dachuang_team.dc_backend_services.services;
 
 import org.dachuang_team.dc_backend_services.pojo.Admin;
-import org.dachuang_team.dc_backend_services.pojo.User_General;
-import org.dachuang_team.dc_backend_services.repository.AdminRepository;
-import org.dachuang_team.dc_backend_services.repository.UserRepository;
+import org.dachuang_team.dc_backend_services.pojo.userGeneral;
+import org.dachuang_team.dc_backend_services.repository.adminRepository;
+import org.dachuang_team.dc_backend_services.repository.userRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -16,15 +16,15 @@ import java.util.List;
 public class DataConsistencyRunner implements ApplicationRunner {
 
     @Autowired
-    private UserRepository userRepository;
+    private userRepository userRepository;
     @Autowired
-    private AdminRepository adminRepository;
+    private adminRepository adminRepository;
 
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        List<User_General> users = userRepository.findAll();
-        for (User_General u : users) {
+        List<userGeneral> users = userRepository.findAll();
+        for (userGeneral u : users) {
             String status = u.getUserStatus();
             if (status == null || status.isBlank()) {
                 u.setUserStatus("正常");
