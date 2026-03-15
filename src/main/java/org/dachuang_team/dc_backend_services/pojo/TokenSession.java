@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "token_session")
-public class tokenSession {
+public class TokenSession {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

@@ -2,8 +2,8 @@ package org.dachuang_team.dc_backend_services.services;
 
 import org.dachuang_team.dc_backend_services.pojo.hotelHomestay;
 import org.dachuang_team.dc_backend_services.pojo.Product;
-import org.dachuang_team.dc_backend_services.repository.hotelHomestayRepository;
-import org.dachuang_team.dc_backend_services.repository.productRepository;
+import org.dachuang_team.dc_backend_services.repository.HotelHomestayRepository;
+import org.dachuang_team.dc_backend_services.repository.ProductRepository;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.annotation.Order;
@@ -17,10 +17,10 @@ import java.util.List;
 @Component
 @Order(3)
 public class HotelAndProductSeeder implements ApplicationRunner {
-    private final hotelHomestayRepository hotelHomestayRepository;
-    private final productRepository productRepository;
+    private final HotelHomestayRepository hotelHomestayRepository;
+    private final ProductRepository productRepository;
 
-    public HotelAndProductSeeder(hotelHomestayRepository hotelHomestayRepository, productRepository productRepository) {
+    public HotelAndProductSeeder(HotelHomestayRepository hotelHomestayRepository, ProductRepository productRepository) {
         this.hotelHomestayRepository = hotelHomestayRepository;
         this.productRepository = productRepository;
     }

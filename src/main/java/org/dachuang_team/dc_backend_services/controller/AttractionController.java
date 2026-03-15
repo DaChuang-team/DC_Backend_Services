@@ -4,7 +4,7 @@ import org.dachuang_team.dc_backend_services.common.Result;
 import org.dachuang_team.dc_backend_services.pojo.Attraction;
 import org.dachuang_team.dc_backend_services.pojo.hotelHomestay;
 import org.dachuang_team.dc_backend_services.services.IAttractionService;
-import org.dachuang_team.dc_backend_services.repository.hotelHomestayRepository;
+import org.dachuang_team.dc_backend_services.repository.HotelHomestayRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,7 +23,7 @@ public class AttractionController {
     @Autowired
     private IAttractionService attractionService;
     @Autowired
-    private hotelHomestayRepository hotelHomestayRepository;
+    private HotelHomestayRepository hotelHomestayRepository;
 
     @GetMapping("/attractions/all")
     public Result<List<Attraction>> getAllAttractions() {

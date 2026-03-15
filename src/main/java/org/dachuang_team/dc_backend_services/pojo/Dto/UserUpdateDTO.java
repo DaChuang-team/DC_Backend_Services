@@ -1,10 +1,9 @@
 package org.dachuang_team.dc_backend_services.pojo.Dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import jakarta.validation.constraints.NotNull;
 
 
-public class userUpdateDTO {
+public class UserUpdateDTO {
     @JsonProperty("newName")//前端传入的新用户名,可选，用于验证的用户名通过Query参数传入
     private String userName;
     @JsonProperty("userPhone")

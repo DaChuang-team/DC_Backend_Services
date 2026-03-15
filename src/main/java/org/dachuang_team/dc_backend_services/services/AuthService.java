@@ -1,7 +1,7 @@
 package org.dachuang_team.dc_backend_services.services;
 
-import org.dachuang_team.dc_backend_services.pojo.tokenSession;
-import org.dachuang_team.dc_backend_services.repository.userSessionRepository;
+import org.dachuang_team.dc_backend_services.pojo.TokenSession;
+import org.dachuang_team.dc_backend_services.repository.UserSessionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,13 +14,13 @@ import java.util.UUID;
 public class AuthService {
 
     @Autowired
-    private userSessionRepository sessionRepository;
+    private UserSessionRepository sessionRepository;
 
     /**
      * 校验 Token 是否存在且未过期
      * 对应 Filter 中的 authService.validateToken(token)
      */
-    public Optional<tokenSession> validateToken(String token) {
+    public Optional<TokenSession> validateToken(String token) {
         return sessionRepository.findByToken(token)
                 .filter(session -> session.getExpiredAt().isAfter(LocalDateTime.now()));
     }
@@ -35,7 +35,7 @@ public class AuthService {
 
         // 生成新记录
         String token = UUID.randomUUID().toString().replace("-", "");
-        tokenSession session = new tokenSession();
+        TokenSession session = new TokenSession();
         session.setUserId(id);
         session.setUserRole(role);
         session.setToken(token);

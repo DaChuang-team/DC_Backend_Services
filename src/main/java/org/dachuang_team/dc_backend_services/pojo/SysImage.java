@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 
 @Entity
 @Table(name = "sysImage")
-public class sysImage {
+public class SysImage {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "image_id", nullable = false)

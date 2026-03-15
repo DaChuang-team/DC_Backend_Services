@@ -3,9 +3,9 @@ package org.dachuang_team.dc_backend_services.controller;
 import org.dachuang_team.dc_backend_services.common.Result;
 import org.dachuang_team.dc_backend_services.pojo.Dto.ProductDTO;
 import org.dachuang_team.dc_backend_services.pojo.Product;
-import org.dachuang_team.dc_backend_services.pojo.userGeneral;
-import org.dachuang_team.dc_backend_services.repository.productRepository;
-import org.dachuang_team.dc_backend_services.repository.userRepository;
+import org.dachuang_team.dc_backend_services.pojo.UserGeneral;
+import org.dachuang_team.dc_backend_services.repository.ProductRepository;
+import org.dachuang_team.dc_backend_services.repository.UserRepository;
 import org.dachuang_team.dc_backend_services.services.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -21,10 +21,10 @@ import java.util.*;
 @RequestMapping("/api")
 public class ProductController {
     @Autowired
-    private productRepository productRepository;
+    private ProductRepository productRepository;
 
     @Autowired
-    private userRepository userRepository;
+    private UserRepository userRepository;
 
     @Autowired
     private ProductService productService;
@@ -86,7 +86,7 @@ public class ProductController {
             Long currentUserId = getCurrentUserId();
 
             // 根据userId查询User_General实例
-            userGeneral seller = userRepository.findById(currentUserId)
+            UserGeneral seller = userRepository.findById(currentUserId)
                     .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
 
             Pageable pageable = validateAndPreparePageable(page, size);

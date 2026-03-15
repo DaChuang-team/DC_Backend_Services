@@ -1,9 +1,9 @@
 package org.dachuang_team.dc_backend_services.services;
 
 import org.dachuang_team.dc_backend_services.pojo.Attraction;
-import org.dachuang_team.dc_backend_services.pojo.sysImage;
-import org.dachuang_team.dc_backend_services.repository.attractionRepository;
-import org.dachuang_team.dc_backend_services.repository.sysImageRepository;
+import org.dachuang_team.dc_backend_services.pojo.SysImage;
+import org.dachuang_team.dc_backend_services.repository.AttractionRepository;
+import org.dachuang_team.dc_backend_services.repository.SysImageRepository;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.annotation.Order;
@@ -18,11 +18,11 @@ import java.util.Random;
 @Order(2) // Run after DataConsistencyRunner
 public class DataSeeder implements ApplicationRunner {
 
-    private final attractionRepository attractionRepository;
+    private final AttractionRepository attractionRepository;
     private final Random random = new Random();
-    private final sysImageRepository sysImageRepository;
+    private final SysImageRepository sysImageRepository;
 
-    public DataSeeder(attractionRepository attractionRepository, sysImageRepository sysImageRepository) {
+    public DataSeeder(AttractionRepository attractionRepository, SysImageRepository sysImageRepository) {
         this.attractionRepository = attractionRepository;
         this.sysImageRepository = sysImageRepository;
     }
@@ -33,11 +33,11 @@ public class DataSeeder implements ApplicationRunner {
         // Generate image data
         long imageCount = sysImageRepository.count();
         if (imageCount == 0) {
-            List<sysImage> sysImages = new ArrayList<>();
-            sysImages.add(createImage("https://dc-img-test.oss-cn-guangzhou.aliyuncs.com/1.jpg", "1.jpg", "MAIN_PAGE_BANNER"));
-            sysImages.add(createImage("https://dc-img-test.oss-cn-guangzhou.aliyuncs.com/2.png", "2.png", "MAIN_PAGE_BANNER"));
-            sysImages.add(createImage("https://dc-img-test.oss-cn-guangzhou.aliyuncs.com/3.jpg", "3.jpg", "MAIN_PAGE_BANNER"));
-            sysImageRepository.saveAll(sysImages);
+            List<SysImage> SysImages = new ArrayList<>();
+            SysImages.add(createImage("https://dc-img-test.oss-cn-guangzhou.aliyuncs.com/1.jpg", "1.jpg", "MAIN_PAGE_BANNER"));
+            SysImages.add(createImage("https://dc-img-test.oss-cn-guangzhou.aliyuncs.com/2.png", "2.png", "MAIN_PAGE_BANNER"));
+            SysImages.add(createImage("https://dc-img-test.oss-cn-guangzhou.aliyuncs.com/3.jpg", "3.jpg", "MAIN_PAGE_BANNER"));
+            sysImageRepository.saveAll(SysImages);
             System.out.println("Generated 3 images.");
         }
 
@@ -123,8 +123,8 @@ public class DataSeeder implements ApplicationRunner {
         return h;
     }
 
-    private sysImage createImage(String url, String name, String purpose) {
-        sysImage img = new sysImage();
+    private SysImage createImage(String url, String name, String purpose) {
+        SysImage img = new SysImage();
         img.setImageUrl(url);
         img.setImageName(name);
         img.setPurpose(purpose);

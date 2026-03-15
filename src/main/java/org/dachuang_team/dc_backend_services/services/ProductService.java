@@ -1,12 +1,12 @@
 package org.dachuang_team.dc_backend_services.services;
 
 import org.dachuang_team.dc_backend_services.pojo.Dto.ProductDTO;
-import org.dachuang_team.dc_backend_services.pojo.productImageRecord;
+import org.dachuang_team.dc_backend_services.pojo.ProductImageRecord;
 import org.dachuang_team.dc_backend_services.pojo.Product;
-import org.dachuang_team.dc_backend_services.pojo.userGeneral;
-import org.dachuang_team.dc_backend_services.repository.productImageRecordRepository;
-import org.dachuang_team.dc_backend_services.repository.productRepository;
-import org.dachuang_team.dc_backend_services.repository.userRepository;
+import org.dachuang_team.dc_backend_services.pojo.UserGeneral;
+import org.dachuang_team.dc_backend_services.repository.ProductImageRecordRepository;
+import org.dachuang_team.dc_backend_services.repository.ProductRepository;
+import org.dachuang_team.dc_backend_services.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -18,18 +18,18 @@ import java.util.Optional;
 public class ProductService implements IProductService {
 
     @Autowired
-    private productRepository productRepository;
+    private ProductRepository productRepository;
 
     @Autowired
-    private userRepository userRepository;
+    private UserRepository userRepository;
 
     @Autowired
-    private productImageRecordRepository productImageRecordRepository;
+    private ProductImageRecordRepository productImageRecordRepository;
 
     @Override
     public Product addProduct(ProductDTO productDTO, Long userId) {
         try {
-            userGeneral seller = userRepository.findById(userId).orElseThrow(()
+            UserGeneral seller = userRepository.findById(userId).orElseThrow(()
                     -> new IllegalArgumentException("用户ID: " + userId + " 不存在"));
 
             // 创建商品对象
@@ -49,9 +49,9 @@ public class ProductService implements IProductService {
 
             // 如果图片URL不为空，尝试关联图片记录
             if (productDTO.getImgUrl() != null && !productDTO.getImgUrl().isEmpty()) {
-                Optional<productImageRecord> record = productImageRecordRepository.findByUrl(productDTO.getImgUrl());
+                Optional<ProductImageRecord> record = productImageRecordRepository.findByUrl(productDTO.getImgUrl());
                 if (record.isPresent()) {
-                    productImageRecord productImageRecord = record.get();
+                    ProductImageRecord productImageRecord = record.get();
                     productImageRecord.setLinked(true);
                     productImageRecord.setProductId(product.getProductId()); // 绑定商品ID
                     productImageRecordRepository.save(productImageRecord);
@@ -73,25 +73,25 @@ public class ProductService implements IProductService {
             if (productDTO.getImgUrl().isEmpty()) { // imgUrl为空字符串，解绑旧图片记录
                 String oldImageUrl = existingProduct.getImageUrl();
                 if (oldImageUrl != null && !oldImageUrl.isEmpty()) {
-                    Optional<productImageRecord> oldRecord = productImageRecordRepository.findByUrl(oldImageUrl);
-                    oldRecord.ifPresent(productImageRecord -> {
-                        productImageRecord.setLinked(false);
-                        productImageRecordRepository.save(productImageRecord);
+                    Optional<ProductImageRecord> oldRecord = productImageRecordRepository.findByUrl(oldImageUrl);
+                    oldRecord.ifPresent(ProductImageRecord -> {
+                        ProductImageRecord.setLinked(false);
+                        productImageRecordRepository.save(ProductImageRecord);
                     });
                 }
                 existingProduct.setImageUrl(null); // 清空图片 URL
             } else { // imgUrl不为空，绑定新图片记录
                 String oldImageUrl = existingProduct.getImageUrl();
                 if (oldImageUrl != null && !oldImageUrl.isEmpty()) {
-                    Optional<productImageRecord> oldRecord = productImageRecordRepository.findByUrl(oldImageUrl);
-                    oldRecord.ifPresent(productImageRecord -> {
-                        productImageRecord.setLinked(false);
-                        productImageRecordRepository.save(productImageRecord);
+                    Optional<ProductImageRecord> oldRecord = productImageRecordRepository.findByUrl(oldImageUrl);
+                    oldRecord.ifPresent(ProductImageRecord -> {
+                        ProductImageRecord.setLinked(false);
+                        productImageRecordRepository.save(ProductImageRecord);
                     });
                 }
-                Optional<productImageRecord> record = productImageRecordRepository.findByUrl(productDTO.getImgUrl());
+                Optional<ProductImageRecord> record = productImageRecordRepository.findByUrl(productDTO.getImgUrl());
                 if (record.isPresent()) {
-                    productImageRecord productImageRecord = record.get();
+                    ProductImageRecord productImageRecord = record.get();
                     productImageRecord.setLinked(true);
                     productImageRecord.setProductId(existingProduct.getProductId());
                     productImageRecordRepository.save(productImageRecord);
@@ -140,10 +140,10 @@ public class ProductService implements IProductService {
         // 如果商品的图片URL不为空，解绑图片记录
         String imageUrl = existingProduct.getImageUrl();
         if (imageUrl != null && !imageUrl.isEmpty()) {
-            Optional<productImageRecord> record = productImageRecordRepository.findByUrl(imageUrl);
-            record.ifPresent(productImageRecord -> {
-                productImageRecord.setLinked(false); // 解绑图片记录
-                productImageRecordRepository.save(productImageRecord);
+            Optional<ProductImageRecord> record = productImageRecordRepository.findByUrl(imageUrl);
+            record.ifPresent(ProductImageRecord -> {
+                ProductImageRecord.setLinked(false); // 解绑图片记录
+                productImageRecordRepository.save(ProductImageRecord);
             });
         }
 

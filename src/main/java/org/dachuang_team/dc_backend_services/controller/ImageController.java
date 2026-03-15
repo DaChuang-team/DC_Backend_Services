@@ -2,11 +2,11 @@ package org.dachuang_team.dc_backend_services.controller;
 
 import jakarta.transaction.Transactional;
 import org.dachuang_team.dc_backend_services.common.Result;
-import org.dachuang_team.dc_backend_services.pojo.Dto.fileUploadResponseDTO;
-import org.dachuang_team.dc_backend_services.pojo.productImageRecord;
-import org.dachuang_team.dc_backend_services.pojo.sysImage;
-import org.dachuang_team.dc_backend_services.repository.productImageRecordRepository;
-import org.dachuang_team.dc_backend_services.repository.sysImageRepository;
+import org.dachuang_team.dc_backend_services.pojo.Dto.FileUploadResponseDTO;
+import org.dachuang_team.dc_backend_services.pojo.ProductImageRecord;
+import org.dachuang_team.dc_backend_services.pojo.SysImage;
+import org.dachuang_team.dc_backend_services.repository.ProductImageRecordRepository;
+import org.dachuang_team.dc_backend_services.repository.SysImageRepository;
 import org.dachuang_team.dc_backend_services.services.IStorageService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -30,20 +30,20 @@ public class ImageController {
     private IStorageService storageService;
 
     @Autowired
-    private productImageRecordRepository productImageRecordRepository;
+    private ProductImageRecordRepository productImageRecordRepository;
     @Autowired
-    private sysImageRepository sysImageRepository;
+    private SysImageRepository sysImageRepository;
 
     @PutMapping("/image/upload")
     @Transactional
-    public Result<fileUploadResponseDTO> uploadImg(@RequestParam("file") MultipartFile file) {
+    public Result<FileUploadResponseDTO> uploadImg(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) return Result.error(406, "文件不能为空", null);
 
         // 调用存储服务保存物理文件
         IStorageService.StorageResult result = storageService.upload(file);
 
         // 创建并保存图片记录信息
-        productImageRecord record = new productImageRecord();
+        ProductImageRecord record = new ProductImageRecord();
         record.setUrl(result.getUrl());
         record.setPhysicalPath(result.getPhysicalPath());
         record.setCreatedAt(LocalDateTime.now());
@@ -52,7 +52,7 @@ public class ImageController {
         productImageRecordRepository.save(record);
 
         // 构造并返回要求的 DTO
-        fileUploadResponseDTO response = new fileUploadResponseDTO();
+        FileUploadResponseDTO response = new FileUploadResponseDTO();
         response.setUrl(result.getUrl());
         response.setFileName(result.getFileName());
 
@@ -64,9 +64,9 @@ public class ImageController {
     @Transactional
     public Result<String> deleteImg(@RequestParam String url) {
         // 先删数据库记录，再删物理文件
-        Optional<productImageRecord> record = productImageRecordRepository.findByUrl(url);
+        Optional<ProductImageRecord> record = productImageRecordRepository.findByUrl(url);
         if (record.isEmpty()) return Result.error(404, "图片记录未找到");
-        productImageRecord productImageRecord = record.get();
+        ProductImageRecord productImageRecord = record.get();
         if (productImageRecord.getLinked()) return Result.error(400, "图片已绑定到商品，无法删除");
         storageService.delete(url);
         productImageRecordRepository.delete(productImageRecord);
@@ -75,7 +75,7 @@ public class ImageController {
 
     // 管理员接口，上传系统图片资源用于首页或其他区域展示
     @PutMapping("/sysImg/upload")
-    public Result<fileUploadResponseDTO> uploadSysImg(
+    public Result<FileUploadResponseDTO> uploadSysImg(
             @RequestParam("file") MultipartFile file,
             @RequestParam("purpose") String purpose) { //purpose参数定义见sysImage实体类注释
         if (file.isEmpty()) return Result.error(406, "文件不能为空", null);
@@ -83,13 +83,13 @@ public class ImageController {
 
         IStorageService.StorageResult result = storageService.upload(file);
 
-        sysImage record = new sysImage();
+        SysImage record = new SysImage();
         record.setImageUrl(result.getUrl());
         record.setPurpose(purpose);
         record.setImageName(result.getFileName());
         sysImageRepository.save(record);
 
-        fileUploadResponseDTO response = new fileUploadResponseDTO();
+        FileUploadResponseDTO response = new FileUploadResponseDTO();
         response.setUrl(result.getUrl());
         response.setFileName(result.getFileName());
 
@@ -101,7 +101,7 @@ public class ImageController {
     public Result<List<Map<String, Object>>> getSysImg(@RequestParam("purpose") String purpose) {
         if (purpose == null || purpose.isEmpty()) return Result.error(400, "用途参数不能为空");
 
-        List<sysImage> records = sysImageRepository.findByPurpose(purpose);
+        List<SysImage> records = sysImageRepository.findByPurpose(purpose);
         if (records.isEmpty()) return Result.error(404, "所属用途的图片未找到");
 
         List<Map<String, Object>> result = records.stream().map(record -> Map.<String, Object>of(

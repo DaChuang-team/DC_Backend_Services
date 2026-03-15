@@ -5,5 +5,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface hotelHomestayRepository extends JpaRepository<hotelHomestay, Long> {
+public interface HotelHomestayRepository extends JpaRepository<hotelHomestay, Long> {
 }

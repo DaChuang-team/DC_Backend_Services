@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "image_record")
-public class productImageRecord {
+public class ProductImageRecord {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

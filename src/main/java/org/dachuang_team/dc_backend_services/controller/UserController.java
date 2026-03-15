@@ -1,8 +1,8 @@
 package org.dachuang_team.dc_backend_services.controller;
 
 import org.dachuang_team.dc_backend_services.common.Result;
-import org.dachuang_team.dc_backend_services.pojo.Dto.userUpdateDTO;
-import org.dachuang_team.dc_backend_services.pojo.userGeneral;
+import org.dachuang_team.dc_backend_services.pojo.Dto.UserUpdateDTO;
+import org.dachuang_team.dc_backend_services.pojo.UserGeneral;
 import org.dachuang_team.dc_backend_services.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -43,7 +43,7 @@ public class UserController {
         try {
             String token = userService.authenticateUser(userDTO.getUserName(), userDTO.getUserPassword());
             if (token != null) { //如果身份验证成功，返回用户信息和 token
-                userGeneral user = userService.getUserByUserName(userDTO.getUserName());
+                UserGeneral user = userService.getUserByUserName(userDTO.getUserName());
                 Map<String, Object> responseBody = new HashMap<>();
                 responseBody.put("token", token);
                 responseBody.put("userName", user.getUserName());
@@ -68,7 +68,7 @@ public class UserController {
     }
 
     @PutMapping("/updateInfo")
-    public Result<Map<String, Object>> updateUserInfo(@RequestBody userUpdateDTO userUpdateDTO) {
+    public Result<Map<String, Object>> updateUserInfo(@RequestBody UserUpdateDTO userUpdateDTO) {
         try {
             // 1. 从安全上下文中获取 Filter 存入的 userId
             Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -77,7 +77,7 @@ public class UserController {
             userService.updateInfo(currentUserId, userUpdateDTO);
 
             // 3. 获取更新后的用户信息
-            userGeneral updatedUser = userService.getUserById(currentUserId);
+            UserGeneral updatedUser = userService.getUserById(currentUserId);
             Map<String, Object> responseBody = buildUserResponse(updatedUser);
 
             return Result.success("更新成功", responseBody);
@@ -99,7 +99,7 @@ public class UserController {
             userService.checkIn(currentUserId);
 
             // 获取最新积分返回给前端
-            userGeneral user = userService.getUserById(currentUserId);
+            UserGeneral user = userService.getUserById(currentUserId);
             return Result.success("签到成功，获得 10 积分", user.getPoints()); //message 中说明获得了多少积分，data 中返回最新的积分总数
 
         } catch (IllegalArgumentException e) {
@@ -114,7 +114,7 @@ public class UserController {
     public Result<Integer> getUserPoints() {
         try {
             Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-            userGeneral user = userService.getUserById(currentUserId);
+            UserGeneral user = userService.getUserById(currentUserId);
             return Result.success("获取积分成功", user.getPoints());
         } catch (IllegalArgumentException e) {
             return Result.error(402, e.getMessage());
@@ -131,7 +131,7 @@ public class UserController {
             if(currentUserId == null) {
                 return Result.error(401, "未认证");
             }
-            userGeneral user = userService.getUserById(currentUserId);
+            UserGeneral user = userService.getUserById(currentUserId);
             Map<String, Object> responseBody = buildUserResponse(user);
             return Result.success("获取用户信息成功", responseBody);
         } catch (IllegalArgumentException e) {
@@ -148,7 +148,7 @@ public class UserController {
     @GetMapping("/all")
     public Result<List<Map<String, Object>>> getAllUsers() {
         // 1. 获取所有用户列表
-        List<userGeneral> userList = userService.getAllUsers();
+        List<UserGeneral> userList = userService.getAllUsers();
         
         // 2. 准备返回的数据列表
         List<Map<String, Object>> resultList = new ArrayList<>();
@@ -156,7 +156,7 @@ public class UserController {
         // 定义日期格式：年-月-日
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
-        for (userGeneral user : userList) {
+        for (UserGeneral user : userList) {
             Map<String, Object> userMap = new HashMap<>();
             
             // 映射字段 (按照 Navicat 中的字段名 and 用户要求)
@@ -214,7 +214,7 @@ public class UserController {
     }
 
     // 辅助方法：构建用户信息的响应数据
-    private Map<String, Object> buildUserResponse(userGeneral user) {
+    private Map<String, Object> buildUserResponse(UserGeneral user) {
         Map<String, Object> map = new HashMap<>();
         map.put("userName", user.getUserName());
         map.put("userPhone", user.getUserPhone());
