@@ -3,6 +3,7 @@ package org.dachuang_team.dc_backend_services.pojo;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 @Entity
 @Table(name = "token_session")
@@ -14,6 +15,7 @@ public class TokenSession {
     private Long userId;    // 储存系统用户的id，包括管理员和普通用户
     private String token;
     private String userRole; // 记录身份，USER或ADMIN
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime expiredAt;
 
 

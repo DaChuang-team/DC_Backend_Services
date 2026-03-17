@@ -1,10 +1,13 @@
 package org.dachuang_team.dc_backend_services.services;
 
 import jakarta.transaction.Transactional;
+import org.dachuang_team.dc_backend_services.config.RedisConfig;
 import org.dachuang_team.dc_backend_services.pojo.UserCheckIn;
 import org.dachuang_team.dc_backend_services.pojo.UserGeneral;
 import org.dachuang_team.dc_backend_services.repository.UserCheckInRepository;
 import org.dachuang_team.dc_backend_services.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -29,6 +32,8 @@ public class UserService implements IUserService {
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
+    private static final Logger logger = LoggerFactory.getLogger(RedisConfig.class);
+
     // 注册用户
     @Override
     public void registerUser(UserDTO user) {
@@ -52,25 +57,41 @@ public class UserService implements IUserService {
     @Override
     @Transactional
     public String authenticateUser(String userName, String rawPassword) {
-        UserGeneral user = userRepository.findByUserName(userName);
+        try {
+            logger.info("开始验证用户登录，用户名: {}", userName);
 
-        // 基础校验
-        if (user == null || !passwordEncoder.matches(rawPassword, user.getUserPassword())) {
-            throw new IllegalArgumentException("用户名或密码错误");
+            UserGeneral user = userRepository.findByUserName(userName);
+
+            // 基础校验
+            if (user == null || !passwordEncoder.matches(rawPassword, user.getUserPassword())) {
+                logger.warn("用户名或密码错误: {}", userName);
+                throw new IllegalArgumentException("用户名或密码错误");
+            }
+
+            // 状态校验
+            if ("异常".equals(user.getUserStatus())) {
+                logger.warn("用户状态异常，禁止登录: {}", userName);
+                throw new IllegalArgumentException("该用户状态异常，禁止登录");
+            }
+
+            // 更新最后登录时间
+            LocalDateTime now = LocalDateTime.now();
+            user.setLastLoginAt(now);
+            userRepository.save(user);
+            logger.info("用户最后登录时间已更新: {}", now);
+
+            // 生成并存储Token
+            String token = authService.generateToken(user.getUserId(), "USER");
+            logger.info("Token 生成成功: {}", token);
+
+            return token;
+        } catch (IllegalArgumentException e) {
+            logger.error("登录失败: {}", e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            logger.error("服务器错误: {}", e.getMessage(), e);
+            throw new RuntimeException("登录时发生服务器错误");
         }
-
-        // 状态校验
-        if ("异常".equals(user.getUserStatus())) {
-            throw new IllegalArgumentException("该用户状态异常，禁止登录");
-        }
-
-        // 更新最后登录时间
-        LocalDateTime now = LocalDateTime.now();
-        user.setLastLoginAt(now);
-        userRepository.save(user);
-
-        // 生成并存储Token
-        return authService.generateToken(user.getUserId(),"USER");
     }
 
     @Override
