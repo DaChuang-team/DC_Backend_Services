@@ -67,7 +67,7 @@ public class AIController {
             );
 
             // 扣减用户积分
-            userService.deductPoints(currentUserId, modelPrice);
+            userService.deductPoints(currentUserId, modelPrice, "AI_INTERACTION");
             return ResponseEntity.ok(Result.success("操作成功", updatedPlan));
 
         } catch (Exception e) {

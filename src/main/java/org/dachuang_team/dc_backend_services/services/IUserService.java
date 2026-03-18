@@ -45,8 +45,9 @@ public interface IUserService {
      * 扣除用户积分
      * @param userId 用户唯一标识
      * @param pointsToDeduct 要扣除的积分数量
+     * @param reason 扣除积分的原因
      */
-    void deductPoints(Long userId, int pointsToDeduct);
+    void deductPoints(Long userId, int pointsToDeduct, String reason);
 
     /**
      * 用户登出

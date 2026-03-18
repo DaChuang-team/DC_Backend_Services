@@ -6,7 +6,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-@Configuration  //标记为配置类，Spring 启动时会加载并执行其中的 @Bean 方法
+@Configuration
 public class JacksonConfig {
 
     //  覆盖 Spring Boot 默认的 ObjectMapper 配置

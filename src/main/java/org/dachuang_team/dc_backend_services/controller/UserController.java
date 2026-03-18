@@ -2,7 +2,9 @@ package org.dachuang_team.dc_backend_services.controller;
 
 import org.dachuang_team.dc_backend_services.common.Result;
 import org.dachuang_team.dc_backend_services.pojo.Dto.UserUpdateDTO;
+import org.dachuang_team.dc_backend_services.pojo.PointsRecord;
 import org.dachuang_team.dc_backend_services.pojo.UserGeneral;
+import org.dachuang_team.dc_backend_services.services.PointsRecordService;
 import org.dachuang_team.dc_backend_services.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -23,6 +25,9 @@ public class UserController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private PointsRecordService pointsRecordService;
 
     // 用户注册
     @PostMapping("/register")
@@ -117,6 +122,20 @@ public class UserController {
             Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
             UserGeneral user = userService.getUserById(currentUserId);
             return Result.success("获取积分成功", user.getPoints());
+        } catch (IllegalArgumentException e) {
+            return Result.error(402, e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "服务器开小差了: " + e.getMessage());
+        }
+    }
+
+    //获取用户积分变动记录接口，只返回近30天的记录，按照时间从晚到早排序
+    @GetMapping("/points/records")
+    public Result<List<PointsRecord>> getUserPointsRecords() {
+        try {
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            List<PointsRecord> records = pointsRecordService.getPointsRecords(currentUserId);
+            return Result.success("获取积分记录成功", records);
         } catch (IllegalArgumentException e) {
             return Result.error(402, e.getMessage());
         } catch (Exception e) {

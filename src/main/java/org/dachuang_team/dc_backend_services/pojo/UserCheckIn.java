@@ -10,10 +10,13 @@ public class UserCheckIn {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column
     private Long userId;
 
+    @Column
     private LocalDateTime checkInTime;
 
+    @Column
     private Integer pointsEarned;
 
 

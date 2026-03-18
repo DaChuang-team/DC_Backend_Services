@@ -2,8 +2,11 @@ package org.dachuang_team.dc_backend_services.services;
 
 import jakarta.transaction.Transactional;
 import org.dachuang_team.dc_backend_services.config.RedisConfig;
+import org.dachuang_team.dc_backend_services.enumeration.PointsChangeReason;
+import org.dachuang_team.dc_backend_services.pojo.PointsRecord;
 import org.dachuang_team.dc_backend_services.pojo.UserCheckIn;
 import org.dachuang_team.dc_backend_services.pojo.UserGeneral;
+import org.dachuang_team.dc_backend_services.repository.PointsRecordRepository;
 import org.dachuang_team.dc_backend_services.repository.UserCheckInRepository;
 import org.dachuang_team.dc_backend_services.repository.UserRepository;
 import org.slf4j.Logger;
@@ -26,6 +29,9 @@ public class UserService implements IUserService {
 
     @Autowired
     private AuthService authService;
+
+    @Autowired
+    private PointsRecordService pointsRecordService;
 
     @Autowired
     private UserCheckInRepository checkInRepository;
@@ -194,12 +200,15 @@ public class UserService implements IUserService {
         user.setPoints(newPoints);
 
         userRepository.save(user); // 更新用户表
+
+        pointsRecordService.addPointsRecord(userId, 10, "CHECK_IN");
+
         return true;
     }
 
     // 扣除用户积分
     @Override
-    public void deductPoints(Long userId, int pointsToDeduct) {
+    public void deductPoints(Long userId, int pointsToDeduct, String reason) {
         // 查询用户
         UserGeneral user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
@@ -207,6 +216,10 @@ public class UserService implements IUserService {
         // 校验用户状态
         if ("异常".equals(user.getUserStatus())) {
             throw new IllegalArgumentException("该用户状态异常，AI功能受限");
+        }
+
+        if(!PointsChangeReason.isValidReason(reason)) {
+            throw new IllegalArgumentException("无效的积分变动原因: " + reason);
         }
 
         // 获取当前积分并校验
@@ -217,6 +230,7 @@ public class UserService implements IUserService {
 
         // 扣除积分并保存
         user.setPoints(currentPoints - pointsToDeduct);
+        pointsRecordService.addPointsRecord(userId, (pointsToDeduct)*(-1), reason);
         userRepository.save(user);
     }
 
