@@ -52,9 +52,10 @@ public class RedisConfig {
 
         try {
             connectionFactory.getConnection().ping();
-            logger.info("成功连接到 Redis 数据库");
+            logger.info("成功连接到Redis数据库");
         } catch (Exception e) {
-            logger.error("无法连接到 Redis 数据库: {}", e.getMessage());
+            logger.error("无法连接到Redis数据库: {}", e.getMessage());
+            throw new IllegalStateException("Redis 连接失败，无法启动应用程序", e);
         }
 
         return template;

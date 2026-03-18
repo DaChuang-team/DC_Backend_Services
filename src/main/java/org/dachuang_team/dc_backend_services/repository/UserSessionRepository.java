@@ -9,4 +9,6 @@ public interface UserSessionRepository extends JpaRepository<TokenSession, Long>
     Optional<TokenSession> findByToken(String token);
 
     void deleteByUserIdAndUserRole(Long id, String role);
+
+    Optional<TokenSession> findByUserIdAndUserRole(Long userId, String role);
 }
