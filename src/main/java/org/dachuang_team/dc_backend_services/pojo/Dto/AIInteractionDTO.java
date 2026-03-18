@@ -18,8 +18,13 @@ public class AIInteractionDTO {
      */
     public record ActivityStep(
             int dayIndex, // 第几天
+            List<MainAttraction> mainAttractions, // 主要景点列表,用于前端展示
             String explanation, // 游玩逻辑说明
             String output       // 具体活动内容
+    ) {}
+
+    public record MainAttraction(
+            String name      // 景点名称
     ) {}
 
     // 模型版本modelVersion暂定0为豆包1.6; 1为豆包1.8,后续可根据实际情况增加
@@ -27,6 +32,4 @@ public class AIInteractionDTO {
             int modelVersion,
             String content  // 仅包含请求内容
     ) {}
-
-
 }

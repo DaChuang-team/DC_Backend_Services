@@ -50,28 +50,38 @@ public class AIService implements IAIServices{
 
             //JSON Schema
             String schemaJson = """
-                {
-                  "type": "object",
-                  "properties": {
-                    "routeTheme": { "type": "string" },
-                    "experienceValue": { "type": "string" },
-                    "steps": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "dayIndex": { "type": "integer" },
-                          "explanation": { "type": "string" },
-                          "output": { "type": "string" }
-                        },
-                        "required": ["dayIndex", "explanation", "output"]
-                      }
-                    },
-                    "finalCultureSummary": { "type": "string" }
-                  },
-                  "required": ["routeTheme", "experienceValue", "steps", "finalCultureSummary"]
-                }
-                """;
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "routeTheme": { "type": "string" },
+                                    "experienceValue": { "type": "string" },
+                                    "steps": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "dayIndex": { "type": "integer" },
+                                          "mainAttractions": {
+                                            "type": "array",
+                                            "items": {
+                                              "type": "object",
+                                              "properties": {
+                                                "name": { "type": "string" }
+                                              },
+                                              "required": ["name"]
+                                            }
+                                          },
+                                          "explanation": { "type": "string" },
+                                          "output": { "type": "string" }
+                                        },
+                                        "required": ["dayIndex", "mainAttractions", "explanation", "output"]
+                                      }
+                                    },
+                                    "finalCultureSummary": { "type": "string" }
+                                  },
+                                  "required": ["routeTheme", "experienceValue", "steps", "finalCultureSummary"]
+                                }
+                                """;
             JsonNode schemaNode = mapper.readTree(schemaJson);
 
             //强制响应格式

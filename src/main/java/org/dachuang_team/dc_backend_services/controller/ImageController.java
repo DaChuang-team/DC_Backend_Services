@@ -2,6 +2,7 @@ package org.dachuang_team.dc_backend_services.controller;
 
 import jakarta.transaction.Transactional;
 import org.dachuang_team.dc_backend_services.common.Result;
+import org.dachuang_team.dc_backend_services.enumeration.SysImagePurpose;
 import org.dachuang_team.dc_backend_services.pojo.Dto.FileUploadResponseDTO;
 import org.dachuang_team.dc_backend_services.pojo.ProductImageRecord;
 import org.dachuang_team.dc_backend_services.pojo.SysImage;
@@ -81,9 +82,7 @@ public class ImageController {
         if (file.isEmpty()) return Result.error(406, "文件不能为空", null);
         if (!"ROLE_ADMIN".equals(getCurrentUserRole())) return Result.error(403, "权限不足");
         if(purpose == null || purpose.isEmpty()) return Result.error(400, "用途参数不能为空");
-        else if (!purpose.equals("MAIN_PAGE_BANNER") &&
-                 !purpose.equals("PRODUCT_PAGE_BANNER") &&
-                 !purpose.equals("USER_SYS_AVATAR")) return Result.error(400, "用途参数值无效");
+        if(SysImagePurpose.isValidPurpose(purpose)) return Result.error(400, "无效的用途参数");
 
         IStorageService.StorageResult result = storageService.upload(file);
 
