@@ -1,8 +1,13 @@
 package org.dachuang_team.dc_backend_services.services;
 
+import jakarta.transaction.Transactional;
+import org.dachuang_team.dc_backend_services.config.RedisConfig;
 import org.dachuang_team.dc_backend_services.pojo.Admin;
 import org.dachuang_team.dc_backend_services.pojo.Dto.AdminDTO;
+import org.dachuang_team.dc_backend_services.pojo.UserGeneral;
 import org.dachuang_team.dc_backend_services.repository.AdminRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -29,6 +34,12 @@ public class AdminService implements IAdminService {
 
     private static final String SUPER_ADMIN_INVITE_CODE = "$2a$10$ssaGpWklAl8Z1VtcMNc/mun.MwZA2QngfhhyNBDtfISe9zQRFL9CC";
     // 超级管理员静态邀请码：xczlAdminPro
+
+    private static final Logger logger = LoggerFactory.getLogger(RedisConfig.class);
+
+    @Autowired
+    // 生成并存储Token
+    AuthService authService;
 
     /**
      * 注册管理员逻辑
@@ -69,20 +80,36 @@ public class AdminService implements IAdminService {
      * 验证管理员登录逻辑
      */
     @Override
-    public boolean authenticateAdmin(String adminName, String rawPassword) {
-        // 1. 根据用户名查找管理员
-        Admin admin = adminRepository.findByAdminName(adminName);
-        
-        // 2. 如果管理员存在，并且加密后的密码匹配
-        if (admin != null && passwordEncoder.matches(rawPassword, admin.getAdminPassword())) {
-            // 3. 登录成功，更新最后登录时间
-            admin.setLastLogin(LocalDateTime.now());
-            adminRepository.save(admin); // 保存更新时间到数据库
-            return true;
+    @Transactional
+    public String authenticateAdmin(String adminName, String rawPassword) {
+        try{
+            // 1. 根据用户名查找管理员
+            Admin admin = adminRepository.findByAdminName(adminName);
+
+            // 基础校验
+            if (admin == null || !passwordEncoder.matches(rawPassword, admin.getAdminPassword())) {
+                logger.warn("用户名或密码错误: {}", adminName);
+                throw new IllegalArgumentException("用户名或密码错误");
+            }
+
+            // 更新最后登录时间
+            LocalDateTime now = LocalDateTime.now();
+            admin.setLastLogin(now);
+            adminRepository.save(admin);
+            logger.info("管理员最后登录时间已更新: {}", now);
+
+
+            String token = authService.generateToken(admin.getAdminId(), admin.getAdminRole());
+            logger.info("Token 生成成功: {}", token);
+
+            return token;
+        } catch (IllegalArgumentException e) {
+            logger.error("登录失败: {}", e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            logger.error("服务器错误: {}", e.getMessage(), e);
+            throw new RuntimeException("登录时发生服务器错误");
         }
-        
-        // 4. 验证失败
-        return false;
     }
 
     /**

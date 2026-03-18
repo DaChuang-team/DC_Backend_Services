@@ -2,7 +2,7 @@ package org.dachuang_team.dc_backend_services.controller;
 
 import org.dachuang_team.dc_backend_services.common.Result;
 import org.dachuang_team.dc_backend_services.pojo.Attraction;
-import org.dachuang_team.dc_backend_services.pojo.hotelHomestay;
+import org.dachuang_team.dc_backend_services.pojo.HotelHomestay;
 import org.dachuang_team.dc_backend_services.services.IAttractionService;
 import org.dachuang_team.dc_backend_services.repository.HotelHomestayRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,9 +36,9 @@ public class AttractionController {
     }
 
     @GetMapping("/hotels/all")
-    public Result<List<hotelHomestay>> getAllHotels() {
+    public Result<List<HotelHomestay>> getAllHotels() {
         try {
-            List<hotelHomestay> hotels = hotelHomestayRepository.findAll();
+            List<HotelHomestay> hotels = hotelHomestayRepository.findAll();
             return Result.success("获取酒店成功", hotels);
         } catch (Exception e) {
             return Result.error(500, "获取酒店失败: " + e.getMessage());

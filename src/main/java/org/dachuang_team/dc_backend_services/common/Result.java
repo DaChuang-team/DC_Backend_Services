@@ -1,55 +1,21 @@
 package org.dachuang_team.dc_backend_services.common;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 /**
  * 统一响应结构类
  * 用于规范所有接口的返回格式为 JSON
  * @param <T> 响应数据类型
  */
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
 public class Result<T> {
     private Integer code;    // 状态码 (如 200 为成功, 400/500 为失败)
     private String message;  // 提示信息
     private T data;          // 响应数据
-
-    /**
-     * 无参构造函数
-     */
-    public Result() {
-    }
-
-    /**
-     * 全参构造函数
-     */
-    public Result(Integer code, String message, T data) {
-        this.code = code;
-        this.message = message;
-        this.data = data;
-    }
-
-    // --- Getters and Setters ---
-
-    public Integer getCode() {
-        return code;
-    }
-
-    public void setCode(Integer code) {
-        this.code = code;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public void setMessage(String message) {
-        this.message = message;
-    }
-
-    public T getData() {
-        return data;
-    }
-
-    public void setData(T data) {
-        this.data = data;
-    }
 
     // --- 快捷方法 ---
 

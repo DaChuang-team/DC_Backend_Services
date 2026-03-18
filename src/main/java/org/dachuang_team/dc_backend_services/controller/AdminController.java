@@ -35,7 +35,6 @@ public class AdminController {
      */
     @PostMapping("/register")
     public Result<String> register(@RequestBody AdminDTO adminDTO) {
-        // System.out.println("****AC-TEST**** AdminDTO received: " + adminDTO.toString());
         try {
             // 调用服务层进行注册
             adminService.registerAdmin(adminDTO);
@@ -57,23 +56,27 @@ public class AdminController {
      */
     @PostMapping("/login")
     public Result<Map<String, Object>> login(@RequestBody AdminDTO adminDTO) {
-        // 1. 调用服务层验证用户名和密码
-        boolean isAuthenticated = adminService.authenticateAdmin(adminDTO.getAdminName(), adminDTO.getAdminPassword());
+        try{
+            // 1. 调用服务层验证用户名和密码
+            String token = adminService.authenticateAdmin(adminDTO.getAdminName(), adminDTO.getAdminPassword());
+            if (token != null) {
+                // 2. 验证成功，获取管理员详细信息
+                AdminDTO admin = adminService.getAdminByAdminName(adminDTO.getAdminName());
 
-        if (isAuthenticated) {
-            // 2. 验证成功，获取管理员详细信息
-            AdminDTO admin = adminService.getAdminByAdminName(adminDTO.getAdminName());
-
-            // 3. 构造返回给前端的数据
-            Map<String, Object> responseBody = new HashMap<>();
-            responseBody.put("adminName", admin.getAdminName());
-            responseBody.put("adminRole", admin.getAdminRole());
-
-            return Result.success("登录成功", responseBody);
-        } else {
-            // 4. 验证失败
-            return Result.error(401, "用户名或密码错误");
+                // 3. 构造返回给前端的数据
+                Map<String, Object> responseBody = new HashMap<>();
+                responseBody.put("token", token);
+                responseBody.put("adminName", admin.getAdminName());
+                responseBody.put("adminRole", admin.getAdminRole());
+                return Result.success("登录成功", responseBody);
+            }else {
+                // 4. 验证失败
+                return Result.error(401, "用户名或密码错误");
+            }
+        }catch (Exception e) {
+            return Result.error(500, "登录时发生服务器错误");
         }
+
     }
 
     /**

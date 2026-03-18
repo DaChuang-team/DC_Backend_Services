@@ -18,9 +18,9 @@ public interface IAdminService {
      * 验证管理员登录
      * @param adminName 用户名
      * @param rawPassword 原始密码
-     * @return 验证结果
+     * @return 生成的token
      */
-    boolean authenticateAdmin(String adminName, String rawPassword);
+    String authenticateAdmin(String adminName, String rawPassword);
 
     /**
      * 根据用户名获取管理员信息

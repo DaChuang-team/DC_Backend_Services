@@ -1,12 +1,13 @@
 package org.dachuang_team.dc_backend_services.repository;
 
+import org.apache.ibatis.annotations.Param;
 import org.dachuang_team.dc_backend_services.pojo.UserGeneral;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public interface UserRepository extends JpaRepository<UserGeneral, Long> {
-    UserGeneral findByUserName(String userName);
+    UserGeneral findByUserName(@Param("userName") String userName);
 
     boolean existsByUserPhone(String userPhone);
 
