@@ -48,6 +48,7 @@ public class UserController {
                 responseBody.put("token", token);
                 responseBody.put("userName", user.getUserName());
                 responseBody.put("userPhone", user.getUserPhone());
+                responseBody.put("userAvatarURL", user.getUserAvatarURL());
                 responseBody.put("userGender", user.getUserGender());
                 responseBody.put("userPermissions", user.getUserPermissions());
                 responseBody.put("userBirthday", user.getUserBirthday());

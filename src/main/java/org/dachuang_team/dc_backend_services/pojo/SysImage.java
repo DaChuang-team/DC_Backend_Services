@@ -17,7 +17,7 @@ public class SysImage {
     private String imageName;
 
     @Column(name = "purpose" , nullable = false, length = 25)
-    private String purpose; // MAIN_PAGE_BANNER, PRODUCT_PAGE_BANNER, USER_DEFAULT_AVATAR etc.
+    private String purpose; // MAIN_PAGE_BANNER, PRODUCT_PAGE_BANNER, USER_SYS_AVATAR etc.
 
     public Long getImageId() {
         return imageId;

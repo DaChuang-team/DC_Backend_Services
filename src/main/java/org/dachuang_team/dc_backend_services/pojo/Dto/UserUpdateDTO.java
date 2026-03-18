@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 
 public class UserUpdateDTO {
-    @JsonProperty("newName")//前端传入的新用户名,可选，用于验证的用户名通过Query参数传入
+    @JsonProperty("newName")//前端传入的新用户名
     private String userName;
     @JsonProperty("userPhone")
     private String userPhone;

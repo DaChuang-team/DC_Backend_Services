@@ -80,6 +80,10 @@ public class ImageController {
             @RequestParam("purpose") String purpose) { //purpose参数定义见sysImage实体类注释
         if (file.isEmpty()) return Result.error(406, "文件不能为空", null);
         if (!"ROLE_ADMIN".equals(getCurrentUserRole())) return Result.error(403, "权限不足");
+        if(purpose == null || purpose.isEmpty()) return Result.error(400, "用途参数不能为空");
+        else if (!purpose.equals("MAIN_PAGE_BANNER") &&
+                 !purpose.equals("PRODUCT_PAGE_BANNER") &&
+                 !purpose.equals("USER_SYS_AVATAR")) return Result.error(400, "用途参数值无效");
 
         IStorageService.StorageResult result = storageService.upload(file);
 
@@ -110,14 +114,6 @@ public class ImageController {
         )).toList();
 
         return Result.success("查询成功", result);
-    }
-
-    private Long getCurrentUserId() {
-        Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (currentUserId == null) {
-            throw new SecurityException("未认证");
-        }
-        return currentUserId;
     }
 
     private String getCurrentUserRole() {

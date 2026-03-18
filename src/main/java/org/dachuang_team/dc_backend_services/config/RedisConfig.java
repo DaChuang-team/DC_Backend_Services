@@ -39,7 +39,7 @@ public class RedisConfig {
         // 激活默认类型信息
         om.activateDefaultTyping(LaissezFaireSubTypeValidator.instance, ObjectMapper.DefaultTyping.NON_FINAL);
 
-        // 使用带参数的构造函数，将配置好的om传进去
+        // 使用带参数的构造函数，导入配置好的om
         GenericJackson2JsonRedisSerializer jacksonSerializer = new GenericJackson2JsonRedisSerializer(om);
 
         // 设置序列化方案
