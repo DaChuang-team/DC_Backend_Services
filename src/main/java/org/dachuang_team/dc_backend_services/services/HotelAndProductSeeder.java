@@ -52,30 +52,17 @@ public class HotelAndProductSeeder implements ApplicationRunner {
             items.add(makeHotel("花海驿站", "广州市从化区城郊街", 23.55, 113.58, 720.0, "https://example.com/images/hotel20.jpg", "13800138020", true));
             hotelHomestayRepository.saveAll(items);
         }
-        if (productRepository.count() == 0) {
-            List<Product> products = new ArrayList<>();
-            products.add(makeProduct("从化温泉一日游", 298.0, 1, "广州", "https://example.com/images/product1.jpg"));
-            products.add(makeProduct("增城白水寨登山体验", 188.0, 2, "广州", "https://example.com/images/product2.jpg"));
-            products.add(makeProduct("花都香草世界门票", 98.0, 3, "广州", "https://example.com/images/product3.jpg"));
-            products.add(makeProduct("南沙湿地公园观鸟之旅", 258.0, 4, "广州", "https://example.com/images/product4.jpg"));
-            products.add(makeProduct("沙湾古镇特色小吃套餐", 88.0, 5, "广州", "https://example.com/images/product5.jpg"));
-            products.add(makeProduct("溪头村徒步与农家菜", 158.0, 6, "广州", "https://example.com/images/product6.jpg"));
-            products.add(makeProduct("石门红叶节套票", 128.0, 7, "广州", "https://example.com/images/product7.jpg"));
-            products.add(makeProduct("宝墨园与南粤苑联票", 150.0, 8, "广州", "https://example.com/images/product8.jpg"));
-            products.add(makeProduct("黄埔古港文化体验", 118.0, 9, "广州", "https://example.com/images/product9.jpg"));
-            products.add(makeProduct("小洲村艺术创作体验", 388.0, 10, "广州", "https://example.com/images/product10.jpg"));
-            products.add(makeProduct("从化果场采摘", 168.0, 11, "广州", "https://example.com/images/product11.jpg"));
-            products.add(makeProduct("增城绿道单车骑行", 78.0, 12, "广州", "https://example.com/images/product12.jpg"));
-            products.add(makeProduct("帽峰山登高祈福", 68.0, 13, "广州", "https://example.com/images/product13.jpg"));
-            products.add(makeProduct("百万葵园家庭套票", 388.0, 14, "广州", "https://example.com/images/product14.jpg"));
-            products.add(makeProduct("大夫山烧烤套餐", 288.0, 15, "广州", "https://example.com/images/product15.jpg"));
-            products.add(makeProduct("莲花山祈福半日游", 198.0, 16, "广州", "https://example.com/images/product16.jpg"));
-            products.add(makeProduct("1978电影小镇复古写真", 588.0, 17, "广州", "https://example.com/images/product17.jpg"));
-            products.add(makeProduct("流溪河皮划艇体验", 328.0, 18, "广州", "https://example.com/images/product18.jpg"));
-            products.add(makeProduct("红山村油菜花摄影团", 488.0, 19, "广州", "https://example.com/images/product19.jpg"));
-            products.add(makeProduct("精品民宿两日一夜套餐", 998.0, 20, "广州", "https://example.com/images/product20.jpg"));
-            productRepository.saveAll(products);
-        }
+        productRepository.deleteAll();
+        List<Product> products = new ArrayList<>();
+        products.add(makeProduct("新会陈皮干", 68.0, 1, "江门", "https://example.com/images/agri1.jpg", 120));
+        products.add(makeProduct("从化荔枝干", 45.0, 1, "广州", "https://example.com/images/agri2.jpg", 200));
+        products.add(makeProduct("增城丝苗米", 32.0, 2, "广州", "https://example.com/images/agri3.jpg", 150));
+        products.add(makeProduct("怀集砂糖橘", 26.0, 2, "肇庆", "https://example.com/images/agri4.jpg", 180));
+        products.add(makeProduct("英德红茶", 88.0, 3, "清远", "https://example.com/images/agri5.jpg", 90));
+        products.add(makeProduct("湛江海鸭蛋", 58.0, 3, "湛江", "https://example.com/images/agri6.jpg", 140));
+        products.add(makeProduct("阳春豆豉", 22.0, 4, "阳江", "https://example.com/images/agri7.jpg", 160));
+        products.add(makeProduct("连州菜心", 18.0, 4, "清远", "https://example.com/images/agri8.jpg", 220));
+        productRepository.saveAll(products);
     }
 
     private HotelHomestay makeHotel(String name, String addr, double lat, double lon, double price, String img, String phone, boolean available) {
@@ -92,7 +79,7 @@ public class HotelAndProductSeeder implements ApplicationRunner {
         return h;
     }
 
-    private Product makeProduct(String name, double price, int category, String origin, String imageUrl) {
+    private Product makeProduct(String name, double price, int category, String origin, String imageUrl, int stock) {
         Product p = new Product();
         p.setProductName(name);
         p.setPrice(price);
@@ -100,6 +87,7 @@ public class HotelAndProductSeeder implements ApplicationRunner {
         p.setOrigin(origin);
         p.setImageUrl(imageUrl);
         p.setApproved(true);
+        p.setStock(stock);
         p.setPublishedAt(LocalDateTime.now());
         return p;
     }

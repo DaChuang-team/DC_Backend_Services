@@ -21,6 +21,9 @@ public class ProductDTO {
     @JsonProperty("imgUrl")
     private String imgUrl;
 
+    @JsonProperty("stock")
+    private Integer stock;
+
     public String getProductName() {
         return productName;
     }
@@ -67,5 +70,13 @@ public class ProductDTO {
 
     public void setImgUrl(String imgUrl) {
         this.imgUrl = imgUrl;
+    }
+
+    public Integer getStock() {
+        return stock;
+    }
+
+    public void setStock(Integer stock) {
+        this.stock = stock;
     }
 }

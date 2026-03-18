@@ -146,7 +146,7 @@ public class AdminController {
      * @param params 包含 targetAdminName, currentAdminName, currentAdminPassword，以JSON格式传递
      * @return 响应结果
      */
-    @DeleteMapping("/admindelete")
+    @PostMapping("/admindelete")
     public Result<String> deleteAdmin(@RequestBody Map<String, String> params) {
         String targetAdminName = params.get("targetAdminName");
         String currentAdminName = params.get("currentAdminName");

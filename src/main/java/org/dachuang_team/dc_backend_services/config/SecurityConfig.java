@@ -51,11 +51,12 @@ public class SecurityConfig {
                         .requestMatchers("/api/products/delete", "/api/products/update").authenticated()
 
                         .requestMatchers("/api/image/upload", "/api/image/purge").hasRole("USER")
-                        .requestMatchers("/api/sysImg/upload").hasRole("ADMIN")
+                        .requestMatchers("/api/sysImg/upload", "/api/users/all", "/api/users/delete").hasAnyRole("ADMIN","SUPER_ADMIN")
+
+                        .requestMatchers("/api/admins/admindelete").hasRole("SUPER_ADMIN")
 
                         // 测试/临时放行接口
-                        .requestMatchers("/api/users/all", "/api/users/delete").permitAll()
-                        .requestMatchers("/api/admins/all", "/api/admins/updateUserStatus", "/api/admins/admindelete").permitAll()
+                        .requestMatchers("/api/admins/all", "/api/admins/updateUserStatus").permitAll()
                         .requestMatchers("/api/attractions/**", "/api/hotels/**", "/api/images/**").permitAll()
 
                         // 默认

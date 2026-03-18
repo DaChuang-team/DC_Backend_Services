@@ -41,6 +41,9 @@ public class ProductService implements IProductService {
             product.setDescription(productDTO.getDescription());
             product.setseller(seller);
             product.setImageUrl(productDTO.getImgUrl());
+            if (productDTO.getStock() != null) {
+                product.setStock(productDTO.getStock());
+            }
             product.setPublishedAt(LocalDateTime.now());
             product.setLastModifiedAt(LocalDateTime.now());
 
@@ -116,6 +119,9 @@ public class ProductService implements IProductService {
         }
         if (productDTO.getDescription() != null && !productDTO.getDescription().isEmpty()) {
             existingProduct.setDescription(productDTO.getDescription());
+        }
+        if (productDTO.getStock() != null && productDTO.getStock() >= 0) {
+            existingProduct.setStock(productDTO.getStock());
         }
         existingProduct.setLastModifiedAt(LocalDateTime.now());
 

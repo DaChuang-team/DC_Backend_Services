@@ -17,6 +17,8 @@ public class Product {
     private String productName;
     @Column(nullable = false)
     private double price; //价格
+    @Column(name = "stock", nullable = false)
+    private Integer stock = 0;
     @Column(name = "category", nullable = false)
     private int category; //分类
     @Column(name = "origin", length = 30)
@@ -37,8 +39,9 @@ public class Product {
     @JoinColumn(name = "seller")
     private UserGeneral seller;
 
+    // 关联的商品订单项
     @OneToMany(mappedBy = "product")
-    private List<OrderItem> OrderItems; // 关联的订单项（也就是说谁买了这个商品）
+    private List<ProductOrderItem> OrderItems;
 
     // Getters and Setters
 
@@ -82,6 +85,14 @@ public class Product {
         this.category = category;
     }
 
+    public Integer getStock() {
+        return stock;
+    }
+
+    public void setStock(Integer stock) {
+        this.stock = stock;
+    }
+
     public String getOrigin() {
         return origin;
     }
@@ -114,11 +125,11 @@ public class Product {
         this.seller = seller;
     }
 
-    public List<OrderItem> getOrderItems() {
+    public List<ProductOrderItem> getOrderItems() {
         return OrderItems;
     }
 
-    public void setOrderItems(List<OrderItem> OrderItems) {
+    public void setOrderItems(List<ProductOrderItem> OrderItems) {
         this.OrderItems = OrderItems;
     }
 

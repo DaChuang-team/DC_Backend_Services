@@ -48,6 +48,7 @@ public class UserService implements IUserService {
         newUser.setUserPermissions(0);
         newUser.setCreateTime(now);
         newUser.setUserStatus("正常");
+        newUser.setPoints(0);
         //处理userGender：若DTO中为null，则设为'U'，否则设为JSON传入值
         newUser.setUserGender(user.getUserGender() != null ? user.getUserGender() : 'U');
         userRepository.save(newUser);

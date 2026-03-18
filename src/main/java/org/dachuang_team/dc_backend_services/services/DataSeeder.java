@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Random;
 
 @Component
-@Order(2) // Run after DataConsistencyRunner
+@Order(1) // Run after DataConsistencyRunner
 public class DataSeeder implements ApplicationRunner {
 
     private final AttractionRepository attractionRepository;

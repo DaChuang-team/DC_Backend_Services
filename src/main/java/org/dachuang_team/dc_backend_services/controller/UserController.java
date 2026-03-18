@@ -164,6 +164,7 @@ public class UserController {
             userMap.put("user_name", user.getUserName());
             userMap.put("user_phone", user.getUserPhone());
             userMap.put("user_gender", user.getUserGender());
+            userMap.put("points", user.getPoints());
             // 角色固定显示为 "普通用户"
             userMap.put("user_permissions", "普通用户");
             userMap.put("user_birthday", user.getUserBirthday());

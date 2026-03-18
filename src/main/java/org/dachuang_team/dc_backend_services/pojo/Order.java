@@ -42,6 +42,11 @@ public class Order {
     @JoinColumn(name = "user_id")
     private UserGeneral user;
 
+    // 商品订单项列表
     @OneToMany(mappedBy = "order")
-    private List<OrderItem> orderItems; // 关联的订单项
+    private List<ProductOrderItem> productOrderItems;
+
+    // 酒店订单项列表
+    @OneToMany(mappedBy = "order")
+    private List<HotelOrderItem> hotelOrderItems;
 }

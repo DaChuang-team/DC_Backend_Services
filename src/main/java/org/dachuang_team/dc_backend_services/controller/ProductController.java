@@ -127,6 +127,7 @@ public class ProductController {
             responseBody.put("description", newProduct.getDescription());
             responseBody.put("productId", newProduct.getProductId());
             responseBody.put("imageUrl", newProduct.getImageUrl());
+            responseBody.put("stock", newProduct.getStock());
 
             return Result.success("添加成功", responseBody);
         } catch (Exception e) {
@@ -279,6 +280,7 @@ public class ProductController {
             productMap.put("category", product.getCategory());
             productMap.put("approved", product.getApproved());
             productMap.put("imageUrl", product.getImageUrl());
+            productMap.put("stock", product.getStock());
 
             return productMap;
         }).toList();
@@ -304,6 +306,7 @@ public class ProductController {
         productDetails.put("lastModifiedAt", savedProduct.getLastModifiedAt());
         productDetails.put("imageUrl", savedProduct.getImageUrl());
         productDetails.put("description", savedProduct.getDescription());
+        productDetails.put("stock", savedProduct.getStock());
         productDetails.put("sellerId", currentUserId);
         return productDetails;
     }
