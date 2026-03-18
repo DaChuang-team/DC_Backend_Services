@@ -47,4 +47,11 @@ public interface IUserService {
      * @param pointsToDeduct 要扣除的积分数量
      */
     void deductPoints(Long userId, int pointsToDeduct);
+
+    /**
+     * 用户登出
+     * @param userId 用户唯一标识
+     * @return 是否登出成功
+     */
+    boolean logout(long userId);
 }

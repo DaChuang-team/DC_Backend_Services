@@ -220,6 +220,13 @@ public class UserService implements IUserService {
     }
 
     @Override
+    public boolean logout(long userId) {
+        authService.invalidateToken(userId, "USER");
+        return true;
+    }
+
+
+    @Override
     public boolean updateUserStatusByAdmin(String userName, String status) {
         UserGeneral user = userRepository.findByUserName(userName);
         if (user == null) {
