@@ -3,7 +3,7 @@ package org.dachuang_team.dc_backend_services.services;
 import jakarta.transaction.Transactional;
 import org.dachuang_team.dc_backend_services.pojo.HotelHomestay;
 import org.dachuang_team.dc_backend_services.pojo.Order;
-import org.dachuang_team.dc_backend_services.pojo.OrderItemType;
+import org.dachuang_team.dc_backend_services.enumeration.OrderItemType;
 import org.dachuang_team.dc_backend_services.pojo.ProductOrderItem;
 import org.dachuang_team.dc_backend_services.pojo.HotelOrderItem;
 import org.dachuang_team.dc_backend_services.pojo.Product;

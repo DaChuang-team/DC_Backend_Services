@@ -39,7 +39,7 @@ public class ProductService implements IProductService {
             product.setCategory(productDTO.getCategory());
             product.setOrigin(productDTO.getOrigin());
             product.setDescription(productDTO.getDescription());
-            product.setseller(seller);
+            product.setSeller(seller);
             product.setImageUrl(productDTO.getImgUrl());
             if (productDTO.getStock() != null) {
                 product.setStock(productDTO.getStock());
@@ -135,7 +135,7 @@ public class ProductService implements IProductService {
 
         // 权限校验，用户只能删除自己的商品，管理员可以删除所有商品
         if (Objects.equals(currentUserRole, "ROLE_USER")) {
-            if (!existingProduct.getseller().getUserId().equals(currentUserId)) {
+            if (!existingProduct.getSeller().getUserId().equals(currentUserId)) {
                 throw new SecurityException("权限不足：您只能删除自己的商品");
             }
         } else if (!Objects.equals(currentUserRole, "ROLE_ADMIN")) {

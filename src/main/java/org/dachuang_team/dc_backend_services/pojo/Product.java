@@ -117,11 +117,11 @@ public class Product {
         this.approved = approved;
     }
 
-    public UserGeneral getseller() {
+    public UserGeneral getSeller() {
         return seller;
     }
 
-    public void setseller(UserGeneral seller) {
+    public void setSeller(UserGeneral seller) {
         this.seller = seller;
     }
 
