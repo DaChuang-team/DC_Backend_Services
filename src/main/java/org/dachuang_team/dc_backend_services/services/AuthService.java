@@ -90,13 +90,18 @@ public class AuthService {
      * 主动使 Token 失效
      */
     @Transactional
-    public void invalidateToken(String token) {
-        String redisKey = TOKEN_SESSION_PREFIX + token;
+    public void invalidateToken(Long userId, String role) {
+        // 由于没有直接存储userId和role到Redis中，我们需要先查询数据库获取对应的token
+        Optional<TokenSession> sessionOptional = sessionRepository.findByUserIdAndUserRole(userId, role);
+        // 删除数据库中的TokenSession记录
+        sessionRepository.deleteByUserIdAndUserRole(userId, role);
 
-        // 删除Redis中的缓存
-        redisTemplate.delete(redisKey);
+        // 删除Redis中的TokenSession缓存
 
-        // 删除数据库中的记录
-        sessionRepository.findByToken(token).ifPresent(sessionRepository::delete);
+        sessionOptional.ifPresent(session -> {
+            String redisKey = TOKEN_SESSION_PREFIX + session.getToken();
+            redisTemplate.delete(redisKey);
+            logger.info("Token [{}] 已被主动失效", session.getToken());
+        });
     }
 }

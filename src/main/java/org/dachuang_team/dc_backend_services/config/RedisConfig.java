@@ -39,7 +39,7 @@ public class RedisConfig {
         // 激活默认类型信息
         om.activateDefaultTyping(LaissezFaireSubTypeValidator.instance, ObjectMapper.DefaultTyping.NON_FINAL);
 
-        // 使用带参数的构造函数，将配置好的om传进去
+        // 使用带参数的构造函数，导入配置好的om
         GenericJackson2JsonRedisSerializer jacksonSerializer = new GenericJackson2JsonRedisSerializer(om);
 
         // 设置序列化方案
@@ -52,9 +52,10 @@ public class RedisConfig {
 
         try {
             connectionFactory.getConnection().ping();
-            logger.info("成功连接到 Redis 数据库");
+            logger.info("成功连接到Redis数据库");
         } catch (Exception e) {
-            logger.error("无法连接到 Redis 数据库: {}", e.getMessage());
+            logger.error("无法连接到Redis数据库: {}", e.getMessage());
+            throw new IllegalStateException("Redis 连接失败，无法启动应用程序", e);
         }
 
         return template;

@@ -73,9 +73,9 @@ public class ProductService implements IProductService {
     @Override
     public Product updateProductFields(Product existingProduct, ProductDTO productDTO) {
         if (productDTO.getImgUrl() != null) { // 前端返回了imgUrl字段
-            if (productDTO.getImgUrl().isEmpty()) { // imgUrl为空字符串，解绑旧图片记录
-                String oldImageUrl = existingProduct.getImageUrl();
-                if (oldImageUrl != null && !oldImageUrl.isEmpty()) {
+            String oldImageUrl = existingProduct.getImageUrl();
+            if (productDTO.getImgUrl().isEmpty()) { // 但是imgUrl为空字符串，意味期望删除图片，需要只解绑旧图片记录
+                if (oldImageUrl != null && !oldImageUrl.isEmpty()) { // 只有当旧图片URL存在时才需要解绑
                     Optional<ProductImageRecord> oldRecord = productImageRecordRepository.findByUrl(oldImageUrl);
                     oldRecord.ifPresent(ProductImageRecord -> {
                         ProductImageRecord.setLinked(false);
@@ -83,9 +83,8 @@ public class ProductService implements IProductService {
                     });
                 }
                 existingProduct.setImageUrl(null); // 清空图片 URL
-            } else { // imgUrl不为空，绑定新图片记录
-                String oldImageUrl = existingProduct.getImageUrl();
-                if (oldImageUrl != null && !oldImageUrl.isEmpty()) {
+            } else { // imgUrl不为空，意味期望更新图片，需要解绑旧图片记录并绑定新图片记录
+                if (oldImageUrl != null && !oldImageUrl.isEmpty()) { // 只有当旧图片URL存在时才需要解绑
                     Optional<ProductImageRecord> oldRecord = productImageRecordRepository.findByUrl(oldImageUrl);
                     oldRecord.ifPresent(ProductImageRecord -> {
                         ProductImageRecord.setLinked(false);
@@ -93,14 +92,14 @@ public class ProductService implements IProductService {
                     });
                 }
                 Optional<ProductImageRecord> record = productImageRecordRepository.findByUrl(productDTO.getImgUrl());
-                if (record.isPresent()) {
+                if (record.isPresent()) { // 找到新图片记录，进行绑定
                     ProductImageRecord productImageRecord = record.get();
                     productImageRecord.setLinked(true);
                     productImageRecord.setProductId(existingProduct.getProductId());
                     productImageRecordRepository.save(productImageRecord);
                     existingProduct.setImageUrl(productDTO.getImgUrl());
                 } else {
-                    System.err.println("未找到图片记录，URL: " + productDTO.getImgUrl());
+                    System.err.println("未找到指定URL的图片记录，URL: " + productDTO.getImgUrl());
                 }
             }
         }

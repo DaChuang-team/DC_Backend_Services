@@ -48,6 +48,7 @@ public class UserController {
                 responseBody.put("token", token);
                 responseBody.put("userName", user.getUserName());
                 responseBody.put("userPhone", user.getUserPhone());
+                responseBody.put("userAvatarURL", user.getUserAvatarURL());
                 responseBody.put("userGender", user.getUserGender());
                 responseBody.put("userPermissions", user.getUserPermissions());
                 responseBody.put("userBirthday", user.getUserBirthday());
@@ -134,6 +135,26 @@ public class UserController {
             UserGeneral user = userService.getUserById(currentUserId);
             Map<String, Object> responseBody = buildUserResponse(user);
             return Result.success("获取用户信息成功", responseBody);
+        } catch (IllegalArgumentException e) {
+            return Result.error(402, e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "服务器开小差了: " + e.getMessage());
+        }
+    }
+
+    //用户退出登录，强制使当前token过期
+    @PostMapping("/logout")
+    public Result<String> userLogout() {
+        try {
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            if(currentUserId == null) {
+                return Result.error(401, "未认证，无法退出登录");
+            }
+            if (userService.logout(currentUserId)) {
+                return Result.success("退出登录成功", null);
+            } else {
+                return Result.error(400, "退出登录失败");
+            }
         } catch (IllegalArgumentException e) {
             return Result.error(402, e.getMessage());
         } catch (Exception e) {
