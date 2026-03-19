@@ -1,7 +1,7 @@
 package org.dachuang_team.dc_backend_services.services;
 
 import org.dachuang_team.dc_backend_services.pojo.Admin;
-import org.dachuang_team.dc_backend_services.pojo.UserGeneral;
+import org.dachuang_team.dc_backend_services.pojo.UserPO.UserGeneral;
 import org.dachuang_team.dc_backend_services.repository.AdminRepository;
 import org.dachuang_team.dc_backend_services.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;

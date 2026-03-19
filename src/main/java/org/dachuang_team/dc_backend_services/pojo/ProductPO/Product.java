@@ -1,6 +1,8 @@
-package org.dachuang_team.dc_backend_services.pojo;
+package org.dachuang_team.dc_backend_services.pojo.ProductPO;
 
 import jakarta.persistence.*;
+import org.dachuang_team.dc_backend_services.pojo.UserPO.UserGeneral;
+
 import java.time.LocalDateTime;
 import java.util.List;
 

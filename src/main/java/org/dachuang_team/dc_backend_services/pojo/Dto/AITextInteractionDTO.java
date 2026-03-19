@@ -1,7 +1,7 @@
 package org.dachuang_team.dc_backend_services.pojo.Dto;
 import java.util.List;
 
-public class AIInteractionDTO {
+public class AITextInteractionDTO {
     /**
      * 对应 Schema 中的顶级对象
      */

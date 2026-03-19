@@ -4,7 +4,6 @@ import jakarta.transaction.Transactional;
 import org.dachuang_team.dc_backend_services.config.RedisConfig;
 import org.dachuang_team.dc_backend_services.pojo.Admin;
 import org.dachuang_team.dc_backend_services.pojo.Dto.AdminDTO;
-import org.dachuang_team.dc_backend_services.pojo.UserGeneral;
 import org.dachuang_team.dc_backend_services.repository.AdminRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -1,4 +1,4 @@
-package org.dachuang_team.dc_backend_services.pojo;
+package org.dachuang_team.dc_backend_services.pojo.UserPO;
 
 import jakarta.persistence.*;
 
@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "points_record")
-public class PointsRecord {
+public class UserPointsRecord {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -21,7 +21,7 @@ public class PointsRecord {
     @Column
     private LocalDateTime changeTime; // 积分变动时间
 
-    public PointsRecord() {
+    public UserPointsRecord() {
     }
 
     public Long getId() {

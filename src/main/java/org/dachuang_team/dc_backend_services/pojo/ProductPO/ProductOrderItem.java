@@ -1,6 +1,7 @@
-package org.dachuang_team.dc_backend_services.pojo;
+package org.dachuang_team.dc_backend_services.pojo.ProductPO;
 
 import jakarta.persistence.*;
+import org.dachuang_team.dc_backend_services.pojo.Order;
 
 @Entity
 @Table(name = "product_order_item")

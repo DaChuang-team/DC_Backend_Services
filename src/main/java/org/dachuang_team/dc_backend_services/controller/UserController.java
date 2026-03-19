@@ -2,8 +2,8 @@ package org.dachuang_team.dc_backend_services.controller;
 
 import org.dachuang_team.dc_backend_services.common.Result;
 import org.dachuang_team.dc_backend_services.pojo.Dto.UserUpdateDTO;
-import org.dachuang_team.dc_backend_services.pojo.PointsRecord;
-import org.dachuang_team.dc_backend_services.pojo.UserGeneral;
+import org.dachuang_team.dc_backend_services.pojo.UserPO.UserPointsRecord;
+import org.dachuang_team.dc_backend_services.pojo.UserPO.UserGeneral;
 import org.dachuang_team.dc_backend_services.services.PointsRecordService;
 import org.dachuang_team.dc_backend_services.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -131,10 +131,10 @@ public class UserController {
 
     //获取用户积分变动记录接口，只返回近30天的记录，按照时间从晚到早排序
     @GetMapping("/points/records")
-    public Result<List<PointsRecord>> getUserPointsRecords() {
+    public Result<List<UserPointsRecord>> getUserPointsRecords() {
         try {
             Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-            List<PointsRecord> records = pointsRecordService.getPointsRecords(currentUserId);
+            List<UserPointsRecord> records = pointsRecordService.getPointsRecords(currentUserId);
             return Result.success("获取积分记录成功", records);
         } catch (IllegalArgumentException e) {
             return Result.error(402, e.getMessage());

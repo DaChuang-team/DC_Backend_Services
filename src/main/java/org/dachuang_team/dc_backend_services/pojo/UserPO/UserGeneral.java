@@ -1,4 +1,4 @@
-package org.dachuang_team.dc_backend_services.pojo;
+package org.dachuang_team.dc_backend_services.pojo.UserPO;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;

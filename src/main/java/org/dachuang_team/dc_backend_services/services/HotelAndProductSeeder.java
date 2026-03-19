@@ -1,7 +1,7 @@
 package org.dachuang_team.dc_backend_services.services;
 
 import org.dachuang_team.dc_backend_services.pojo.HotelHomestay;
-import org.dachuang_team.dc_backend_services.pojo.Product;
+import org.dachuang_team.dc_backend_services.pojo.ProductPO.Product;
 import org.dachuang_team.dc_backend_services.repository.HotelHomestayRepository;
 import org.dachuang_team.dc_backend_services.repository.ProductRepository;
 import org.springframework.boot.ApplicationArguments;

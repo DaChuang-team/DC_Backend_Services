@@ -4,8 +4,10 @@ import jakarta.transaction.Transactional;
 import org.dachuang_team.dc_backend_services.common.Result;
 import org.dachuang_team.dc_backend_services.enumeration.SysImagePurpose;
 import org.dachuang_team.dc_backend_services.pojo.Dto.FileUploadResponseDTO;
-import org.dachuang_team.dc_backend_services.pojo.ProductImageRecord;
-import org.dachuang_team.dc_backend_services.pojo.SysImage;
+import org.dachuang_team.dc_backend_services.pojo.ImgPO.AIInteractionImg;
+import org.dachuang_team.dc_backend_services.pojo.ProductPO.ProductImageRecord;
+import org.dachuang_team.dc_backend_services.pojo.ImgPO.SysImage;
+import org.dachuang_team.dc_backend_services.repository.AIInteractionImgRepository;
 import org.dachuang_team.dc_backend_services.repository.ProductImageRecordRepository;
 import org.dachuang_team.dc_backend_services.repository.SysImageRepository;
 import org.dachuang_team.dc_backend_services.services.IStorageService;
@@ -24,7 +26,7 @@ import java.util.Optional;
  * 处理与图片相关的HTTP请求
  */
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/image")
 public class ImageController {
 
     @Autowired
@@ -34,8 +36,10 @@ public class ImageController {
     private ProductImageRecordRepository productImageRecordRepository;
     @Autowired
     private SysImageRepository sysImageRepository;
+    @Autowired
+    private AIInteractionImgRepository aiInteractionImgRepository;
 
-    @PutMapping("/image/upload")
+    @PutMapping("/productImgUpload")
     @Transactional
     public Result<FileUploadResponseDTO> uploadImg(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) return Result.error(406, "文件不能为空", null);
@@ -60,8 +64,33 @@ public class ImageController {
         return Result.success("上传成功", response);
     }
 
-    //用户中途取消上传商品时，清理已上传但未绑定的图片记录和物理文件，不可用于修改商品时删除已绑定的图片
-    @DeleteMapping("/image/purge")
+    //上传用于AI交互的图片，记录上传用户和时间，供后续分析使用，不与商品绑定
+    @PutMapping("/AIInteractionImgUpload")
+    @Transactional
+    public Result<FileUploadResponseDTO> uploadAIInteractionImg(@RequestParam("file") MultipartFile file) {
+        if (file.isEmpty()) return Result.error(406, "文件不能为空", null);
+
+        Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+        // 调用存储服务保存物理文件
+        IStorageService.StorageResult result = storageService.upload(file);
+        AIInteractionImg record = new AIInteractionImg();
+        record.setImageUrl(result.getUrl());
+        record.setUploadTime(LocalDateTime.now());
+        record.setUploadUserId(currentUserId);
+
+        aiInteractionImgRepository.save(record);
+
+        // 构造并返回要求的DTO，前端通过传递url对AI发起图片交互请求
+        FileUploadResponseDTO response = new FileUploadResponseDTO();
+        response.setUrl(result.getUrl());
+        response.setFileName(result.getFileName());
+
+        return Result.success("上传成功", response);
+    }
+
+    //用户中途取消上传商品时，清理已上传但未绑定的图片记录和物理文件，不可用于修改商品时删除已绑定的图片.通过传入的URL找到对应记录，验证未绑定后删除记录和物理文件
+    @DeleteMapping("/uploadPurge")
     @Transactional
     public Result<String> deleteImg(@RequestParam String url) {
         // 先删数据库记录，再删物理文件
@@ -75,7 +104,7 @@ public class ImageController {
     }
 
     // 管理员接口，上传系统图片资源用于首页或其他区域展示
-    @PutMapping("/sysImg/upload")
+    @PutMapping("/sysImgUpload")
     public Result<FileUploadResponseDTO> uploadSysImg(
             @RequestParam("file") MultipartFile file,
             @RequestParam("purpose") String purpose) { //purpose参数定义见sysImage实体类注释
@@ -100,7 +129,7 @@ public class ImageController {
     }
 
     //用于获取系统图片资源URL，前端根据用途参数调用此接口获取对应图片URL进行展示
-    @GetMapping("/sysImg/get")
+    @GetMapping("/sysImgGet")
     public Result<List<Map<String, Object>>> getSysImg(@RequestParam("purpose") String purpose) {
         if (purpose == null || purpose.isEmpty()) return Result.error(400, "用途参数不能为空");
 

@@ -1,7 +1,7 @@
 package org.dachuang_team.dc_backend_services.services;
 
 import org.dachuang_team.dc_backend_services.enumeration.PointsChangeReason;
-import org.dachuang_team.dc_backend_services.pojo.PointsRecord;
+import org.dachuang_team.dc_backend_services.pojo.UserPO.UserPointsRecord;
 import org.dachuang_team.dc_backend_services.repository.PointsRecordRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -22,7 +22,7 @@ public class PointsRecordService implements IPointsRecordService {
             throw new IllegalArgumentException("无效的积分变动原因: " + reason);
         }
 
-        PointsRecord record = new PointsRecord();
+        UserPointsRecord record = new UserPointsRecord();
         record.setUserId(userId);
         record.setPointsChange(points);
         record.setReason(reason);
@@ -33,7 +33,7 @@ public class PointsRecordService implements IPointsRecordService {
     }
 
     @Override
-    public List<PointsRecord> getPointsRecords(Long userId) {
+    public List<UserPointsRecord> getPointsRecords(Long userId) {
         LocalDateTime thirtyDaysAgo = LocalDateTime.now().minusDays(30);
         return pointsRecordRepository.findByUserIdAndChangeTimeAfterOrderByChangeTimeDesc(userId, thirtyDaysAgo);
     }

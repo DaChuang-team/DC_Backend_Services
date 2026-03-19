@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.dachuang_team.dc_backend_services.pojo.ProductPO.ProductOrderItem;
+import org.dachuang_team.dc_backend_services.pojo.UserPO.UserGeneral;
 
 import java.time.LocalDateTime;
 import java.util.List;

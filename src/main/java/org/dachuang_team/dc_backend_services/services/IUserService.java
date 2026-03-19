@@ -1,7 +1,7 @@
 package org.dachuang_team.dc_backend_services.services;
 import org.dachuang_team.dc_backend_services.pojo.Dto.UserDTO;
 import org.dachuang_team.dc_backend_services.pojo.Dto.UserUpdateDTO;
-import org.dachuang_team.dc_backend_services.pojo.UserGeneral;
+import org.dachuang_team.dc_backend_services.pojo.UserPO.UserGeneral;
 
 import java.util.List;
 

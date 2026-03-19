@@ -38,20 +38,21 @@ public class SecurityConfig {
                         .requestMatchers("/api/users/register", "/api/users/login").permitAll()
                         .requestMatchers("/api/admins/register", "/api/admins/login").permitAll()
                         .requestMatchers("/api/products/approved", "/api/products/search").permitAll()
-                        .requestMatchers("/api/sysImg/get").permitAll()
+                        .requestMatchers("/api/image/sysImgGet").permitAll()
 
                         // 受保护接口
                         .requestMatchers("/api/users/updateInfo", "/api/users/checkIn", "/api/users/logout").hasRole("USER")
                         .requestMatchers("/api/users/info", "/api/users/points/**").authenticated()
+                        .requestMatchers("/api/users/all", "/api/users/delete").hasAnyRole("ADMIN","SUPER_ADMIN")
 
                         .requestMatchers("/api/ai/**").hasRole("USER")
 
-                        .requestMatchers("/products/currentUser", "/api/products/details").hasRole("USER")
+                        .requestMatchers("/api/products/currentUser", "/api/products/details").hasRole("USER")
                         .requestMatchers("/api/products/all", "/api/products/unApproved", "/api/products/approve", "/api/products/disApprove").hasRole("ADMIN")
                         .requestMatchers("/api/products/delete", "/api/products/update").authenticated()
 
-                        .requestMatchers("/api/image/upload", "/api/image/purge").hasRole("USER")
-                        .requestMatchers("/api/sysImg/upload", "/api/users/all", "/api/users/delete").hasAnyRole("ADMIN","SUPER_ADMIN")
+                        .requestMatchers("/api/image/productImgUpload", "/api/image/uploadPurge", "api/image/AIInteractionImgUpload").hasRole("USER")
+                        .requestMatchers("/api/image/sysImgUpload").hasAnyRole("ADMIN","SUPER_ADMIN")
 
                         .requestMatchers("/api/admins/admindelete").hasRole("SUPER_ADMIN")
 

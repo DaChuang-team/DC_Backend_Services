@@ -1,6 +1,7 @@
 package org.dachuang_team.dc_backend_services.controller;
 
-import org.dachuang_team.dc_backend_services.pojo.Dto.AIInteractionDTO;
+import org.dachuang_team.dc_backend_services.pojo.Dto.AIImgInteractionDTO;
+import org.dachuang_team.dc_backend_services.pojo.Dto.AITextInteractionDTO;
 import org.dachuang_team.dc_backend_services.services.AIService;
 import org.dachuang_team.dc_backend_services.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,9 +20,10 @@ public class AIController {
     @Autowired
     private UserService userService;
 
-    @PostMapping("/plan")
-    public ResponseEntity<Result<AIInteractionDTO.RuralTravelPlan>> getPlan(
-            @RequestBody AIInteractionDTO.UserPlanRequest request) {
+    //生成旅行计划接口
+    @GetMapping("/plan")
+    public ResponseEntity<Result<AITextInteractionDTO.RuralTravelPlan>> getPlan(
+            @RequestBody AITextInteractionDTO.UserPlanRequest request) {
 
         try {
             Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -57,8 +59,8 @@ public class AIController {
             };
 
             // 调用AI服务生成旅行计划
-            AIInteractionDTO.RuralTravelPlan plan = aiService.generateTravelPlan(request.content(), request.modelVersion());
-            AIInteractionDTO.RuralTravelPlan updatedPlan = new AIInteractionDTO.RuralTravelPlan(
+            AITextInteractionDTO.RuralTravelPlan plan = aiService.generateTravelPlan(request.content(), request.modelVersion());
+            AITextInteractionDTO.RuralTravelPlan updatedPlan = new AITextInteractionDTO.RuralTravelPlan(
                     plan.routeTheme(),
                     plan.experienceValue(),
                     plan.steps(),
@@ -70,6 +72,72 @@ public class AIController {
             userService.deductPoints(currentUserId, modelPrice, "AI_INTERACTION");
             return ResponseEntity.ok(Result.success("操作成功", updatedPlan));
 
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500)
+                    .body(Result.error(500, "服务器内部错误"));
+        }
+    }
+
+    //上传图片结合用户位置生成景点讲解接口
+    @GetMapping("/ImgRecognition")
+    public ResponseEntity<Result<AIImgInteractionDTO.ImageRecognitionResponse>> getImgRecognition(
+            @RequestBody AIImgInteractionDTO.ImageRecognitionRequest request) {
+
+        try {
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+            // 验证用户是否已认证
+            if (currentUserId == null) {
+                return ResponseEntity.status(401)
+                        .body(Result.error(401, "未认证"));
+            }
+
+            // 验证请求是否包含图片URL和位置信息
+            if (request.userLocation() == null || request.userLocation().isBlank()) {
+                return ResponseEntity.badRequest()
+                        .body(Result.error(400, "位置信息不能为空"));
+            }
+            if (request.imgUrl() == null || request.imgUrl().isBlank()) {
+                return ResponseEntity.badRequest()
+                        .body(Result.error(400, "图片URL不能为空"));
+            }
+
+            String fixedContent = request.content()==null || request.content().isBlank() ? "无" : request.content();
+
+            // 验证模型版本是否有效
+            if (request.modelVersion() < 0 || request.modelVersion() > 1) {
+                return ResponseEntity.badRequest()
+                        .body(Result.error(400, "无效的模型版本"));
+            }
+
+            String modelVersionInfo = switch (request.modelVersion()) {
+                case 0 -> "Doubao-Seed-1.6 251015";
+                case 1 -> "Doubao-Seed-1.8 251228";
+                default -> "Unknown Model Version";
+            };
+
+            int modelPrice = switch (request.modelVersion()) { //图片识别模型价格高于文本模型
+                case 0 -> 6;
+                case 1 -> 10;
+                default -> 0;
+            };
+
+            AIImgInteractionDTO.ImageRecognitionResponse response = aiService.getImageRecognition(
+                    fixedContent,
+                    request.modelVersion(),
+                    request.imgUrl(),
+                    request.userLocation()
+            );
+            AIImgInteractionDTO.ImageRecognitionResponse updatedResponse = new AIImgInteractionDTO.ImageRecognitionResponse(
+                    response.recognizedContent(),
+                    response.explanation(),
+                    modelVersionInfo
+            );
+
+
+            userService.deductPoints(currentUserId, modelPrice, "AI_INTERACTION");
+            return ResponseEntity.ok(Result.success("操作成功", updatedResponse));
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(500)
