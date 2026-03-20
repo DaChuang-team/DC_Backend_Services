@@ -7,4 +7,6 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface AISessionContextRepository extends JpaRepository<AISessionContext, Integer> {
     AISessionContext findByUserId(Long userId);
+
+    AISessionContext findByUserIdAndSessionId(Long userId, String sessionId);
 }

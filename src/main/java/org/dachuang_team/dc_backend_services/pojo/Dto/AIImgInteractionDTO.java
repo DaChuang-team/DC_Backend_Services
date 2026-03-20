@@ -1,6 +1,5 @@
 package org.dachuang_team.dc_backend_services.pojo.Dto;
 
-
 public class AIImgInteractionDTO {
 
     // 首次图像识别请求 (支持图片 + 初始指令)
@@ -11,20 +10,19 @@ public class AIImgInteractionDTO {
             int modelVersion
     ) {}
 
-
     //首次图像识别响应
-
     public record ImageRecognitionResponse(
             String recognizedResult,  // 识别出的内容
             String modelVersion,      // 使用的模型版本代号
-            String responseId         // 当前回合 ID，前端可保存用于后续追问
+            String responseId,        // 当前回合 ID，前端可保存用于后续追问
+            String sessionID          // 会话ID，前端需保存用于唯一标识一段对话
     ) {}
 
 
     // 后续追加对话请求 (纯文本)
-
     public record FollowUpRequest(
-            String content            // 用户后续追加的问题文本
+            String content,             // 用户后续追加的文本内容
+            String sessionID            // 会话ID，必须与当前对话一致，用于关联上下文
     ) {}
 
     // 后续追加对话响应 (纯文本)

@@ -307,7 +307,8 @@ public class AIService implements IAIServices{
                             .build())
                     .build());
 
-            long expireAt = Instant.now().getEpochSecond() + 259200;
+            // 当前时间戳 + 3天（259200秒），单位为秒。加1秒确保数据库中的过期时间比AI平台的稍晚，避免边界问题
+            long expireAt = Instant.now().getEpochSecond() + 259200 + 1;
 
             // 构造最终请求
             CreateResponsesRequest request = CreateResponsesRequest.builder()
@@ -315,7 +316,7 @@ public class AIService implements IAIServices{
                     .input(inputBuilder.build())
                     .caching(ResponsesCaching.builder().type("enabled").build())
                     .thinking(ResponsesThinking.builder().type(ResponsesConstants.THINKING_TYPE_DISABLED).build())
-                    .expireAt(expireAt) // 设置会话过期时间为3天后，单位为秒
+                    .expireAt(expireAt)
                     .store(true)
                     .build();
 
@@ -325,17 +326,16 @@ public class AIService implements IAIServices{
             // 解析
             String explanation = extractExplanationFromResponse(resp);
 
-            // 构建返回对象
-            AIImgInteractionDTO.ImageRecognitionResponse finalResponse = new AIImgInteractionDTO.ImageRecognitionResponse(
+            // 更新/持久化会话上下文
+            String sessionId = createSessionContext(userId, resp.getId(), endpointId);
+
+            // 返回结果对象
+            return new AIImgInteractionDTO.ImageRecognitionResponse(
                     explanation,
                     getModelVersionInfo(requestDTO.modelVersion()),
-                    resp.getId()
+                    resp.getId(),
+                    sessionId
             );
-
-            // 更新/持久化会话上下文
-            saveSessionContext(userId, resp.getId(), endpointId);
-
-            return finalResponse;
 
         } catch (Exception e) {
             throw new RuntimeException("AI 图像识别服务异常: " + e.getMessage(), e);
@@ -359,22 +359,49 @@ public class AIService implements IAIServices{
         };
     }
 
-    // 更新数据库中的AI上下文会话的必要信息，供后续追加对话使用
-    private void saveSessionContext(Long userId, String responseId, String endpointId) {
-        // 从数据库中查找上下文，如果不存在则创建一个新的上下文
-        AISessionContext context = contextRepository.findByUserId(userId);
-        if (context == null) {
-            context = new AISessionContext();
-            context.setUserId(userId);
-        }
+    // 图片识别接口调用成功后，持久化会话上下文，供后续追加对话使用
+    private String createSessionContext(Long userId, String responseId, String endpointId) {
+        AISessionContext context = new AISessionContext();
 
-        // 更新上下文信息
-        context.setLastResponseId(responseId);
+        // 生成唯一的会话ID，返回给前端，后续追问必须带上它
+        String newSessionId = generateUUID();
+
+        context.setUserId(userId);
+        context.setSessionId(newSessionId);
+        context.setLastResponseId(responseId); // 存储第一轮识别的 ID
         context.setModelEndpoint(endpointId);
         context.setLastResponseTime(LocalDateTime.now());
+        context.setExpireTime(LocalDateTime.now().plusDays(3)); // 对应 API 的 3 天有效期
 
-        // 保存上下文到数据库
         contextRepository.save(context);
+        return newSessionId; // 返回给 Service 层，最终返回给前端
+    }
+
+    // 追加对话时调用，更新会话上下文中的lastResponseId和lastResponseTime
+    private void updateSessionContext(Long userId, String sessionId, String newResponseId) {
+        // 根据userId和sessionId查找对应的会话上下文
+        AISessionContext context = contextRepository.findByUserIdAndSessionId(userId, sessionId);
+
+        if(context == null) {
+            throw new RuntimeException("会话不存在或已过期，请开启新对话");
+        }
+
+        // 检查是否过期
+        if (context.getExpireTime().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("会话已超过 3 天有效期，请开启新对话");
+        }
+
+        // 更新链条指针
+        context.setLastResponseId(newResponseId);
+        context.setLastResponseTime(LocalDateTime.now());
+        context.setExpireTime(LocalDateTime.now().plusDays(3));
+
+        contextRepository.save(context);
+    }
+
+    // 生成唯一标识会话的UUID
+    public String generateUUID() {
+        return java.util.UUID.randomUUID().toString();
     }
 
     private String extractExplanationFromResponse(ResponseObject resp) {

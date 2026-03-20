@@ -14,9 +14,12 @@ public class AISessionContext {
     @Column(unique = true)
     private Long userId;        // 关联系统用户 ID
 
+    private String sessionId; // 存储当前会话的唯一标识符
+
     private String lastResponseId; // 存储最近一次Responses API的ID
     private String modelEndpoint;  // 记录使用的终端节点，追问时不支持切换其他版本模型回答
     private LocalDateTime lastResponseTime; // 记录最近一次Responses API的时间戳
+    private LocalDateTime expireTime; // 上次交互时间超过3天则过期，清除上下文
 
     public String getLastResponseId() {
         return lastResponseId;
@@ -56,5 +59,21 @@ public class AISessionContext {
 
     public void setLastResponseTime(LocalDateTime lastResponseTime) {
         this.lastResponseTime = lastResponseTime;
+    }
+
+    public LocalDateTime getExpireTime() {
+        return expireTime;
+    }
+
+    public void setExpireTime(LocalDateTime expireTime) {
+        this.expireTime = expireTime;
+    }
+
+    public String getSessionId() {
+        return sessionId;
+    }
+
+    public void setSessionId(String sessionId) {
+        this.sessionId = sessionId;
     }
 }
