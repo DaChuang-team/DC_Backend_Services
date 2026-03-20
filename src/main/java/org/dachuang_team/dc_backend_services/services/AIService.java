@@ -3,17 +3,39 @@ package org.dachuang_team.dc_backend_services.services;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.volcengine.ark.runtime.model.completion.chat.*;
+import com.volcengine.ark.runtime.model.responses.common.ResponsesCaching;
+import com.volcengine.ark.runtime.model.responses.common.ResponsesThinking;
+import com.volcengine.ark.runtime.model.responses.constant.ResponsesConstants;
+import com.volcengine.ark.runtime.model.responses.content.InputContentItemImage;
+import com.volcengine.ark.runtime.model.responses.item.ItemEasyMessage;
+import com.volcengine.ark.runtime.model.responses.item.MessageContent;
+import com.volcengine.ark.runtime.model.responses.request.CreateResponsesRequest;
+import com.volcengine.ark.runtime.model.responses.request.ResponsesInput;
+import com.volcengine.ark.runtime.model.responses.response.ResponseObject;
+import com.volcengine.ark.runtime.model.responses.item.ItemOutputMessage;
+import com.volcengine.ark.runtime.model.responses.content.OutputContentItem;
+import com.volcengine.ark.runtime.model.responses.content.OutputContentItemText;
+
+import jakarta.transaction.Transactional;
 import okhttp3.Dispatcher;
 import okhttp3.ConnectionPool;
 import com.volcengine.ark.runtime.service.ArkService;
 import jakarta.annotation.PreDestroy;
+import org.dachuang_team.dc_backend_services.pojo.AISessionContext;
 import org.dachuang_team.dc_backend_services.pojo.Dto.AIImgInteractionDTO;
 import org.dachuang_team.dc_backend_services.pojo.Dto.AITextInteractionDTO;
+import org.dachuang_team.dc_backend_services.repository.AISessionContextRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -21,6 +43,11 @@ public class AIService implements IAIServices{
 
     private final ArkService arkService;
     private final ObjectMapper mapper;
+
+    private static final Logger log = LoggerFactory.getLogger(AIService.class);
+
+    @Autowired
+    private AISessionContextRepository contextRepository;
 
     public AIService(@Value("${volcengine.ark.api-key}") String apiKey, ObjectMapper mapper) {
         this.arkService = ArkService.builder()
@@ -94,12 +121,7 @@ public class AIService implements IAIServices{
                     )
             );
 
-            String endpointId = switch (modelVersion) {
-                case 0 -> "ep-20260202151315-zvslq"; //1.6
-                case 1 -> "ep-20260312135710-f8kfz"; //1.8
-                // 预留接口
-                default -> throw new IllegalArgumentException("Unsupported model version: " + modelVersion);
-            };
+            String endpointId = getEndPointId(modelVersion);
 
             //发起请求
             ChatCompletionRequest request = ChatCompletionRequest.builder()
@@ -125,6 +147,8 @@ public class AIService implements IAIServices{
     }
 
     @Override
+    @Deprecated
+    // 此接口仅供初始版本测试使用，目前已弃用。后续请使用recognizeImage方法，该方法支持上下文缓存和会话管理，更适合实际应用场景
     public AIImgInteractionDTO.ImageRecognitionResponse getImageRecognition(String query, int modelVersion, String imageUrl, String userLocation) {
         try {
             // 构造消息内容
@@ -135,29 +159,30 @@ public class AIService implements IAIServices{
                     .build());
             contentParts.add(ChatCompletionContentPart.builder()
                     .type("text")
-                    .text("你是一名经验丰富、专业且热情的现场旅游讲解员。\n" +
+                    .text("你是一名经验丰富、专业且热情的现场旅游讲解员，正在用真实、自然的口语为游客讲解。\n" +
                             "用户当前定位：" + userLocation + "\n" +
-                            "用户刚刚上传了一张图片，图片主体通常是某一公共建筑、景点、博物馆展品或艺术品。\n\n" +
+                            "用户刚刚上传了一张图片，你首先准确识别图片中最主要的主体（只关注最突出、最核心的那一个），然后结合用户的地理位置，撰写一篇完整、流畅、自然的口语讲解文案。\n\n" +
 
-                            "你的任务是：\n" +
-                            "首先准确识别图片中最主要的主体（只关注最突出、最核心的那一个），然后根据这个主体结合用户的地理位置撰写一篇完整但简洁的讲解文案。\n" +
+                            "讲解文案必须像真人导游在现场说话一样，连续、自然地说下去，不要出现任何编号或结构化格式。\n" +
+                            "它应该是一段连贯的讲话，主语不能省略，句子之间要自然衔接，使用口语化表达，比如‘您现在看到的这座……’、‘咱们来聊聊它的历史……’、‘特别有意思的是……’等，让人听起来舒服、亲切。\n\n" +
 
-                            "讲解文案必须包含以下结构，按顺序组织：\n" +
-                            "1. 主体介绍\n" +
-                            "名称、确切位置、类型（建筑/景点/展品/画作等）、结合图片可见细节的当前外观简述。\n\n" +
-                            "2. 历史沿革\n" +
-                            "从起源到现代的完整脉络：建造/创作/发现时间与背景、关键历史节点、重要事件、功能变迁、战争/损毁/修复经过、保护历程等。信息必须准确，如有争议请写“据主流史料记载”。\n\n" +
-                            "3. 文化艺术价值\n" +
-                            "风格流派、主要设计师/艺术家、象征意义、在当地/全球的地位与影响。\n\n" +
+                            "讲解内容一定要自然覆盖以下几个方面（但要融成一整段话，不要分点）：\n" +
+                            "- 先介绍主体的名字、确切位置、是什么类型（建筑/景点/展品/画作等），并结合图片里能看到的细节描述它的当前样子。\n" +
+                            "- 再详细讲它的历史沿革：从起源到现在的完整故事，包括建造或创作的背景、关键年代、重要历史事件、功能变迁、经历过的战争或修复等（信息必须准确，如有争议请说‘据主流史料记载’）。\n" +
+                            "- 接着讲它的文化和艺术价值：风格特点、主要设计师或艺术家、象征意义、在当地和世界上的地位。\n\n" +
 
                             "额外的用户需求：" + query + "\n" +
-                            "如果此项不为空，请优先响应用户具体要求（可调整以上结构或增加针对性内容）；若为空则忽略。\n\n" +
+                            "如果此项不为空，请优先自然融入上面的讲解中（可调整顺序或增加针对性内容）；若为空则忽略。\n\n" +
 
-                            "讲解风格要求：\n" +
-                            "- 生动有趣、专业但不枯燥，字数控制在 200字 \n" +
+                            "讲解风格与TTS要求（非常重要）：\n" +
+                            "- 用第一人称，像正在现场陪用户讲解一样亲切、自然、热情。\n" +
+                            "- 句子长度适中（每句15-25字左右），节奏感好，便于语音合成朗读。\n" +
+                            "- 避免书面语、列表、缩写、主语省略；多用连接词让前后自然过渡。\n" +
+                            "- 整体长度控制在200-300字左右（既完整又有故事感，听起来不累）。\n" +
+                            "- 最后用一句温暖的结束语收尾。\n\n" +
 
-                            "重要：如果主体实在无法辨认，请在 recognizedContent 写 '无法清晰识别'，并在 explanation 中礼貌说明原因并请求重新上传。\n\n"
-                            )
+                            "重要：如果主体实在无法清晰辨认，请在 recognizedResult 字段写 '无法清晰识别'，并在 explanation 中礼貌说明原因并请求用户重新上传图片或提供更多描述。"
+                    )
                     .build()
             );
 
@@ -173,10 +198,10 @@ public class AIService implements IAIServices{
                             {
                               "type": "object",
                               "properties": {
-                                "recognizedContent": { "type": "string" },
+                                "recognizedResult": { "type": "string" },
                                 "explanation": { "type": "string" }
                               },
-                              "required": ["recognizedContent", "explanation"]
+                              "required": ["recognizedResult", "explanation"]
                             }
                             """;
             JsonNode schemaNode = mapper.readTree(schemaJson);
@@ -193,11 +218,7 @@ public class AIService implements IAIServices{
             );
 
             // 模型版本映射
-            String endpointId = switch (modelVersion) {
-                case 0 -> "ep-20260202151315-zvslq"; //1.6
-                case 1 -> "ep-20260312135710-f8kfz"; //1.8
-                default -> throw new IllegalArgumentException("Unsupported model version: " + modelVersion);
-            };
+            String endpointId = getEndPointId(modelVersion);
 
             // 构造请求
             ChatCompletionRequest request = ChatCompletionRequest.builder()
@@ -227,5 +248,176 @@ public class AIService implements IAIServices{
         if (arkService != null) {
             arkService.shutdownExecutor();
         }
+    }
+
+    // 支持上下文缓存的图像识别接口，供前端新开启一个图像解析会话时调用，后续用户在同一会话中追加对话时可以使用返回的responseId进行上下文关联
+    @Transactional
+    @Override
+    public AIImgInteractionDTO.ImageRecognitionResponse recognizeImage(Long userId, AIImgInteractionDTO.ImageRecognitionRequest requestDTO) {
+        try {
+            // 获取模型对应的EndpointId
+            String endpointId = getEndPointId(requestDTO.modelVersion());
+
+            // 构建 ResponsesInput（多模态：先图片，后文本 prompt）
+            ResponsesInput.Builder inputBuilder = ResponsesInput.builder();
+
+            // 图片
+            inputBuilder.addListItem(ItemEasyMessage.builder()
+                    .role(ResponsesConstants.MESSAGE_ROLE_USER)
+                    .content(MessageContent.builder()
+                            .addListItem(InputContentItemImage.builder()
+                                    .imageUrl(requestDTO.imgUrl())
+                                    .build())
+                            .build())
+                    .build());
+
+            String query = requestDTO.content() != null ? requestDTO.content() : "";
+
+            // 完整的文本prompt
+            String fullPrompt = String.format(
+                            "你是一名经验丰富、专业且热情的现场旅游讲解员，正在用真实、自然的口语为游客讲解。\n" +
+                            "用户当前定位：" + requestDTO.userLocation() + "\n" +
+                            "用户刚刚上传了一张图片，你首先准确识别图片中最主要的主体（只关注最突出、最核心的那一个），然后结合用户的地理位置，撰写一篇完整、流畅、自然的口语讲解文案。\n\n" +
+
+                            "讲解文案必须像真人导游在现场说话一样，连续、自然地说下去，不要出现任何编号或结构化格式。\n" +
+                            "它应该是一段连贯的讲话，主语不能省略，句子之间要自然衔接，使用口语化表达，比如‘您现在看到的这座……’、‘咱们来聊聊它的历史……’、‘特别有意思的是……’等，让人听起来舒服、亲切。\n\n" +
+
+                            "讲解内容一定要自然覆盖以下几个方面（但要融成一整段话，不要分点）：\n" +
+                            "- 先介绍主体的名字、确切位置、是什么类型（建筑/景点/展品/画作等），并结合图片里能看到的细节描述它的当前样子。\n" +
+                            "- 再详细讲它的历史沿革：从起源到现在的完整故事，包括建造或创作的背景、关键年代、重要历史事件、功能变迁、经历过的战争或修复等（信息必须准确，如有争议请说‘据主流史料记载’）。\n" +
+                            "- 接着讲它的文化和艺术价值：风格特点、主要设计师或艺术家、象征意义、在当地和世界上的地位。\n\n" +
+
+                            "额外的用户需求：" + query + "\n" +
+                            "如果此项不为空，请优先自然融入上面的讲解中（可调整顺序或增加针对性内容）；若为空则忽略。\n\n" +
+
+                            "讲解风格与TTS要求（非常重要）：\n" +
+                            "- 用第一人称，像正在现场陪用户讲解一样亲切、自然、热情。\n" +
+                            "- 句子长度适中（每句15-25字左右），节奏感好，便于语音合成朗读。\n" +
+                            "- 避免书面语、列表、缩写、主语省略；多用连接词让前后自然过渡。\n" +
+                            "- 整体长度控制在200-300字左右（既完整又有故事感，听起来不累）。\n" +
+                            "- 最后用一句温暖的结束语收尾。\n\n" +
+
+                            "重要：如果主体实在无法清晰辨认，请直接在讲解文案中说明原因并请求用户重新上传图片或提供更多描述。"
+            );
+
+            inputBuilder.addListItem(ItemEasyMessage.builder()
+                    .role(ResponsesConstants.MESSAGE_ROLE_USER)
+                    .content(MessageContent.builder()
+                            .stringValue(fullPrompt)
+                            .build())
+                    .build());
+
+            long expireAt = Instant.now().getEpochSecond() + 259200;
+
+            // 构造最终请求
+            CreateResponsesRequest request = CreateResponsesRequest.builder()
+                    .model(endpointId)
+                    .input(inputBuilder.build())
+                    .caching(ResponsesCaching.builder().type("enabled").build())
+                    .thinking(ResponsesThinking.builder().type(ResponsesConstants.THINKING_TYPE_DISABLED).build())
+                    .expireAt(expireAt) // 设置会话过期时间为3天后，单位为秒
+                    .store(true)
+                    .build();
+
+            // 发起请求
+            ResponseObject resp = arkService.createResponse(request);
+
+            // 解析
+            String explanation = extractExplanationFromResponse(resp);
+
+            // 构建返回对象
+            AIImgInteractionDTO.ImageRecognitionResponse finalResponse = new AIImgInteractionDTO.ImageRecognitionResponse(
+                    explanation,
+                    getModelVersionInfo(requestDTO.modelVersion()),
+                    resp.getId()
+            );
+
+            // 更新/持久化会话上下文
+            saveSessionContext(userId, resp.getId(), endpointId);
+
+            return finalResponse;
+
+        } catch (Exception e) {
+            throw new RuntimeException("AI 图像识别服务异常: " + e.getMessage(), e);
+        }
+    }
+
+    // 根据模型版本选择对应的EndpointId
+    private String getEndPointId(int modelVersion) {
+        return switch (modelVersion) {
+            case 0 -> "ep-20260202151315-zvslq"; // 豆包1.6版本
+            case 1 -> "ep-20260312135710-f8kfz"; // 豆包1.8版本
+            default -> throw new IllegalArgumentException("未知的模型版本: " + modelVersion);
+        };
+    }
+
+    private String getModelVersionInfo(int modelVersion) {
+        return switch (modelVersion) {
+            case 0 -> "Doubao-Seed-1.6 251015";
+            case 1 -> "Doubao-Seed-1.8 251228";
+            default -> "UNKNOWN_MODEL";
+        };
+    }
+
+    // 更新数据库中的AI上下文会话的必要信息，供后续追加对话使用
+    private void saveSessionContext(Long userId, String responseId, String endpointId) {
+        // 从数据库中查找上下文，如果不存在则创建一个新的上下文
+        AISessionContext context = contextRepository.findByUserId(userId);
+        if (context == null) {
+            context = new AISessionContext();
+            context.setUserId(userId);
+        }
+
+        // 更新上下文信息
+        context.setLastResponseId(responseId);
+        context.setModelEndpoint(endpointId);
+        context.setLastResponseTime(LocalDateTime.now());
+
+        // 保存上下文到数据库
+        contextRepository.save(context);
+    }
+
+    private String extractExplanationFromResponse(ResponseObject resp) {
+        if (resp == null || resp.getOutput() == null || resp.getOutput().isEmpty()) {
+            log.warn("ResponseObject 输出为空或不存在");
+            return "";
+        }
+
+        StringBuilder fullText = new StringBuilder();
+
+        // output是List<ItemOutputMessage>
+        for (Object itemObj : resp.getOutput()) {
+            // 强转为SDK提供的 ItemOutputMessage 类型
+            if (itemObj instanceof ItemOutputMessage) {
+                ItemOutputMessage messageItem = (ItemOutputMessage) itemObj;
+
+                // 获取content列表
+                List<OutputContentItem> contentItems = messageItem.getContent();
+                if (contentItems == null || contentItems.isEmpty()) {
+                    continue;
+                }
+
+                // 遍历content，取出所有 output_text的text
+                for (OutputContentItem contentItem : contentItems) {
+                    if (contentItem instanceof OutputContentItemText) {
+                        OutputContentItemText textItem = (OutputContentItemText) contentItem;
+                        if ("output_text".equals(textItem.getType()) && textItem.getText() != null) {
+                            fullText.append(textItem.getText());
+                        }
+                    }
+                }
+            } else {
+                log.warn("output 中的项不是 ItemOutputMessage 类型: {}",
+                        itemObj != null ? itemObj.getClass().getName() : "null");
+            }
+        }
+
+        String result = fullText.toString().trim();
+
+        if (result.isEmpty()) {
+            log.warn("最终提取到的文本为空，原始 output: {}", resp.getOutput());
+        }
+
+        return result;
     }
 }

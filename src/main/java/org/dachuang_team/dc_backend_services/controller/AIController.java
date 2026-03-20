@@ -43,13 +43,13 @@ public class AIController {
             // 验证模型版本是否有效
             if (request.modelVersion() < 0 || request.modelVersion() > 1) {
                 return ResponseEntity.badRequest()
-                        .body(Result.error(400, "无效的模型版本"));
+                        .body(Result.error(400, "Unsupported model version" + request.modelVersion()));
             }
 
             String modelVersionInfo = switch (request.modelVersion()) {
                 case 0 -> "Doubao-Seed-1.6 251015";
                 case 1 -> "Doubao-Seed-1.8 251228";
-                default -> "Unknown Model Version";
+                default -> "UNKNOWN_MODEL";
             };
 
             int modelPrice = switch (request.modelVersion()) {
@@ -69,7 +69,7 @@ public class AIController {
             );
 
             // 扣减用户积分
-            userService.deductPoints(currentUserId, modelPrice, "AI_INTERACTION");
+            userService.deductPoints(currentUserId, modelPrice, "AI_ROUTINE_GENERATION");
             return ResponseEntity.ok(Result.success("操作成功", updatedPlan));
 
         } catch (Exception e) {
@@ -80,68 +80,41 @@ public class AIController {
     }
 
     //上传图片结合用户位置生成景点讲解接口
-    @GetMapping("/ImgRecognition")
+    @PostMapping("/ImgRecognition")
     public ResponseEntity<Result<AIImgInteractionDTO.ImageRecognitionResponse>> getImgRecognition(
             @RequestBody AIImgInteractionDTO.ImageRecognitionRequest request) {
-
         try {
             Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
-            // 验证用户是否已认证
             if (currentUserId == null) {
                 return ResponseEntity.status(401)
                         .body(Result.error(401, "未认证"));
             }
 
-            // 验证请求是否包含图片URL和位置信息
-            if (request.userLocation() == null || request.userLocation().isBlank()) {
-                return ResponseEntity.badRequest()
-                        .body(Result.error(400, "位置信息不能为空"));
-            }
-            if (request.imgUrl() == null || request.imgUrl().isBlank()) {
-                return ResponseEntity.badRequest()
-                        .body(Result.error(400, "图片URL不能为空"));
-            }
-
-            String fixedContent = request.content()==null || request.content().isBlank() ? "无" : request.content();
-
             // 验证模型版本是否有效
             if (request.modelVersion() < 0 || request.modelVersion() > 1) {
                 return ResponseEntity.badRequest()
-                        .body(Result.error(400, "无效的模型版本"));
+                        .body(Result.error(400, "Unsupported model version" + request.modelVersion()));
             }
 
-            String modelVersionInfo = switch (request.modelVersion()) {
-                case 0 -> "Doubao-Seed-1.6 251015";
-                case 1 -> "Doubao-Seed-1.8 251228";
-                default -> "Unknown Model Version";
-            };
-
-            int modelPrice = switch (request.modelVersion()) { //图片识别模型价格高于文本模型
+            int modelPrice = switch (request.modelVersion()) {
                 case 0 -> 6;
                 case 1 -> 10;
                 default -> 0;
             };
 
-            AIImgInteractionDTO.ImageRecognitionResponse response = aiService.getImageRecognition(
-                    fixedContent,
-                    request.modelVersion(),
-                    request.imgUrl(),
-                    request.userLocation()
-            );
-            AIImgInteractionDTO.ImageRecognitionResponse updatedResponse = new AIImgInteractionDTO.ImageRecognitionResponse(
-                    response.recognizedContent(),
-                    response.explanation(),
-                    modelVersionInfo
-            );
-
-
-            userService.deductPoints(currentUserId, modelPrice, "AI_INTERACTION");
-            return ResponseEntity.ok(Result.success("操作成功", updatedResponse));
+            AIImgInteractionDTO.ImageRecognitionResponse response = aiService.recognizeImage(currentUserId, request);
+            // 扣减用户积分
+            userService.deductPoints(currentUserId, modelPrice, "AI_IMAGE_RECOGNITION");
+            return ResponseEntity.ok(Result.success("操作成功", response));
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(500)
                     .body(Result.error(500, "服务器内部错误"));
         }
     }
+
+    // 后续追加对话接口，用户在首次图像识别后可以继续追问，提供纯文本问题，返回纯文本回答，支持多轮追问，前端通过传递previousResponseId来关联上下文
+    // @GetMapping("/continue-conv")
+
 }

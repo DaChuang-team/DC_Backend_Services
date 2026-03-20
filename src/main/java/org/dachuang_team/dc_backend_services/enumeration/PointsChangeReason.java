@@ -2,7 +2,10 @@ package org.dachuang_team.dc_backend_services.enumeration;
 
 public enum PointsChangeReason {
     CHECK_IN,
-    AI_INTERACTION,
+    AI_ROUTINE_GENERATION,
+    AI_CONVERSATION,
+    AI_IMAGE_RECOGNITION,
+    AD_REWARD,
     SYSTEM_CORRECTION;
 
     public static boolean isValidReason(String reason) {
