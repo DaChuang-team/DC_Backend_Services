@@ -3,6 +3,10 @@ package org.dachuang_team.dc_backend_services.services;
 import org.dachuang_team.dc_backend_services.pojo.Dto.AIImgInteractionDTO;
 import org.dachuang_team.dc_backend_services.pojo.Dto.AITextInteractionDTO;
 
+/**
+ * AI服务接口
+ * 提供AI相关的功能，生成旅行计划、图片识别
+ */
 public interface IAIServices {
     AITextInteractionDTO.RuralTravelPlan generateTravelPlan(String query, int modelVersion);
     AIImgInteractionDTO.ImageRecognitionResponse getImageRecognition(String query, int modelVersion, String imageUrl, String userLocation);
