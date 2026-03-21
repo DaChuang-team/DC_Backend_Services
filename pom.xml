@@ -105,6 +105,13 @@
             <version>2.15.2</version>
         </dependency>
 
+        <!-- 高德地图 API SDK -->
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>4.12.0</version>
+        </dependency>
+
     </dependencies>
 
     <build>

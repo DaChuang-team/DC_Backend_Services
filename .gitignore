@@ -32,3 +32,6 @@ build/
 ### VS Code ###
 .vscode/
 /uploadedImg/
+
+### instructions text ###
+GAODE_API_USAGE.md
