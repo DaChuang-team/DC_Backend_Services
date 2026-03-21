@@ -21,7 +21,7 @@ public class AIController {
     private UserService userService;
 
     //生成旅行计划接口
-    @GetMapping("/plan")
+    @PostMapping("/plan")
     public ResponseEntity<Result<AITextInteractionDTO.RuralTravelPlan>> getPlan(
             @RequestBody AITextInteractionDTO.UserPlanRequest request) {
 
@@ -114,7 +114,40 @@ public class AIController {
         }
     }
 
-    // 后续追加对话接口，用户在首次图像识别后可以继续追问，提供纯文本问题，返回纯文本回答，支持多轮追问，前端通过传递previousResponseId来关联上下文
-    // @GetMapping("/continue-conv")
+    // 后续追加对话接口，用户在首次图像识别后可以继续追问，提供纯文本问题，返回纯文本回答
+    // 支持多轮追问，前端通过传递previousResponseId 和 sessionID 来确定会话并关联上下文
+    @PostMapping("/continue-conv")
+    public ResponseEntity<Result<AIImgInteractionDTO.FollowUpResponse>> continueConv(
+            @RequestBody AIImgInteractionDTO.FollowUpRequest request){
+        try {
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+            if (currentUserId == null) {
+                return ResponseEntity.status(401)
+                        .body(Result.error(401, "未认证"));
+            }
+
+            if (request.content() == null || request.content().isBlank()) {
+                return ResponseEntity.badRequest()
+                        .body(Result.error(400, "请求内容不能为空"));
+            }
+
+            if(request.sessionID() == null || request.sessionID().isBlank()){
+                return ResponseEntity.badRequest()
+                        .body(Result.error(400, "会话ID不能为空"));
+            }
+
+            AIImgInteractionDTO.FollowUpResponse response = aiService.continueConversation(currentUserId, request);
+
+            // 追问价格固定为2分/条消息
+            userService.deductPoints(currentUserId, 2, "AI_CONVERSATION");
+            return ResponseEntity.ok(Result.success("操作成功", response));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500)
+                    .body(Result.error(500, "服务器内部错误"));
+        }
+
+    }
 
 }
