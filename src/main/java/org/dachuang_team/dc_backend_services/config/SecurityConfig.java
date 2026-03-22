@@ -49,6 +49,8 @@ public class SecurityConfig {
 
                         .requestMatchers("/api/gaode/**").hasRole("USER")
 
+                        .requestMatchers("/api/tts/**").hasRole("USER")
+
                         .requestMatchers("/api/products/currentUser", "/api/products/details").hasRole("USER")
                         .requestMatchers("/api/products/all", "/api/products/unApproved", "/api/products/approve", "/api/products/disApprove").hasRole("ADMIN")
                         .requestMatchers("/api/products/delete", "/api/products/update").authenticated()
