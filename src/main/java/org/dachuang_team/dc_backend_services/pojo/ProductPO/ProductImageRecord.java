@@ -18,6 +18,7 @@ public class ProductImageRecord {
     private Boolean isPrimary = false;     // 仅第0位为true
 
     private Integer sortOrder;             // 0~4
+    private Boolean processed = false;     // 图像处理标注，在预处理时为false，生成大图时更新为true
 
     private String thumbnailUrl;           // 缩略图url，仅首图有值（400×400）
 
@@ -91,5 +92,13 @@ public class ProductImageRecord {
 
     public void setThumbnailUrl(String thumbnailUrl) {
         this.thumbnailUrl = thumbnailUrl;
+    }
+
+    public Boolean getProcessed() {
+        return processed;
+    }
+
+    public void setProcessed(Boolean processed) {
+        this.processed = processed;
     }
 }

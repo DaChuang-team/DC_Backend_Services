@@ -323,6 +323,7 @@ public class ProductController {
         productDetails.put("origin", savedProduct.getOrigin());
         productDetails.put("approved", savedProduct.getApproved());
         productDetails.put("publishedAt", savedProduct.getPublishedAt());
+        productDetails.put("TbImageUrl", savedProduct.getTbImageUrl());
         productDetails.put("lastModifiedAt", savedProduct.getLastModifiedAt());
         productDetails.put("description", savedProduct.getDescription());
         productDetails.put("stock", savedProduct.getStock());

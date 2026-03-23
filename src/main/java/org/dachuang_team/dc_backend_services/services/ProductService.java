@@ -168,7 +168,8 @@ public class ProductService implements IProductService {
 
 
         // 按照前端传递的顺序绑定图片，并且第0位为首图（primary），后续位为非首图。
-        // 每个图片记录只要是新上传的（未 linked）或者需要重新加工的，就触发图像处理流水线，否则直接更新绑定状态以节省 CPU
+        // 按照processed字段和tumbnailUrl字段来判断是否需要处理（如果之前已经处理过了，就不重复处理了）。如果之前是未处理状态，或者之前是非首图现在变成首图了，都需要重新处理生成主图或缩略图
+        // 具体实现在ImageProcessUtils里
         for (int i = 0; i < imageIds.size(); i++) {
             Long recordId = imageIds.get(i);
             ProductImageRecord record = productImageRecordRepository.findById(recordId)
@@ -176,8 +177,6 @@ public class ProductService implements IProductService {
 
             boolean isPrimary = (i == 0);
 
-            // 只有当图片是新上传（未 linked）或者需要重新加工时才触发图像处理
-            // 如果是已经在 OSS 处理过的图（Linked 曾为 true），可以跳过加工以节省 CPU
             if (!Boolean.TRUE.equals(record.getLinked())) {
                 imageProcessUtils.processAndCompressImage(record, productId, i, isPrimary);
             }
@@ -192,14 +191,15 @@ public class ProductService implements IProductService {
         }
 
         // 同步更新商品主表（首图冗余）
-        syncProductMainImage(productId, imageIds.get(0));
+        syncProductMainTbImage(productId, imageIds.get(0));
     }
 
-    private void syncProductMainImage(Long productId, Long mainImageRecordId) {
+    private void syncProductMainTbImage(Long productId, Long mainImageRecordId) {
         ProductImageRecord mainRecord = productImageRecordRepository.findById(mainImageRecordId).get();
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new RuntimeException("商品未找到"));
 
+        // 首图冗余字段更新为当前首图的缩略图URL，此字段仅用加快前端列表展示。
         product.setTbImageUrl(mainRecord.getThumbnailUrl());
         productRepository.save(product);
     }

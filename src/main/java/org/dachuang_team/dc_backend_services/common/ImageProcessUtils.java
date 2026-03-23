@@ -11,10 +11,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.UUID;
 
 @Component
 public class ImageProcessUtils {
@@ -26,59 +28,79 @@ public class ImageProcessUtils {
 
     public void processAndCompressImage(ProductImageRecord record, Long productId, int index, boolean isPrimary) {
         try {
-            // 从OSS下载原始图
-            byte[] rawBytes = ossService.downloadByUrl(record.getUrl());
+            // 处理主图（只有未处理过的才裁剪+压缩+上传）
+            if (!Boolean.TRUE.equals(record.getProcessed())) {
+                // 从OSS下载原始图
+                byte[] rawBytes = ossService.downloadByUrl(record.getUrl());
 
-            // 中心裁剪并调整尺寸为 1000x1000 (正方形)
-            // Thumbnailator会自动根据Positions.CENTER裁掉多余的边
-            BufferedImage squareImage = Thumbnails.of(new ByteArrayInputStream(rawBytes))
-                    .sourceRegion(Positions.CENTER, 1000, 1000)
-                    .size(1000, 1000)
-                    .keepAspectRatio(false)
-                    .asBufferedImage();
+                // 先读取原始尺寸，计算最大正方形裁剪边长
+                BufferedImage original = ImageIO.read(new ByteArrayInputStream(rawBytes));
+                int cropSize = Math.min(original.getWidth(), original.getHeight());
 
-            // 动态压缩逻辑：确保文件大小在500KB~1000KB之间
-            float quality = 0.9f;
-            byte[] compressedBytes;
-            do {
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                Thumbnails.of(squareImage)
-                        .scale(1.0f)
-                        .outputFormat("jpg")
-                        .outputQuality(quality)
-                        .toOutputStream(baos);
-                compressedBytes = baos.toByteArray();
+                // 居中裁剪成正方形
+                BufferedImage squareImage = Thumbnails.of(original)
+                        .sourceRegion(Positions.CENTER, cropSize, cropSize)   // 取最短边居中裁剪
+                        .size(cropSize, cropSize)                             // 保持正方形
+                        .asBufferedImage();
 
-                // 如果文件还是太大（超过 1000KB），则降低 5% 质量继续尝试
-                quality -= 0.05f;
-            } while (compressedBytes.length > 1024 * 1024 && quality > 0.1f);
+                // 再缩放到 1000x1000
+                BufferedImage finalSquare = Thumbnails.of(squareImage)
+                        .size(1000, 1000)
+                        .asBufferedImage();
 
-            // 上传处理后的正式图
-            String fileName = String.format("products/%d/image_%d_%s.jpg",
-                    productId, index, java.util.UUID.randomUUID().toString().substring(0, 8));
-            String newUrl = ossService.uploadByByte(compressedBytes, fileName);
+                // 动态压缩到 500~1000KB
+                float quality = 0.9f;
+                byte[] compressedBytes;
+                do {
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                    Thumbnails.of(finalSquare)
+                            .scale(1.0f)
+                            .outputFormat("jpg")
+                            .outputQuality(quality)
+                            .toOutputStream(baos);
+                    compressedBytes = baos.toByteArray();
+                    quality -= 0.05f;
+                } while (compressedBytes.length > 1024 * 1024 && quality > 0.1f);
 
-            record.setUrl(newUrl);
-            record.setPhysicalPath(fileName);
+                // 上传正式大图
+                String fileName = String.format("products/%d/image_%d_%s.jpg",
+                        productId, index, UUID.randomUUID().toString().substring(0, 8));
+                String newUrl = ossService.uploadByByte(compressedBytes, fileName);
 
-            // 如果是首图则追加生成 400x400 缩略图
-            if (isPrimary) {
+                record.setUrl(newUrl);
+                record.setPhysicalPath(fileName);
+
+                // 标记为已处理
+                record.setProcessed(true);
+                logger.info("压缩裁剪了一张新图片");
+            }
+
+            // 处理缩略图（如果是首图且当前没有缩略图才生成，如果有缩略图可以直接复用，不再重复生成）
+            if (isPrimary && record.getThumbnailUrl() == null) {
+                // 用当前正式大图生成缩略图（不会拉伸）
+                byte[] mainBytes = ossService.downloadByUrl(record.getUrl());
+                BufferedImage mainImage = ImageIO.read(new ByteArrayInputStream(mainBytes));
+
                 ByteArrayOutputStream thumbOs = new ByteArrayOutputStream();
-                Thumbnails.of(squareImage)
-                        .size(400, 400)
+                Thumbnails.of(mainImage)
+                        .size(400, 400)          // 直接缩放到400x400
                         .outputFormat("jpg")
                         .outputQuality(0.8f)
                         .toOutputStream(thumbOs);
 
-                String thumbName = "products/" + productId + "/thumbnail.jpg";
-                String thumbUrl = ossService.uploadByByte(compressedBytes, thumbName);
+                String thumbName = String.format("products/%d/thumbnail_%s.jpg",
+                        productId, UUID.randomUUID().toString().substring(0, 8));
+                String thumbUrl = ossService.uploadByByte(thumbOs.toByteArray(), thumbName);
+
                 record.setThumbnailUrl(thumbUrl);
+                logger.info("生成了一张新缩略图");
             }
 
+            // 统一设置 productId（无论是否处理过主图）
             record.setProductId(productId);
 
         } catch (IOException e) {
-            logger.error("图片压缩处理失败: {}", e.getMessage());
+            logger.error("图片压缩处理失败: {}", e.getMessage(), e);
             throw new RuntimeException("图片处理流水线异常");
         }
     }
