@@ -17,7 +17,7 @@ public class LocalStorageService implements IStorageService {
     private String uploadPath;
 
     @Override
-    public StorageResult upload(MultipartFile file) {
+    public StorageResult uploadByFile(MultipartFile file) {
         String originalFilename = file.getOriginalFilename();
         String suffix = null;
         if (originalFilename != null) {
@@ -42,12 +42,40 @@ public class LocalStorageService implements IStorageService {
     }
 
     @Override
+    public String uploadByByte(byte[] fileBytes, String fileName) {
+        File targetDir = new File(uploadPath);
+        if (!targetDir.exists()) targetDir.mkdirs();
+
+        File dest = new File(targetDir, fileName);
+        try {
+            java.nio.file.Files.write(dest.toPath(), fileBytes);
+            return "/uploadedImg/" + fileName;
+        } catch (IOException e) {
+            throw new RuntimeException("文件上传至本地失败", e);
+        }
+    }
+
+    @Override
     public void delete(String url) {
         // 根据 URL 解析出文件名，结合 uploadPath 找到物理文件
         String fileName = url.substring(url.lastIndexOf("/") + 1);
         File file = new File(uploadPath, fileName);
         if (file.exists()) {
             file.delete();
+        }
+    }
+
+    @Override
+    public byte[] downloadByUrl(String url) {
+        String fileName = url.substring(url.lastIndexOf("/") + 1);
+        File file = new File(uploadPath, fileName);
+        if (!file.exists()) {
+            throw new RuntimeException("文件不存在");
+        }
+        try {
+            return java.nio.file.Files.readAllBytes(file.toPath());
+        } catch (IOException e) {
+            throw new RuntimeException("文件读取失败", e);
         }
     }
 }

@@ -15,7 +15,11 @@ public interface ProductImageRecordRepository extends JpaRepository<ProductImage
 
     Optional<ProductImageRecord> findByUrl(String url);
 
+    List<ProductImageRecord> findByProductId(Long productId);
+
     List<ProductImageRecord> findAllByCreatedAtBeforeAndIsLinkedFalse(LocalDateTime time);
+
+    List<ProductImageRecord> findByProductIdOrderBySortOrderAsc(Long productId);
 
     @Modifying
     @Transactional

@@ -3,7 +3,9 @@ package org.dachuang_team.dc_backend_services.controller;
 import org.dachuang_team.dc_backend_services.common.Result;
 import org.dachuang_team.dc_backend_services.pojo.Dto.ProductDTO;
 import org.dachuang_team.dc_backend_services.pojo.ProductPO.Product;
+import org.dachuang_team.dc_backend_services.pojo.ProductPO.ProductImageRecord;
 import org.dachuang_team.dc_backend_services.pojo.UserPO.UserGeneral;
+import org.dachuang_team.dc_backend_services.repository.ProductImageRecordRepository;
 import org.dachuang_team.dc_backend_services.repository.ProductRepository;
 import org.dachuang_team.dc_backend_services.repository.UserRepository;
 import org.dachuang_team.dc_backend_services.services.ProductService;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.data.domain.Pageable;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api")
@@ -29,13 +32,17 @@ public class ProductController {
     @Autowired
     private ProductService productService;
 
+    @Autowired
+    private ProductImageRecordRepository productImageRecordRepository;
+
     //返回所有已经审核通过的产品，分页返回
     @GetMapping("/products/approved")
     public Result<Map<String, Object>> getApprovedProducts(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
         try {
-            Pageable pageable = validateAndPreparePageable(page, size);
+            long totalItems = productRepository.countByApprovedTrue(); // 获取总记录数
+            Pageable pageable = validateAndPreparePageable(page, size, totalItems);
             Page<Product> productPage = productRepository.findByApprovedTrue(pageable);
 
             return getProductsMapResult(productPage);
@@ -51,8 +58,9 @@ public class ProductController {
             @RequestParam(defaultValue = "10") int size){
         try {
             Long currentUserId = getCurrentUserId();
-            Pageable pageable = validateAndPreparePageable(page, size);
-            Page<Product> productPage = productRepository.findByApprovedFalse(pageable);
+            long totalItems = productRepository.countByApprovedFalse(); // 获取总记录数
+            Pageable pageable = validateAndPreparePageable(page, size, totalItems);
+            Page<Product> productPage = productRepository.findByApprovedTrue(pageable);
 
             // 构建分页响应数据
             return getProductsMapResult(productPage);
@@ -68,7 +76,8 @@ public class ProductController {
             @RequestParam(defaultValue = "10") int size){
         try {
             Long currentUserId = getCurrentUserId();
-            Pageable pageable = validateAndPreparePageable(page, size);
+            long totalItems = productRepository.count(); // 获取总记录数
+            Pageable pageable = validateAndPreparePageable(page, size, totalItems);
             Page<Product> productPage = productRepository.findAll(pageable);
 
             return getProductsMapResult(productPage);
@@ -89,7 +98,9 @@ public class ProductController {
             UserGeneral seller = userRepository.findById(currentUserId)
                     .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
 
-            Pageable pageable = validateAndPreparePageable(page, size);
+            long totalItems = productRepository.countBySeller(seller); // 获取总记录数
+
+            Pageable pageable = validateAndPreparePageable(page, size, totalItems);
 
             // 查询与该User_General关联的产品
             Page<Product> productPage = productRepository.findBySeller(seller, pageable);
@@ -118,6 +129,9 @@ public class ProductController {
             if (productDTO.getPrice() < 0) {
                 return Result.error(400, "价格不能为负数");
             }
+            if(productDTO.getStock() < 0){
+                return Result.error(400, "库存不能为负数");
+            }
             Product newProduct =  productService.addProduct(productDTO, currentUserId);
             Map<String, Object> responseBody = new HashMap<>();
             responseBody.put("productName", newProduct.getProductName());
@@ -126,7 +140,7 @@ public class ProductController {
             responseBody.put("origin", newProduct.getOrigin());
             responseBody.put("description", newProduct.getDescription());
             responseBody.put("productId", newProduct.getProductId());
-            responseBody.put("imageUrl", newProduct.getImageUrl());
+            responseBody.put("TbImageUrl", newProduct.getTbImageUrl()); // 缩略图URL
             responseBody.put("stock", newProduct.getStock());
 
             return Result.success("添加成功", responseBody);
@@ -170,7 +184,7 @@ public class ProductController {
     }
 
 
-
+    // 管理员接口，使编号为id的商品审核通过
     @PostMapping("/products/approve")
     public Result<Product> approveProduct(@RequestParam Long Pid) {
         try {
@@ -188,6 +202,7 @@ public class ProductController {
         }
     }
 
+    // 管理员接口，封禁）编号为id的商品
     @PostMapping("/products/disApprove")
     public Result<Product> disApproveProduct(@RequestParam Long Pid) {
         try {
@@ -204,6 +219,7 @@ public class ProductController {
             return Result.error(500, "审核状态设置失败: " + e.getMessage());
         }
     }
+
 
     //通过传入商品id返回商品的详细信息
     @GetMapping("/products/details")
@@ -228,7 +244,11 @@ public class ProductController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
         try {
-            Pageable pageable = validateAndPreparePageable(page, size);
+            // 获取符合条件的总记录数
+            long totalItems = productRepository.countByProductNameContainingIgnoreCase(keyword);
+
+            Pageable pageable = validateAndPreparePageable(page, size, totalItems);
+
             Page<Product> productPage = productRepository.findByProductNameContainingIgnoreCase(keyword, pageable);
 
             return getProductsMapResult(productPage);
@@ -278,9 +298,7 @@ public class ProductController {
             productMap.put("productName", product.getProductName());
             productMap.put("price", product.getPrice());
             productMap.put("category", product.getCategory());
-            productMap.put("approved", product.getApproved());
-            productMap.put("imageUrl", product.getImageUrl());
-            productMap.put("stock", product.getStock());
+            productMap.put("TbImageUrl", product.getTbImageUrl()); // 首图缩略图URL
 
             return productMap;
         }).toList();
@@ -295,7 +313,9 @@ public class ProductController {
 
     // 构建单个商品的详细信息返回体
     private Map<String, Object> getProductDetails(Long currentUserId, Product savedProduct) {
+
         Map<String, Object> productDetails = new HashMap<>();
+
         productDetails.put("productId", savedProduct.getProductId());
         productDetails.put("productName", savedProduct.getProductName());
         productDetails.put("price", savedProduct.getPrice());
@@ -304,21 +324,43 @@ public class ProductController {
         productDetails.put("approved", savedProduct.getApproved());
         productDetails.put("publishedAt", savedProduct.getPublishedAt());
         productDetails.put("lastModifiedAt", savedProduct.getLastModifiedAt());
-        productDetails.put("imageUrl", savedProduct.getImageUrl());
         productDetails.put("description", savedProduct.getDescription());
         productDetails.put("stock", savedProduct.getStock());
         productDetails.put("sellerId", currentUserId);
+
+        // 获取productId
+        Long productId = savedProduct.getProductId();
+
+        // 按sortOrder排序查询
+        List<ProductImageRecord> images =
+                productImageRecordRepository.findByProductIdOrderBySortOrderAsc(productId);
+
+        // 组装返回（id + order + url）
+        List<Map<String, Object>> imageList = images.stream().map(img -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", img.getId());
+            map.put("order", img.getSortOrder());
+            map.put("url", img.getUrl());
+            return map;
+        }).collect(Collectors.toList());
+
+        productDetails.put("images", imageList);
+
         return productDetails;
     }
 
-    private Pageable validateAndPreparePageable(int page, int size) {
+    private Pageable validateAndPreparePageable(int page, int size, long totalItems) {
         // 验证页码和大小参数
         if (page < 1 || size < 1 || size > 100) {
             throw new IllegalArgumentException("非法的页码和页大小");
         }
 
-        // 将页码从1开始调整为从0开始
-        int adjustedPage = Math.max(page - 1, 0);
+        // 计算总页数
+        int totalPages = (int) Math.ceil((double) totalItems / size);
+
+        // 如果页码大于总页数，调整为最后一页
+        int adjustedPage = Math.min(page - 1, Math.max(totalPages - 1, 0));
+
         return PageRequest.of(adjustedPage, size);
     }
 }

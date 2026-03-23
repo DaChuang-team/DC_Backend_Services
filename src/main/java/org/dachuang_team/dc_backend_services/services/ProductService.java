@@ -1,5 +1,7 @@
 package org.dachuang_team.dc_backend_services.services;
 
+import jakarta.transaction.Transactional;
+import org.dachuang_team.dc_backend_services.common.ImageProcessUtils;
 import org.dachuang_team.dc_backend_services.pojo.Dto.ProductDTO;
 import org.dachuang_team.dc_backend_services.pojo.ProductPO.ProductImageRecord;
 import org.dachuang_team.dc_backend_services.pojo.ProductPO.Product;
@@ -11,8 +13,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 @Service
 public class ProductService implements IProductService {
@@ -26,11 +28,17 @@ public class ProductService implements IProductService {
     @Autowired
     private ProductImageRecordRepository productImageRecordRepository;
 
+    @Autowired
+    private OssStorageService ossService;
+
+    @Autowired
+    private ImageProcessUtils imageProcessUtils;
+
     @Override
     public Product addProduct(ProductDTO productDTO, Long userId) {
         try {
-            UserGeneral seller = userRepository.findById(userId).orElseThrow(()
-                    -> new IllegalArgumentException("用户ID: " + userId + " 不存在"));
+            UserGeneral seller = userRepository.findById(userId)
+                    .orElseThrow(() -> new IllegalArgumentException("用户ID: " + userId + " 不存在"));
 
             // 创建商品对象
             Product product = new Product();
@@ -40,119 +48,159 @@ public class ProductService implements IProductService {
             product.setOrigin(productDTO.getOrigin());
             product.setDescription(productDTO.getDescription());
             product.setSeller(seller);
-            product.setImageUrl(productDTO.getImgUrl());
-            if (productDTO.getStock() != null) {
-                product.setStock(productDTO.getStock());
-            }
+            product.setStock(productDTO.getStock() != null ? productDTO.getStock() : 0);
             product.setPublishedAt(LocalDateTime.now());
             product.setLastModifiedAt(LocalDateTime.now());
 
-            // 保存商品以生成ID
+            // 先保存商品，拿到 productId
             product = productRepository.save(product);
 
-            // 如果图片URL不为空，尝试关联图片记录
-            if (productDTO.getImgUrl() != null && !productDTO.getImgUrl().isEmpty()) {
-                Optional<ProductImageRecord> record = productImageRecordRepository.findByUrl(productDTO.getImgUrl());
-                if (record.isPresent()) {
-                    ProductImageRecord productImageRecord = record.get();
-                    productImageRecord.setLinked(true);
-                    productImageRecord.setProductId(product.getProductId()); // 绑定商品ID
-                    productImageRecordRepository.save(productImageRecord);
-                } else {
-                    System.err.println("未找到图片记录，URL: " + productDTO.getImgUrl());
-                }
+            // 处理图片列表（如果有）
+            if (productDTO.getImageIds() != null && !productDTO.getImageIds().isEmpty()) {
+                bindAndProcessImages(product.getProductId(), productDTO.getImageIds());
             }
 
             return product;
         } catch (Exception e) {
             System.err.println("添加产品时发生错误: " + e.getMessage());
-            return null;
+            throw e;
         }
     }
 
     @Override
+    @Transactional(rollbackOn = Exception.class)
     public Product updateProductFields(Product existingProduct, ProductDTO productDTO) {
-        if (productDTO.getImgUrl() != null) { // 前端返回了imgUrl字段
-            String oldImageUrl = existingProduct.getImageUrl();
-            if (productDTO.getImgUrl().isEmpty()) { // 但是imgUrl为空字符串，意味期望删除图片，需要只解绑旧图片记录
-                if (oldImageUrl != null && !oldImageUrl.isEmpty()) { // 只有当旧图片URL存在时才需要解绑
-                    Optional<ProductImageRecord> oldRecord = productImageRecordRepository.findByUrl(oldImageUrl);
-                    oldRecord.ifPresent(ProductImageRecord -> {
-                        ProductImageRecord.setLinked(false);
-                        productImageRecordRepository.save(ProductImageRecord);
-                    });
+        try {
+            // 更新基本字段
+            if (productDTO.getProductName() != null && !productDTO.getProductName().isEmpty()) {
+                existingProduct.setProductName(productDTO.getProductName());
+            }
+            if (productDTO.getPrice() != null && productDTO.getPrice() > 0) {
+                existingProduct.setPrice(productDTO.getPrice());
+            }
+            if (productDTO.getCategory() != null && productDTO.getCategory() >= 0) {
+                existingProduct.setCategory(productDTO.getCategory());
+            }
+
+            if (productDTO.getOrigin() != null && !productDTO.getOrigin().isEmpty()) {
+                existingProduct.setOrigin(productDTO.getOrigin());
+            }
+            if (productDTO.getDescription() != null && !productDTO.getDescription().isEmpty()) {
+                existingProduct.setDescription(productDTO.getDescription());
+            }
+            if (productDTO.getStock() != null && productDTO.getStock() >= 0) {
+                existingProduct.setStock(productDTO.getStock());
+            }
+            existingProduct.setLastModifiedAt(LocalDateTime.now());
+
+            // 处理图片列表（如果前端传了 imageIds）。如果图片有任何更新，都需要按顺序传递完整列表（包括未修改的），否则会被清空
+            if (productDTO.getImageIds() != null) {
+                // 先解绑所有旧图片，相当于重置状态，等待新列表重新绑定（如果新列表不为空）
+                List<ProductImageRecord> oldRecords = productImageRecordRepository.findByProductId(existingProduct.getProductId());
+                for (ProductImageRecord rec : oldRecords) {
+                    rec.setLinked(false);
+                    rec.setProductId(null);
+                    // 清空首图标识和排序
+                    rec.setPrimary(false);
+                    rec.setSortOrder(null);
+                    productImageRecordRepository.save(rec);
                 }
-                existingProduct.setImageUrl(null); // 清空图片 URL
-            } else { // imgUrl不为空，意味期望更新图片，需要解绑旧图片记录并绑定新图片记录
-                if (oldImageUrl != null && !oldImageUrl.isEmpty()) { // 只有当旧图片URL存在时才需要解绑
-                    Optional<ProductImageRecord> oldRecord = productImageRecordRepository.findByUrl(oldImageUrl);
-                    oldRecord.ifPresent(ProductImageRecord -> {
-                        ProductImageRecord.setLinked(false);
-                        productImageRecordRepository.save(ProductImageRecord);
-                    });
-                }
-                Optional<ProductImageRecord> record = productImageRecordRepository.findByUrl(productDTO.getImgUrl());
-                if (record.isPresent()) { // 找到新图片记录，进行绑定
-                    ProductImageRecord productImageRecord = record.get();
-                    productImageRecord.setLinked(true);
-                    productImageRecord.setProductId(existingProduct.getProductId());
-                    productImageRecordRepository.save(productImageRecord);
-                    existingProduct.setImageUrl(productDTO.getImgUrl());
+
+                // 再绑定新列表（如果新列表不为空）
+                if (!productDTO.getImageIds().isEmpty()) {
+                    bindAndProcessImages(existingProduct.getProductId(), productDTO.getImageIds());
                 } else {
-                    System.err.println("未找到指定URL的图片记录，URL: " + productDTO.getImgUrl());
+                    // 如果传了空列表，代表清空所有图片（所以不更新就不要传这个字段）。兼容旧字段，清空首图缩略URL
+                    existingProduct.setTbImageUrl(null);
                 }
             }
-        }
 
-        if (productDTO.getProductName() != null && !productDTO.getProductName().isEmpty()) {
-            existingProduct.setProductName(productDTO.getProductName());
+            return existingProduct;
+        } catch (Exception e) {
+            System.err.println("更新产品时发生错误: " + e.getMessage());
+            throw e;
         }
-        if (productDTO.getPrice() >= 0) {
-            existingProduct.setPrice(productDTO.getPrice());
-        }
-        if (productDTO.getCategory() > 0) {
-            existingProduct.setCategory(productDTO.getCategory());
-        }
-        if (productDTO.getOrigin() != null && !productDTO.getOrigin().isEmpty()) {
-            existingProduct.setOrigin(productDTO.getOrigin());
-        }
-        if (productDTO.getDescription() != null && !productDTO.getDescription().isEmpty()) {
-            existingProduct.setDescription(productDTO.getDescription());
-        }
-        if (productDTO.getStock() != null && productDTO.getStock() >= 0) {
-            existingProduct.setStock(productDTO.getStock());
-        }
-        existingProduct.setLastModifiedAt(LocalDateTime.now());
-
-        return existingProduct;
     }
 
     @Override
+    @Transactional(rollbackOn = Exception.class)
     public void deleteProduct(Long productId, Long currentUserId, String currentUserRole) {
-        // 查询商品是否存在
-        Product existingProduct = productRepository.findById(productId)
-                .orElseThrow(() -> new IllegalArgumentException("商品不存在"));
+        try {
+            Product existingProduct = productRepository.findById(productId)
+                    .orElseThrow(() -> new IllegalArgumentException("商品不存在"));
 
-        // 权限校验，用户只能删除自己的商品，管理员可以删除所有商品
-        if (Objects.equals(currentUserRole, "ROLE_USER")) {
-            if (!existingProduct.getSeller().getUserId().equals(currentUserId)) {
-                throw new SecurityException("权限不足：您只能删除自己的商品");
+            // 权限校验
+            if (Objects.equals(currentUserRole, "ROLE_USER")) {
+                if (!existingProduct.getSeller().getUserId().equals(currentUserId)) {
+                    throw new SecurityException("权限不足：您只能删除自己的商品");
+                }
+            } else if (!Objects.equals(currentUserRole, "ROLE_ADMIN")) {
+                throw new SecurityException("未知权限");
             }
-        } else if (!Objects.equals(currentUserRole, "ROLE_ADMIN")) {
-            throw new SecurityException("未知权限");
+
+            // 解绑并清理所有关联图片记录
+            List<ProductImageRecord> records = productImageRecordRepository.findByProductId(productId);
+            for (ProductImageRecord rec : records) {
+                // 删除OSS文件
+                if (rec.getUrl() != null && !rec.getUrl().isEmpty()) {
+                    ossService.delete(rec.getUrl());
+                }
+                if (rec.getThumbnailUrl() != null && !rec.getThumbnailUrl().isEmpty()) {
+                    ossService.delete(rec.getThumbnailUrl());
+                }
+                rec.setLinked(false);
+                rec.setProductId(null);
+                productImageRecordRepository.save(rec);
+            }
+
+            // 删除商品
+            productRepository.deleteById(productId);
+        } catch (Exception e) {
+            System.err.println("删除产品时发生错误: " + e.getMessage());
+            throw e;
+        }
+    }
+
+    // 绑定 + 处理图片（压缩、裁剪、生成缩略图）
+    private void bindAndProcessImages(Long productId, List<Long> imageIds) {
+        if (imageIds == null || imageIds.isEmpty()) return;
+        if (imageIds.size() > 5) throw new IllegalArgumentException("商品最多支持5张图片");
+
+
+        // 按照前端传递的顺序绑定图片，并且第0位为首图（primary），后续位为非首图。
+        // 每个图片记录只要是新上传的（未 linked）或者需要重新加工的，就触发图像处理流水线，否则直接更新绑定状态以节省 CPU
+        for (int i = 0; i < imageIds.size(); i++) {
+            Long recordId = imageIds.get(i);
+            ProductImageRecord record = productImageRecordRepository.findById(recordId)
+                    .orElseThrow(() -> new RuntimeException("图片记录不存在: " + recordId));
+
+            boolean isPrimary = (i == 0);
+
+            // 只有当图片是新上传（未 linked）或者需要重新加工时才触发图像处理
+            // 如果是已经在 OSS 处理过的图（Linked 曾为 true），可以跳过加工以节省 CPU
+            if (!Boolean.TRUE.equals(record.getLinked())) {
+                imageProcessUtils.processAndCompressImage(record, productId, i, isPrimary);
+            }
+
+            // 更新绑定状态
+            record.setLinked(true);
+            record.setProductId(productId);
+            record.setSortOrder(i);
+            record.setPrimary(isPrimary);
+
+            productImageRecordRepository.save(record);
         }
 
-        // 如果商品的图片URL不为空，解绑图片记录
-        String imageUrl = existingProduct.getImageUrl();
-        if (imageUrl != null && !imageUrl.isEmpty()) {
-            Optional<ProductImageRecord> record = productImageRecordRepository.findByUrl(imageUrl);
-            record.ifPresent(ProductImageRecord -> {
-                ProductImageRecord.setLinked(false); // 解绑图片记录
-                productImageRecordRepository.save(ProductImageRecord);
-            });
-        }
+        // 同步更新商品主表（首图冗余）
+        syncProductMainImage(productId, imageIds.get(0));
+    }
 
-        // 删除商品
-        productRepository.deleteById(productId);
+    private void syncProductMainImage(Long productId, Long mainImageRecordId) {
+        ProductImageRecord mainRecord = productImageRecordRepository.findById(mainImageRecordId).get();
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new RuntimeException("商品未找到"));
+
+        product.setTbImageUrl(mainRecord.getThumbnailUrl());
+        productRepository.save(product);
     }
 }

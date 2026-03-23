@@ -40,16 +40,15 @@ public class ImageController {
     private AIInteractionImgRepository aiInteractionImgRepository;
 
     @PutMapping("/productImgUpload")
-    @Transactional
     public Result<FileUploadResponseDTO> uploadImg(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) return Result.error(406, "文件不能为空", null);
 
         // 调用存储服务保存物理文件
-        IStorageService.StorageResult result = storageService.upload(file);
+        IStorageService.StorageResult result = storageService.uploadByFile(file);
 
         // 创建并保存图片记录信息
         ProductImageRecord record = new ProductImageRecord();
-        record.setUrl(result.getUrl());
+        record.setUrl(result.getUrl()); // 初始上传时，储存原始图片URL
         record.setPhysicalPath(result.getPhysicalPath());
         record.setCreatedAt(LocalDateTime.now());
         record.setLinked(false); // 初始为未绑定
@@ -58,6 +57,7 @@ public class ImageController {
 
         // 构造并返回要求的 DTO
         FileUploadResponseDTO response = new FileUploadResponseDTO();
+        response.setId(record.getId()); // 这个id是图片记录的id，前端后续绑定商品时需要传回这个id以便关联
         response.setUrl(result.getUrl());
         response.setFileName(result.getFileName());
 
@@ -66,14 +66,13 @@ public class ImageController {
 
     //上传用于AI交互的图片，记录上传用户和时间，供后续分析使用，不与商品绑定
     @PutMapping("/AIInteractionImgUpload")
-    @Transactional
     public Result<FileUploadResponseDTO> uploadAIInteractionImg(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) return Result.error(406, "文件不能为空", null);
 
         Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
         // 调用存储服务保存物理文件
-        IStorageService.StorageResult result = storageService.upload(file);
+        IStorageService.StorageResult result = storageService.uploadByFile(file);
         AIInteractionImg record = new AIInteractionImg();
         record.setImageUrl(result.getUrl());
         record.setUploadTime(LocalDateTime.now());
@@ -91,7 +90,6 @@ public class ImageController {
 
     //用户中途取消上传商品时，清理已上传但未绑定的图片记录和物理文件，不可用于修改商品时删除已绑定的图片.通过传入的URL找到对应记录，验证未绑定后删除记录和物理文件
     @DeleteMapping("/uploadPurge")
-    @Transactional
     public Result<String> deleteImg(@RequestParam String url) {
         // 先删数据库记录，再删物理文件
         Optional<ProductImageRecord> record = productImageRecordRepository.findByUrl(url);
@@ -113,7 +111,7 @@ public class ImageController {
         if(purpose == null || purpose.isEmpty()) return Result.error(400, "用途参数不能为空");
         if(SysImagePurpose.isValidPurpose(purpose)) return Result.error(400, "无效的用途参数");
 
-        IStorageService.StorageResult result = storageService.upload(file);
+        IStorageService.StorageResult result = storageService.uploadByFile(file);
 
         SysImage record = new SysImage();
         record.setImageUrl(result.getUrl());

@@ -52,17 +52,17 @@ public class HotelAndProductSeeder implements ApplicationRunner {
             items.add(makeHotel("花海驿站", "广州市从化区城郊街", 23.55, 113.58, 720.0, "https://example.com/images/hotel20.jpg", "13800138020", true));
             hotelHomestayRepository.saveAll(items);
         }
-        productRepository.deleteAll();
-        List<Product> products = new ArrayList<>();
-        products.add(makeProduct("新会陈皮干", 68.0, 1, "江门", "https://example.com/images/agri1.jpg", 120));
-        products.add(makeProduct("从化荔枝干", 45.0, 1, "广州", "https://example.com/images/agri2.jpg", 200));
-        products.add(makeProduct("增城丝苗米", 32.0, 2, "广州", "https://example.com/images/agri3.jpg", 150));
-        products.add(makeProduct("怀集砂糖橘", 26.0, 2, "肇庆", "https://example.com/images/agri4.jpg", 180));
-        products.add(makeProduct("英德红茶", 88.0, 3, "清远", "https://example.com/images/agri5.jpg", 90));
-        products.add(makeProduct("湛江海鸭蛋", 58.0, 3, "湛江", "https://example.com/images/agri6.jpg", 140));
-        products.add(makeProduct("阳春豆豉", 22.0, 4, "阳江", "https://example.com/images/agri7.jpg", 160));
-        products.add(makeProduct("连州菜心", 18.0, 4, "清远", "https://example.com/images/agri8.jpg", 220));
-        productRepository.saveAll(products);
+//        productRepository.deleteAll();
+//        List<Product> products = new ArrayList<>();
+//        products.add(makeProduct("新会陈皮干", 68.0, 1, "江门", "https://example.com/images/agri1.jpg", 120));
+//        products.add(makeProduct("从化荔枝干", 45.0, 1, "广州", "https://example.com/images/agri2.jpg", 200));
+//        products.add(makeProduct("增城丝苗米", 32.0, 2, "广州", "https://example.com/images/agri3.jpg", 150));
+//        products.add(makeProduct("怀集砂糖橘", 26.0, 2, "肇庆", "https://example.com/images/agri4.jpg", 180));
+//        products.add(makeProduct("英德红茶", 88.0, 3, "清远", "https://example.com/images/agri5.jpg", 90));
+//        products.add(makeProduct("湛江海鸭蛋", 58.0, 3, "湛江", "https://example.com/images/agri6.jpg", 140));
+//        products.add(makeProduct("阳春豆豉", 22.0, 4, "阳江", "https://example.com/images/agri7.jpg", 160));
+//        products.add(makeProduct("连州菜心", 18.0, 4, "清远", "https://example.com/images/agri8.jpg", 220));
+//        productRepository.saveAll(products);
     }
 
     private HotelHomestay makeHotel(String name, String addr, double lat, double lon, double price, String img, String phone, boolean available) {
@@ -85,7 +85,7 @@ public class HotelAndProductSeeder implements ApplicationRunner {
         p.setPrice(price);
         p.setCategory(category);
         p.setOrigin(origin);
-        p.setImageUrl(imageUrl);
+        p.setTbImageUrl(imageUrl);
         p.setApproved(true);
         p.setStock(stock);
         p.setPublishedAt(LocalDateTime.now());

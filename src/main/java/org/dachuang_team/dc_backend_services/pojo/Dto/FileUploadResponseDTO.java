@@ -6,6 +6,7 @@ import lombok.Data;
 @Data
 @AllArgsConstructor
 public class FileUploadResponseDTO {
+    private Long id;         // 数据库中存储的图片ID
     private String url;      // 给前端显示的预览地址
     private String fileName; // 文件名
 

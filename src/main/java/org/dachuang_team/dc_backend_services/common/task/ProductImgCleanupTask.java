@@ -53,6 +53,14 @@ public class ProductImgCleanupTask {
             // 循环处理删除
             for (ProductImageRecord record : recordsToDelete) {
                 String url = record.getUrl();
+                if(record.getThumbnailUrl() != null) {
+                    // 先删云端缩略图
+                    try {
+                        storageService.delete(record.getThumbnailUrl());
+                    } catch (Exception e) {
+                        logger.warn("删除商品冗余图片缩略图失败 URL: {} 错误: {}", record.getThumbnailUrl(), e.getMessage(), e);
+                    }
+                }
                 try {
                     // 先删云端
                     storageService.delete(url);
