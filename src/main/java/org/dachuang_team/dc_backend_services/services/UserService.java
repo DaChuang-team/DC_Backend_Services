@@ -1,10 +1,13 @@
 package org.dachuang_team.dc_backend_services.services;
 
 import jakarta.transaction.Transactional;
+import org.dachuang_team.dc_backend_services.common.ImageProcessUtils;
 import org.dachuang_team.dc_backend_services.config.RedisConfig;
 import org.dachuang_team.dc_backend_services.enumeration.PointsChangeReason;
+import org.dachuang_team.dc_backend_services.pojo.ImgPO.UserAvatarRecord;
 import org.dachuang_team.dc_backend_services.pojo.UserPO.UserCheckIn;
 import org.dachuang_team.dc_backend_services.pojo.UserPO.UserGeneral;
+import org.dachuang_team.dc_backend_services.repository.UserAvatarRecordRepository;
 import org.dachuang_team.dc_backend_services.repository.UserCheckInRepository;
 import org.dachuang_team.dc_backend_services.repository.UserRepository;
 import org.slf4j.Logger;
@@ -32,7 +35,13 @@ public class UserService implements IUserService {
     private PointsRecordService pointsRecordService;
 
     @Autowired
+    UserAvatarRecordRepository avatarRecordRepository;
+
+    @Autowired
     private UserCheckInRepository checkInRepository;
+
+    @Autowired
+    private ImageProcessUtils imageProcessUtils;
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
@@ -107,11 +116,11 @@ public class UserService implements IUserService {
     @Override
     @Transactional
     public boolean updateInfo(Long userId, UserUpdateDTO dto) {
-        // 1. 直接根据 ID 找用户
+        // 直接根据 ID 找用户
         UserGeneral user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
 
-        // 2. 敏感信息修改需要额外验证
+        // 敏感信息修改需要额外验证
         boolean isChangingPassword = (dto.getUserPassword() != null && !dto.getUserPassword().isEmpty());
         boolean isChangingPhone = (dto.getUserPhone() != null && !dto.getUserPhone().equals(user.getUserPhone()));
 
@@ -138,7 +147,7 @@ public class UserService implements IUserService {
             user.setUserPhone(dto.getUserPhone());
         }
 
-        // 5. 处理用户名/昵称更新
+        // 处理用户名/昵称更新
         if (dto.getUserName() != null && !dto.getUserName().equals(user.getUserName())) {
             if (userRepository.existsByUserName(dto.getUserName())) {
                 throw new IllegalArgumentException("该用户名已被占用");
@@ -146,7 +155,7 @@ public class UserService implements IUserService {
             user.setUserName(dto.getUserName());
         }
 
-        // 6. 其他普通字段
+        // 他普通字段
         updateNormalFields(user, dto);
 
         user.setUpdatedAt(LocalDateTime.now());
@@ -158,7 +167,24 @@ public class UserService implements IUserService {
     private void updateNormalFields(UserGeneral user, UserUpdateDTO dto) {
         if (dto.getUserPreference() != null) user.setUserPreference(dto.getUserPreference());
         if (dto.getUserGender() != null) user.setUserGender(dto.getUserGender());
-        if (dto.getUserAvatarURL() != null) user.setUserAvatarURL(dto.getUserAvatarURL());
+        if (dto.getUserAvatarURL() != null) {
+            // 先解绑所有旧头像（如果有）
+            List<UserAvatarRecord> userOldAvatars = avatarRecordRepository.findByUserId(user.getUserId());
+            if (userOldAvatars != null && !userOldAvatars.isEmpty()) {
+                userOldAvatars.forEach(avatar -> avatar.setLinked(false));
+            }
+
+            // 再绑定新头像，并且校验这个头像URL确实存在，并且是当前用户上传的（即avatarRecord里有记录，并且记录的userId和当前用户一致）
+            UserAvatarRecord userAvatarRecord = avatarRecordRepository.findByAvatarUrl(dto.getUserAvatarURL());
+            if (userAvatarRecord == null) {
+                throw new IllegalArgumentException("当前头像不存在，请先上传头像");
+            } else if (!userAvatarRecord.getUserId().equals(user.getUserId())) {
+                throw new IllegalArgumentException("没有权限访问当前头像资源");
+            } else {
+                String url = imageProcessUtils.userAvatarProcess(userAvatarRecord, user.getUserId());
+                user.setUserAvatarURL(url);
+            }
+        }
         if (dto.getUserBirthday() != null) user.setUserBirthday(dto.getUserBirthday());
     }
 

@@ -1,0 +1,21 @@
+package org.dachuang_team.dc_backend_services.common;
+
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public Map<String, Object> handleMaxUploadSizeExceededException(MaxUploadSizeExceededException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("code", 413);
+        response.put("message", "文件大小超过限制，请上传小于5MB的文件");
+        response.put("data", null);
+        return response;
+    }
+}

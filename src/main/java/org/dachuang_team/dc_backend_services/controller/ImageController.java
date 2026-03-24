@@ -1,15 +1,16 @@
 package org.dachuang_team.dc_backend_services.controller;
 
-import jakarta.transaction.Transactional;
 import org.dachuang_team.dc_backend_services.common.Result;
 import org.dachuang_team.dc_backend_services.enumeration.SysImagePurpose;
 import org.dachuang_team.dc_backend_services.pojo.Dto.FileUploadResponseDTO;
 import org.dachuang_team.dc_backend_services.pojo.ImgPO.AIInteractionImg;
+import org.dachuang_team.dc_backend_services.pojo.ImgPO.UserAvatarRecord;
 import org.dachuang_team.dc_backend_services.pojo.ProductPO.ProductImageRecord;
 import org.dachuang_team.dc_backend_services.pojo.ImgPO.SysImage;
 import org.dachuang_team.dc_backend_services.repository.AIInteractionImgRepository;
 import org.dachuang_team.dc_backend_services.repository.ProductImageRecordRepository;
 import org.dachuang_team.dc_backend_services.repository.SysImageRepository;
+import org.dachuang_team.dc_backend_services.repository.UserAvatarRecordRepository;
 import org.dachuang_team.dc_backend_services.services.IStorageService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -34,6 +35,8 @@ public class ImageController {
 
     @Autowired
     private ProductImageRecordRepository productImageRecordRepository;
+    @Autowired
+    private UserAvatarRecordRepository userAvatarRecordRepository;
     @Autowired
     private SysImageRepository sysImageRepository;
     @Autowired
@@ -81,6 +84,31 @@ public class ImageController {
         aiInteractionImgRepository.save(record);
 
         // 构造并返回要求的DTO，前端通过传递url对AI发起图片交互请求
+        FileUploadResponseDTO response = new FileUploadResponseDTO();
+        response.setUrl(result.getUrl());
+        response.setFileName(result.getFileName());
+
+        return Result.success("上传成功", response);
+    }
+
+    @PutMapping("/userAvatarUpload")
+    public Result<FileUploadResponseDTO> uploadUserAvatar(@RequestParam("file") MultipartFile file) {
+        if (file.isEmpty()) return Result.error(406, "文件不能为空", null);
+
+        Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+        // 调用存储服务保存物理文件
+        IStorageService.StorageResult result = storageService.uploadByFile(file);
+
+        // 创建并保存用户头像记录信息
+        UserAvatarRecord record = new UserAvatarRecord();
+        record.setAvatarUrl(result.getUrl());
+        record.setUploadAt(LocalDateTime.now());
+        record.setUserId(currentUserId);
+        userAvatarRecordRepository.save(record);
+
+
+        // 构造并返回要求的 DTO，前端后续调用修改用户信息接口时传回这个URL以便关联
         FileUploadResponseDTO response = new FileUploadResponseDTO();
         response.setUrl(result.getUrl());
         response.setFileName(result.getFileName());
