@@ -62,8 +62,7 @@ public class ProductService implements IProductService {
 
             return product;
         } catch (Exception e) {
-            System.err.println("添加产品时发生错误: " + e.getMessage());
-            throw e;
+            throw new RuntimeException("添加商品失败: " + e.getMessage());
         }
     }
 
@@ -117,8 +116,7 @@ public class ProductService implements IProductService {
 
             return existingProduct;
         } catch (Exception e) {
-            System.err.println("更新产品时发生错误: " + e.getMessage());
-            throw e;
+            throw new RuntimeException("更新商品失败: " + e.getMessage());
         }
     }
 

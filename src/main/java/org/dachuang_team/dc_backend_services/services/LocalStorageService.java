@@ -24,7 +24,7 @@ public class LocalStorageService implements IStorageService {
             suffix = originalFilename.substring(originalFilename.lastIndexOf("."));
         } else {
             //抛出异常，文件名不能为空
-            throw new RuntimeException("文件名不能为空");
+            throw new IllegalArgumentException("文件名不能为空");
         }
         String fileName = UUID.randomUUID().toString().replace("-", "") + suffix;
 

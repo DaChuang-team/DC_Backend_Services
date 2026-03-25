@@ -36,7 +36,7 @@ public class OssStorageService implements IStorageService {
         if (originalFilename != null && originalFilename.contains(".")) {
             suffix = originalFilename.substring(originalFilename.lastIndexOf("."));
         } else {
-            throw new RuntimeException("文件名不能为空且必须包含后缀");
+            throw new IllegalArgumentException("文件名不能为空且必须包含后缀");
         }
 
         // 生成云端唯一文件名

@@ -454,7 +454,7 @@ public class AIService implements IAIServices{
         return switch (modelVersion) {
             case 0 -> "ep-20260202151315-zvslq"; // 豆包1.6版本
             case 1 -> "ep-20260312135710-f8kfz"; // 豆包1.8版本
-            default -> throw new IllegalArgumentException("未知的模型版本: " + modelVersion);
+            default -> throw new IllegalArgumentException("不支持的模型版本: " + modelVersion);
         };
     }
 
@@ -462,7 +462,7 @@ public class AIService implements IAIServices{
         return switch (modelVersion) {
             case 0 -> "Doubao-Seed-1.6 251015";
             case 1 -> "Doubao-Seed-1.8 251228";
-            default -> "UNKNOWN_MODEL";
+            default -> throw new IllegalArgumentException("未知的模型代号");
         };
     }
 
@@ -490,12 +490,12 @@ public class AIService implements IAIServices{
         AISessionContext context = contextRepository.findByUserIdAndSessionId(userId, sessionId);
 
         if(context == null) {
-            throw new RuntimeException("会话不存在或已过期，请开启新对话");
+            throw new IllegalArgumentException("会话不存在，请重新上传图片发起新对话");
         }
 
         // 再次检查是否过期
         if (context.getExpireTime().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("会话已超过 3 天有效期，请开启新对话");
+            throw new IllegalArgumentException("会话已过期，请重新上传图片发起新对话");
         }
 
         // 更新链条指针
