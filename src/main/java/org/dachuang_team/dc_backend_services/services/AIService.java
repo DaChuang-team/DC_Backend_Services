@@ -21,10 +21,12 @@ import okhttp3.Dispatcher;
 import okhttp3.ConnectionPool;
 import com.volcengine.ark.runtime.service.ArkService;
 import jakarta.annotation.PreDestroy;
-import org.dachuang_team.dc_backend_services.pojo.AISessionContext;
+import org.dachuang_team.dc_backend_services.pojo.AIPO.AISessionContext;
+import org.dachuang_team.dc_backend_services.pojo.AIPO.AiUsageRecord;
 import org.dachuang_team.dc_backend_services.pojo.Dto.AIImgInteractionDTO;
 import org.dachuang_team.dc_backend_services.pojo.Dto.AITextInteractionDTO;
 import org.dachuang_team.dc_backend_services.repository.AISessionContextRepository;
+import org.dachuang_team.dc_backend_services.repository.AiUsageRecordRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,7 +38,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -50,6 +51,9 @@ public class AIService implements IAIServices{
     @Autowired
     private AISessionContextRepository contextRepository;
 
+    @Autowired
+    private AiUsageRecordRepository usageRecordRepository;
+
     public AIService(@Value("${volcengine.ark.api-key}") String apiKey, ObjectMapper mapper) {
         this.arkService = ArkService.builder()
                 .connectionPool(new ConnectionPool(5, 1, TimeUnit.SECONDS))
@@ -61,7 +65,8 @@ public class AIService implements IAIServices{
     }
 
     @Override
-    public AITextInteractionDTO.RuralTravelPlan generateTravelPlan(String query, int modelVersion) {
+    @Transactional(rollbackOn = Exception.class)
+    public AITextInteractionDTO.RuralTravelPlan generateTravelPlan(String query, int modelVersion, Long userId) {
         try {
             //定义消息列表
             List<ChatMessage> messages = new ArrayList<>();
@@ -133,6 +138,18 @@ public class AIService implements IAIServices{
                     .build();
 
             var response = arkService.createChatCompletion(request);
+
+            Long totalTokens = (response.getUsage() != null)
+                    ? response.getUsage().getTotalTokens()
+                    : -1L;
+
+            // 记录AI使用情况
+            AiUsageRecord usageRecord = new AiUsageRecord();
+            usageRecord.setUserId(userId);
+            usageRecord.setTokenCount(totalTokens);
+            usageRecord.setType("AI_ROUTINE_GENERATION");
+            usageRecord.setRequestTime(LocalDateTime.now());
+            usageRecordRepository.save(usageRecord);
 
             //解析结果
             if (!response.getChoices().isEmpty()) {
@@ -252,7 +269,7 @@ public class AIService implements IAIServices{
     }
 
     // 支持上下文缓存的图像识别接口，供前端新开启一个图像解析会话时调用，后续用户在同一会话中追加对话时可以使用返回的responseId进行上下文关联
-    @Transactional
+    @Transactional(rollbackOn = Exception.class)
     @Override
     public AIImgInteractionDTO.ImageRecognitionResponse recognizeImage(Long userId, AIImgInteractionDTO.ImageRecognitionRequest requestDTO) {
         try {
@@ -324,6 +341,21 @@ public class AIService implements IAIServices{
             // 发起请求
             ResponseObject resp = arkService.createResponse(request);
 
+            Long totalTokens = -1L;
+
+            if (resp != null && resp.getUsage() != null && resp.getUsage().getTotalTokens() != null) {
+                totalTokens = resp.getUsage().getTotalTokens();
+            } else {
+                totalTokens = -1L;
+            }
+
+            AiUsageRecord usageRecord = new AiUsageRecord();
+            usageRecord.setUserId(userId);
+            usageRecord.setTokenCount(totalTokens);
+            usageRecord.setType("AI_IMAGE_RECOGNITION");
+            usageRecord.setRequestTime(LocalDateTime.now());
+            usageRecordRepository.save(usageRecord);
+
             // 解析
             String explanation = extractExplanationFromResponse(resp);
 
@@ -350,7 +382,7 @@ public class AIService implements IAIServices{
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackOn = Exception.class)
     public AIImgInteractionDTO.FollowUpResponse continueConversation(Long userId, AIImgInteractionDTO.FollowUpRequest requestDTO) {
         try {
             // 查找会话上下文
@@ -380,6 +412,21 @@ public class AIService implements IAIServices{
                     .build();
 
             var response = arkService.createResponse(followUpRequest);
+
+            Long totalTokens = -1L;
+
+            if (response != null && response.getUsage() != null && response.getUsage().getTotalTokens() != null) {
+                totalTokens = response.getUsage().getTotalTokens();
+            } else {
+                totalTokens = -1L;
+            }
+
+            AiUsageRecord usageRecord = new AiUsageRecord();
+            usageRecord.setUserId(userId);
+            usageRecord.setTokenCount(totalTokens);
+            usageRecord.setType("AI_CONVERSATION");
+            usageRecord.setRequestTime(LocalDateTime.now());
+            usageRecordRepository.save(usageRecord);
 
             String explanation = extractExplanationFromResponse(response);
 
