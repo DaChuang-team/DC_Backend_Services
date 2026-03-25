@@ -59,7 +59,7 @@ public class AIController {
             };
 
             // 调用AI服务生成旅行计划
-            AITextInteractionDTO.RuralTravelPlan plan = aiService.generateTravelPlan(request.content(), request.modelVersion());
+            AITextInteractionDTO.RuralTravelPlan plan = aiService.generateTravelPlan(request.content(), request.modelVersion(), currentUserId);
             AITextInteractionDTO.RuralTravelPlan updatedPlan = new AITextInteractionDTO.RuralTravelPlan(
                     plan.routeTheme(),
                     plan.experienceValue(),
