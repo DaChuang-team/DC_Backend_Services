@@ -94,7 +94,7 @@ public class AIController {
             // 验证模型版本是否有效
             if (request.modelVersion() < 0 || request.modelVersion() > 1) {
                 return ResponseEntity.badRequest()
-                        .body(Result.error(400, "Unsupported model version" + request.modelVersion()));
+                        .body(Result.error(400, "不支持的模型代号: " + request.modelVersion()));
             }
 
             int modelPrice = switch (request.modelVersion()) {
