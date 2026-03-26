@@ -94,7 +94,7 @@ public class AIController {
             // 验证模型版本是否有效
             if (request.modelVersion() < 0 || request.modelVersion() > 1) {
                 return ResponseEntity.badRequest()
-                        .body(Result.error(400, "Unsupported model version" + request.modelVersion()));
+                        .body(Result.error(400, "不支持的模型代号: " + request.modelVersion()));
             }
 
             int modelPrice = switch (request.modelVersion()) {
@@ -115,7 +115,7 @@ public class AIController {
     }
 
     // 后续追加对话接口，用户在首次图像识别后可以继续追问，提供纯文本问题，返回纯文本回答
-    // 支持多轮追问，前端通过传递previousResponseId 和 sessionID 来确定会话并关联上下文
+    // 支持多轮追问，前端通过传递 sessionID 来确定会话并关联上下文 ，后端通过sessionID查询上次聊天最新的responseId传入AI模型，保证上下文连续
     @PostMapping("/continue-conv")
     public ResponseEntity<Result<AIImgInteractionDTO.FollowUpResponse>> continueConv(
             @RequestBody AIImgInteractionDTO.FollowUpRequest request){
