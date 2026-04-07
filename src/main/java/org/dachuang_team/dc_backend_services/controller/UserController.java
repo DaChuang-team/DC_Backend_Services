@@ -1,7 +1,9 @@
 package org.dachuang_team.dc_backend_services.controller;
 
 import org.dachuang_team.dc_backend_services.common.Result;
+import org.dachuang_team.dc_backend_services.pojo.Dto.UserAddressDTO;
 import org.dachuang_team.dc_backend_services.pojo.Dto.UserUpdateDTO;
+import org.dachuang_team.dc_backend_services.pojo.UserPO.UserAddress;
 import org.dachuang_team.dc_backend_services.pojo.UserPO.UserPointsRecord;
 import org.dachuang_team.dc_backend_services.pojo.UserPO.UserGeneral;
 import org.dachuang_team.dc_backend_services.services.PointsRecordService;
@@ -181,6 +183,155 @@ public class UserController {
         }
     }
 
+    // 获取该用户的所有地址
+    @GetMapping("/address")
+    public Result<List<Map<String, Object>>> getUserAddress() {
+        try {
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            if(currentUserId == null) {
+                return Result.error(401, "未认证，无法获取地址信息");
+            }
+
+            List<UserAddress> addresses = userService.getUserAddresses(currentUserId);
+            List<Map<String, Object>> resultList = new ArrayList<>();
+            for (UserAddress address : addresses) {
+                Map<String, Object> map = new HashMap<>();
+                map.put("id", address.getId());
+                map.put("province", address.getProvince());
+                map.put("city", address.getCity());
+                map.put("district", address.getDistrict());
+                map.put("detailAddress", address.getDetailAddress());
+                map.put("receiverName", address.getReceiverName());
+                map.put("receiverPhone", address.getReceiverPhone());
+                map.put("remarks", address.getRemarks());
+                map.put("isDefault", address.isDefault());
+                resultList.add(map);
+            }
+            return Result.success("获取地址成功", resultList);
+
+        } catch (IllegalArgumentException e) {
+            return Result.error(402, e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "服务器开小差了: " + e.getMessage());
+        }
+    }
+
+    // 新增地址
+    @PostMapping("/address")
+    public Result<String> addUserAddress(@RequestBody UserAddressDTO addressDTO) {
+        try {
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            if(currentUserId == null) {
+                return Result.error(401, "未认证，无法添加地址");
+            }
+            userService.addUserAddress(currentUserId, addressDTO);
+            return Result.success("地址添加成功", null);
+        } catch (IllegalArgumentException e) {
+            return Result.error(402, e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "服务器开小差了: " + e.getMessage());
+        }
+    }
+
+    @PutMapping("/updateAddress")
+    public Result<String> updateUserAddress(@RequestParam Long addressId, @RequestBody UserAddressDTO addressDTO) {
+        try {
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            if(currentUserId == null) {
+                return Result.error(401, "未认证，无法更新地址");
+            }
+            userService.updateUserAddress(currentUserId, addressId, addressDTO);
+            return Result.success("地址更新成功", null);
+        } catch (IllegalArgumentException e) {
+            return Result.error(402, e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "服务器开小差了: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/deleteAddress")
+    public Result<String> deleteUserAddress(@RequestParam Long addressId) {
+        try {
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            if (currentUserId == null) {
+                return Result.error(401, "未认证，无法删除地址");
+            }
+            userService.deleteUserAddress(currentUserId, addressId);
+            return Result.success("地址删除成功", null);
+
+        } catch (IllegalArgumentException e) {
+            return Result.error(402, e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "服务器开小差了: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/setDefaultAddress")
+    public Result<String> setDefaultAddress(@RequestParam Long addressId) {
+        try {
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            if(currentUserId == null) {
+                return Result.error(401, "未认证，无法设置默认地址");
+            }
+            userService.setDefaultUserAddress(currentUserId, addressId);
+            return Result.success("默认地址设置成功", null);
+
+        } catch (IllegalArgumentException e) {
+            return Result.error(402, e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "服务器开小差了: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/unsetDefaultAddress")
+    public Result<String> unsetDefaultAddress(@RequestParam Long addressId) {
+        try {
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            if(currentUserId == null) {
+                return Result.error(401, "未认证，无法取消默认地址");
+            }
+            userService.unsetDefaultUserAddress(currentUserId, addressId);
+            return Result.success("取消默认地址成功", null);
+
+        } catch (IllegalArgumentException e) {
+            return Result.error(402, e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "服务器开小差了: " + e.getMessage());
+        }
+    }
+
+
+
+    @GetMapping("/getDefaultAddress")
+    public Result<Map<String,Object>> getDefaultAddress() {
+        try {
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            if(currentUserId == null) {
+                return Result.error(401, "未认证，无法获取默认地址");
+            }
+            UserAddress address = userService.getDefaultUserAddress(currentUserId);
+            if(address == null) {
+                return Result.error(200, "用户未设置默认地址", null);
+            }
+            Map<String, Object> responseBody = new HashMap<>();
+            responseBody.put("id", address.getId());
+            responseBody.put("province", address.getProvince());
+            responseBody.put("city", address.getCity());
+            responseBody.put("district", address.getDistrict());
+            responseBody.put("detailAddress", address.getDetailAddress());
+            responseBody.put("receiverName", address.getReceiverName());
+            responseBody.put("receiverPhone", address.getReceiverPhone());
+            responseBody.put("remarks", address.getRemarks());
+            return Result.success("获取默认地址成功", responseBody);
+
+        } catch (IllegalArgumentException e) {
+            return Result.error(402, e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "服务器开小差了: " + e.getMessage());
+        }
+    }
+
+
     /**
      * 获取所有用户信息接口
      * 参考 login 和 register 接口的实现风格
@@ -267,5 +418,9 @@ public class UserController {
         map.put("userStatus", user.getUserStatus());
         map.put("points", user.getPoints());
         return map;
+    }
+
+    private Map<String, Object> buildAddressResponse(UserAddress address) {
+        return null;
     }
 }

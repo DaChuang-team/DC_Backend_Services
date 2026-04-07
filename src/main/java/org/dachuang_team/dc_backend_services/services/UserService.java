@@ -4,15 +4,19 @@ import jakarta.transaction.Transactional;
 import org.dachuang_team.dc_backend_services.common.ImageProcessUtils;
 import org.dachuang_team.dc_backend_services.config.RedisConfig;
 import org.dachuang_team.dc_backend_services.enumeration.PointsChangeReason;
+import org.dachuang_team.dc_backend_services.pojo.Dto.UserAddressDTO;
 import org.dachuang_team.dc_backend_services.pojo.ImgPO.UserAvatarRecord;
+import org.dachuang_team.dc_backend_services.pojo.UserPO.UserAddress;
 import org.dachuang_team.dc_backend_services.pojo.UserPO.UserCheckIn;
 import org.dachuang_team.dc_backend_services.pojo.UserPO.UserGeneral;
+import org.dachuang_team.dc_backend_services.repository.UserAddressRepository;
 import org.dachuang_team.dc_backend_services.repository.UserAvatarRecordRepository;
 import org.dachuang_team.dc_backend_services.repository.UserCheckInRepository;
 import org.dachuang_team.dc_backend_services.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -39,6 +43,9 @@ public class UserService implements IUserService {
 
     @Autowired
     private UserCheckInRepository checkInRepository;
+
+    @Autowired
+    private UserAddressRepository addressRepository;
 
     @Autowired
     private ImageProcessUtils imageProcessUtils;
@@ -233,29 +240,33 @@ public class UserService implements IUserService {
     // 扣除用户积分
     @Override
     public void deductPoints(Long userId, int pointsToDeduct, String reason) {
-        // 查询用户
-        UserGeneral user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+        try {
+            // 查询用户
+            UserGeneral user = userRepository.findById(userId)
+                    .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
 
-        // 校验用户状态
-        if ("异常".equals(user.getUserStatus())) {
-            throw new IllegalArgumentException("该用户状态异常，AI功能受限");
+            // 校验用户状态
+            if ("异常".equals(user.getUserStatus())) {
+                throw new IllegalArgumentException("该用户状态异常，AI功能受限");
+            }
+
+            if(!PointsChangeReason.isValidReason(reason)) {
+                throw new IllegalArgumentException("无效的积分变动原因: " + reason);
+            }
+
+            // 获取当前积分并校验
+            int currentPoints = user.getPoints() == null ? 0 : user.getPoints();
+            if (currentPoints < pointsToDeduct) {
+                throw new IllegalArgumentException("积分不足，无法扣除");
+            }
+
+            // 扣除积分并保存
+            user.setPoints(currentPoints - pointsToDeduct);
+            pointsRecordService.addPointsRecord(userId, (pointsToDeduct)*(-1), reason);
+            userRepository.save(user);
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException(e);
         }
-
-        if(!PointsChangeReason.isValidReason(reason)) {
-            throw new IllegalArgumentException("无效的积分变动原因: " + reason);
-        }
-
-        // 获取当前积分并校验
-        int currentPoints = user.getPoints() == null ? 0 : user.getPoints();
-        if (currentPoints < pointsToDeduct) {
-            throw new IllegalArgumentException("积分不足，无法扣除");
-        }
-
-        // 扣除积分并保存
-        user.setPoints(currentPoints - pointsToDeduct);
-        pointsRecordService.addPointsRecord(userId, (pointsToDeduct)*(-1), reason);
-        userRepository.save(user);
     }
 
     @Override
@@ -263,6 +274,146 @@ public class UserService implements IUserService {
         authService.invalidateToken(userId, "USER");
         return true;
     }
+
+    @Override
+    public List<UserAddress> getUserAddresses (Long userId){
+        return addressRepository.findByUserIdOrderByIsDefaultDesc(userId);
+    }
+
+    @Override
+    @Transactional
+    public void addUserAddress(Long userId, UserAddressDTO addressDTO) {
+        int count = addressRepository.countByUserId(userId);
+        if (count >= 10) {
+            throw new IllegalArgumentException("地址数量已达上限");
+        }
+
+        // 如果是第一条，或者前端传了 true
+        boolean shouldBeDefault = (count == 0) || (addressDTO.isDefault());
+
+        if (shouldBeDefault) {
+            addressRepository.resetDefaultByUserId(userId);
+        }
+
+        UserAddress newAddress = new UserAddress();
+        BeanUtils.copyProperties(addressDTO, newAddress);
+
+        //
+        newAddress.setUserId(userId);
+        newAddress.setDefault(shouldBeDefault);
+        newAddress.setCreatedAt(LocalDateTime.now());
+        newAddress.setUpdatedAt(LocalDateTime.now());
+
+        // 备注字段处理
+        if (newAddress.getRemarks() == null) {
+            newAddress.setRemarks("");
+        }
+
+        addressRepository.save(newAddress);
+    }
+
+    @Override
+    @Transactional
+    public void updateUserAddress(Long userId, Long addressId, UserAddressDTO addressDTO) {
+        // 校验现有是否存在
+        UserAddress existingAddress = addressRepository.findById(addressId)
+                .orElseThrow(() -> new IllegalArgumentException("目标更新地址不存在"));
+
+        // 验证该地址是否属于当前用户
+        if (!existingAddress.getUserId().equals(userId)) {
+            throw new RuntimeException("无权修改该地址");
+        }
+
+        // 如果用户想将当前地址设为默认，且它原本不是默认
+        if (addressDTO.isDefault() && !existingAddress.isDefault()) {
+            // 将该用户下其他所有地址设为非默认
+            addressRepository.resetDefaultByUserId(userId);
+        }
+
+        BeanUtils.copyProperties(addressDTO, existingAddress);
+        // 补偿字段
+        existingAddress.setId(addressId);
+        existingAddress.setUserId(userId);
+        existingAddress.setUpdatedAt(LocalDateTime.now());
+
+        addressRepository.save(existingAddress);
+    }
+
+    @Override
+    @Transactional
+    public void deleteUserAddress(Long userId, Long addressId) {
+        UserAddress existingAddress = addressRepository.findById(addressId)
+                .orElseThrow(() -> new IllegalArgumentException("地址不存在"));
+
+        if (!existingAddress.getUserId().equals(userId)) {
+            throw new RuntimeException("无权删除该地址");
+        }
+
+        addressRepository.delete(existingAddress);
+
+    }
+
+    @Override
+    @Transactional
+    public void setDefaultUserAddress(Long userId, Long addressId) {
+        UserAddress addr = addressRepository.findById(addressId)
+                .orElseThrow(() -> new IllegalArgumentException("地址不存在"));
+
+        if (!addr.getUserId().equals(userId)) {
+            throw new RuntimeException("无权操作该地址");
+        }
+
+        // 只有当前地址不是默认时才执行更新，避免浪费性能
+        if (!addr.isDefault()) {
+            addressRepository.resetDefaultByUserId(userId);
+            addressRepository.updateDefaultStatus(addressId, true);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void unsetDefaultUserAddress(Long userId, Long addressId) {
+        UserAddress addr = addressRepository.findById(addressId)
+                .orElseThrow(() -> new IllegalArgumentException("地址不存在"));
+
+        if (!addr.getUserId().equals(userId)) {
+            throw new RuntimeException("无权操作该地址");
+        }
+            addressRepository.updateDefaultStatus(addressId, false);
+    }
+
+    @Override
+    @Transactional
+    public UserAddress getDefaultUserAddress(Long userId) {
+        // 查询所有默认地址
+        List<UserAddress> defaultAddresses = addressRepository.findByUserIdAndIsDefaultTrue(userId);
+
+        if (defaultAddresses == null || defaultAddresses.isEmpty()) {
+            return null;
+        }
+
+        if (defaultAddresses.size() == 1) {
+            // 只有一个默认地址，直接返回
+            return defaultAddresses.get(0);
+        }
+
+        // 有多个默认地址，修正数据
+        // 先全部取消默认
+        addressRepository.resetDefaultByUserId(userId);
+
+        // 找到最近更新的地址
+        List<UserAddress> allAddresses = addressRepository.findByUserIdOrderByUpdatedAtDesc(userId);
+        if (allAddresses.isEmpty()) {
+            return null;
+        }
+        UserAddress latest = allAddresses.get(0);
+        addressRepository.updateDefaultStatus(latest.getId(), true);
+
+        // 返回修正后的默认地址
+        return latest;
+    }
+
+
 
 
     @Override

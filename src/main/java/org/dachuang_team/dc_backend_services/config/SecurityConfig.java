@@ -41,7 +41,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/image/sysImgGet").permitAll()
 
                         // 受保护接口
-                        .requestMatchers("/api/users/updateInfo", "/api/users/checkIn", "/api/users/logout").hasRole("USER")
+                        .requestMatchers("/api/users/updateInfo", "/api/users/checkIn", "/api/users/logout","/api/users/address",
+                                "/api/users/deleteAddress","/api/users/updateAddress","/api/users/setDefaultAddress",
+                                "/api/users/unsetDefaultAddress","/api/users/getDefaultAddress").hasRole("USER")
                         .requestMatchers("/api/users/info", "/api/users/points/**").authenticated()
                         .requestMatchers("/api/users/all", "/api/users/delete").hasAnyRole("ADMIN","SUPER_ADMIN")
 
