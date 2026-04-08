@@ -57,10 +57,10 @@ public class UserController {
                 responseBody.put("userPhone", user.getUserPhone());
                 responseBody.put("userAvatarURL", user.getUserAvatarURL());
                 responseBody.put("userGender", user.getUserGender());
-                responseBody.put("userPermissions", user.getUserPermissions());
                 responseBody.put("userBirthday", user.getUserBirthday());
                 responseBody.put("userStatus", user.getUserStatus());
                 responseBody.put("userPoints", user.getPoints());
+                responseBody.put("userPreference", user.getUserPreference());
 
                 // 直接返回 Result 对象，Spring 会自动转为 JSON
                 return Result.success("登录成功", responseBody);
@@ -300,8 +300,6 @@ public class UserController {
         }
     }
 
-
-
     @GetMapping("/getDefaultAddress")
     public Result<Map<String,Object>> getDefaultAddress() {
         try {
@@ -411,16 +409,11 @@ public class UserController {
         map.put("userName", user.getUserName());
         map.put("userPhone", user.getUserPhone());
         map.put("userGender", user.getUserGender());
-        map.put("userPermissions", user.getUserPermissions());
         map.put("userBirthday", user.getUserBirthday());
         map.put("userPreference", user.getUserPreference());
         map.put("userAvatarURL", user.getUserAvatarURL());
         map.put("userStatus", user.getUserStatus());
         map.put("points", user.getPoints());
         return map;
-    }
-
-    private Map<String, Object> buildAddressResponse(UserAddress address) {
-        return null;
     }
 }

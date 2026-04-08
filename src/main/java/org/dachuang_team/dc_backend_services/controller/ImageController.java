@@ -22,10 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * 图片控制器
- * 处理与图片相关的HTTP请求
- */
 @RestController
 @RequestMapping("/api/image")
 public class ImageController {
@@ -107,7 +103,6 @@ public class ImageController {
         record.setUserId(currentUserId);
         userAvatarRecordRepository.save(record);
 
-
         // 构造并返回要求的 DTO，前端后续调用修改用户信息接口时传回这个URL以便关联
         FileUploadResponseDTO response = new FileUploadResponseDTO();
         response.setUrl(result.getUrl());
@@ -116,7 +111,8 @@ public class ImageController {
         return Result.success("上传成功", response);
     }
 
-    //用户中途取消上传商品时，清理已上传但未绑定的图片记录和物理文件，不可用于修改商品时删除已绑定的图片.通过传入的URL找到对应记录，验证未绑定后删除记录和物理文件
+    //用户中途取消上传商品时，清理已上传但未绑定的图片记录和物理文件，不可用于修改商品时删除已绑定的图片
+    //通过传入的URL找到对应记录，验证未绑定后删除记录和物理文件
     @DeleteMapping("/uploadPurge")
     public Result<String> deleteImg(@RequestParam String url) {
         // 先删数据库记录，再删物理文件

@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
@@ -60,9 +61,6 @@ public class AuthService {
         return sessionOptional;
     }
 
-    /**
-     * 登录成功后生成Token并存入数据库和Redis
-     */
     @Transactional
     public String generateToken(Long id, String role) {
         // 清理该角色下的旧Token
@@ -79,12 +77,16 @@ public class AuthService {
         // 保存到数据库
         sessionRepository.save(session);
 
-        // 保存到Redis
+        // 保存到Redis，过期时间3天，浮动±1小时
         String redisKey = TOKEN_SESSION_PREFIX + token;
-        redisTemplate.opsForValue().set(redisKey, session, 3, TimeUnit.DAYS); // 设置Redis缓存过期时间为3天，确保在数据库过期前被清理
+        long baseExpireHours = 72; // 3天
+        long randomOffset = ThreadLocalRandom.current().nextLong(-1, 2); // -1, 0, 1
+        long expireHours = baseExpireHours + randomOffset;
+        redisTemplate.opsForValue().set(redisKey, session, expireHours, TimeUnit.HOURS);
 
         return token;
     }
+
 
     /**
      * 主动使 Token 失效

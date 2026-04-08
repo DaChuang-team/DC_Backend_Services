@@ -65,7 +65,6 @@ public class UserService implements IUserService {
         UserGeneral newUser = new UserGeneral();
         BeanUtils.copyProperties(user, newUser, "userPassword", "userGender"); // 复制除 userPassword 和 userGender 以外的属性
         newUser.setUserPassword(encodedPassword);
-        newUser.setUserPermissions(0);
         newUser.setCreateTime(now);
         newUser.setUserStatus("正常");
         newUser.setPoints(0);
@@ -76,7 +75,7 @@ public class UserService implements IUserService {
 
     // 用户登录验证
     @Override
-    @Transactional
+    @Transactional(rollbackOn = Exception.class)
     public String authenticateUser(String userName, String rawPassword) {
         try {
             logger.info("开始验证用户登录，用户名: {}", userName);

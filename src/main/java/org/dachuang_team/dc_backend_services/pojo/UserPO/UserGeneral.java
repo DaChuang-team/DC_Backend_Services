@@ -37,9 +37,6 @@ public class UserGeneral {
     @Column(name = "user_status", nullable = false, length = 10)
     private String userStatus = "正常"; // 用户状态：'正常', '异常'
 
-    @Column(name = "User_Permissions")
-    private Integer userPermissions;
-
     @Column(name = "points", columnDefinition = "INT DEFAULT 0") // 用户积分，初始为0，通过签到可以增加积分，积分可以用于AI个性化推荐请求
     private Integer points;
 
@@ -130,14 +127,6 @@ public class UserGeneral {
 
     public void setUserBirthday(String userBirthday) {
         this.userBirthday = userBirthday;
-    }
-
-    public int getUserPermissions() {
-        return userPermissions;
-    }
-
-    public void setUserPermissions(int userPermissions) {
-        this.userPermissions = userPermissions;
     }
 
     public String getUserStatus() {
