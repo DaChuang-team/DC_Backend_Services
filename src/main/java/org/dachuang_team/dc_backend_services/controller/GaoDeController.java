@@ -22,6 +22,24 @@ public class GaoDeController {
     private IGaoDeService gaoDeService;
 
     /**
+     * IP 定位接口
+     * @param ip IP 地址（可选，不传则定位当前请求 IP）
+     * @param type 定位类型：固定为 4（仅支持 IPv4）
+     * @return IP 定位结果
+     */
+    @GetMapping("/ip")
+    public Result<GaoDeApiDTO.IPLocationResponse> ipLocation(
+            @RequestParam(required = false) String ip,
+            @RequestParam(defaultValue = "4") String type) {
+        try {
+            GaoDeApiDTO.IPLocationResponse response = gaoDeService.ipLocation(ip, type);
+            return Result.success("IP 定位成功", response);
+        } catch (Exception e) {
+            return Result.error(500, "IP 定位失败：" + e.getMessage());
+        }
+    }
+
+    /**
      * 地理编码接口（地址转坐标）
      * @param request 地理编码请求
      * @return 地理编码结果
@@ -65,7 +83,7 @@ public class GaoDeController {
 
     /**
      * 路径规划接口
-     * @param origin 起点坐标（格式：经度，纬度）
+     * @param origin 起点坐标（格式：经度，纬度），不传则使用当前 IP 定位地址
      * @param destination 终点坐标（格式：经度，纬度）
      * @param type 路径类型（driving/walking/transit）
      * @param strategy 规划策略（0-速度优先，1-费用优先，2-距离优先，3-舒适优先）
@@ -73,41 +91,45 @@ public class GaoDeController {
      */
     @GetMapping("/route")
     public Result<GaoDeApiDTO.RoutePlanningResponse> routePlanning(
-            @RequestParam String origin,
+            @RequestParam(required = false) String origin,
             @RequestParam String destination,
             @RequestParam(defaultValue = "driving") String type,
             @RequestParam(defaultValue = "0") String strategy) {
         try {
-            // 解析坐标
-            String[] originParts = origin.split(",");
-            String[] destParts = destination.split(",");
-
-            if (originParts.length != 2 || destParts.length != 2) {
-                return Result.error(400, "坐标格式错误，应为：经度，纬度");
+            double originLon, originLat;
+            
+            // 如果没有提供起点坐标，使用 IP 定位获取当前位置
+            if (origin == null || origin.isEmpty()) {
+                GaoDeApiDTO.IPLocationResponse ipLocation;
+                try {
+                    ipLocation = gaoDeService.ipLocation(null, "4");
+                } catch (Exception e) {
+                    return Result.error(500, "IP 定位失败：" + e.getMessage());
+                }
+                originLon = ipLocation.longitude();
+                originLat = ipLocation.latitude();
+            } else {
+                // 解析用户提供的起点坐标
+                String[] originParts = origin.split(",");
+                if (originParts.length != 2) {
+                    return Result.error(400, "起点坐标格式错误，应为：经度，纬度");
+                }
+                originLon = Double.parseDouble(originParts[0]);
+                originLat = Double.parseDouble(originParts[1]);
             }
-
-            double originLon = Double.parseDouble(originParts[0]);
-            double originLat = Double.parseDouble(originParts[1]);
+            
+            // 解析终点坐标
+            String[] destParts = destination.split(",");
+            if (destParts.length != 2) {
+                return Result.error(400, "终点坐标格式错误，应为：经度，纬度");
+            }
             double destLon = Double.parseDouble(destParts[0]);
             double destLat = Double.parseDouble(destParts[1]);
 
             GaoDeApiDTO.RoutePlanningResponse response = gaoDeService.routePlanning(
                     originLon, originLat, destLon, destLat, type, strategy);
 
-            Map<String, Object> resultData = new HashMap<>();
-            resultData.put("distance", response.distance());
-            resultData.put("duration", response.duration());
-            resultData.put("distanceText", formatDistance(response.distance()));
-            resultData.put("durationText", formatDuration(response.duration()));
-            resultData.put("steps", response.steps());
-
-            return Result.success("路径规划成功", new GaoDeApiDTO.RoutePlanningResponse(
-                    response.distance(),
-                    response.duration(),
-                    response.startLocation(),
-                    response.endLocation(),
-                    response.steps()
-            ));
+            return Result.success("路径规划成功", response);
         } catch (Exception e) {
             return Result.error(500, "路径规划失败：" + e.getMessage());
         }
@@ -179,59 +201,6 @@ public class GaoDeController {
             return Result.success("周边 POI 搜索成功", results);
         } catch (Exception e) {
             return Result.error(500, "周边 POI 搜索失败：" + e.getMessage());
-        }
-    }
-
-    /**
-     * 格式化距离显示
-     */
-    private String formatDistance(String distanceMeters) {
-        try {
-            int meters = Integer.parseInt(distanceMeters);
-            if (meters >= 1000) {
-                return String.format("%.2f 公里", meters / 1000.0);
-            }
-            return meters + " 米";
-        } catch (Exception e) {
-            return distanceMeters + " 米";
-        }
-    }
-
-    /**
-     * 格式化时长显示
-     */
-    private String formatDuration(String durationSeconds) {
-        try {
-            int seconds = Integer.parseInt(durationSeconds);
-            int hours = seconds / 3600;
-            int minutes = (seconds % 3600) / 60;
-            
-            if (hours > 0) {
-                return String.format("%d小时%d分钟", hours, minutes);
-            } else if (minutes > 0) {
-                return String.format("%d分钟", minutes);
-            }
-            return seconds + "秒";
-        } catch (Exception e) {
-            return durationSeconds + "秒";
-        }
-    }
-
-    /**
-     * IP 定位接口
-     * @param ip IP 地址（可选，不传则定位当前请求 IP）
-     * @param type 定位类型：4（IPv4）/ 11（IPv6）
-     * @return IP 定位结果
-     */
-    @GetMapping("/ip")
-    public Result<GaoDeApiDTO.IPLocationResponse> ipLocation(
-            @RequestParam(required = false) String ip,
-            @RequestParam(required = false, defaultValue = "4") String type) {
-        try {
-            GaoDeApiDTO.IPLocationResponse response = gaoDeService.ipLocation(ip, type);
-            return Result.success("IP 定位成功", response);
-        } catch (Exception e) {
-            return Result.error(500, "IP 定位失败：" + e.getMessage());
         }
     }
 }

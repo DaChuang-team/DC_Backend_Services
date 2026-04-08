@@ -70,13 +70,14 @@ public class GaoDeService implements IGaoDeService {
                 // 解析响应
                 if (rootNode.has("geocodes") && rootNode.get("geocodes").isArray()  //检查响应体是否包含 geocodes 数组
                         && rootNode.get("geocodes").size() > 0) {
-                    JsonNode geocode = rootNode.get("geocodes").get(0);
+                    JsonNode geocode = rootNode.get("geocodes").get(0); //获取地址的地理编码信息，即第一个元素
                     
                     String location = geocode.has("location") ? geocode.get("location").asText() : "";  //获取 location 字段值
                     String[] parts = location.split(",");  //将 location 字段值按逗号分隔.高德返回的格式是 "经度,纬度" ，需要拆分
                     double longitude = parts.length > 0 ? Double.parseDouble(parts[0]) : 0.0;  //将经度部分转换为 double 类型
                     double latitude = parts.length > 1 ? Double.parseDouble(parts[1]) : 0.0;  //将纬度部分转换为 double 类型
 
+                    //返回地址的地理编码信息，包括地址、经度、纬度、格式化地址等
                     return new GaoDeApiDTO.GeocodeResponse(
                             address,
                             location,
@@ -127,14 +128,30 @@ public class GaoDeService implements IGaoDeService {
                     JsonNode addressComponent = regeocode.has("addressComponent") ? 
                             regeocode.get("addressComponent") : objectMapper.createObjectNode();
 
+                    // 解析地址组件为结构化对象
+                    GaoDeApiDTO.AddressComponent addressComponentObj = new GaoDeApiDTO.AddressComponent(
+                            addressComponent.has("province") ? addressComponent.get("province").asText() : "",
+                            addressComponent.has("city") ? addressComponent.get("city").asText() : "",
+                            addressComponent.has("citycode") ? addressComponent.get("citycode").asText() : "",
+                            addressComponent.has("district") ? addressComponent.get("district").asText() : "",
+                            addressComponent.has("towncode") ? addressComponent.get("towncode").asText() : "",
+                            addressComponent.has("township") ? addressComponent.get("township").asText() : "",
+                            addressComponent.has("neighborhood") ? addressComponent.get("neighborhood").asText() : "",
+                            addressComponent.has("building") ? addressComponent.get("building").asText() : "",
+                            addressComponent.has("streetNumber") ? addressComponent.get("streetNumber").asText() : "",
+                            addressComponent.has("street") ? addressComponent.get("street").asText() : ""
+                    );
+
                     return new GaoDeApiDTO.ReverseGeocodeResponse(
                             regeocode.has("formatted_address") ? regeocode.get("formatted_address").asText() : "",
-                            addressComponent.toString(),
+                            addressComponentObj,
                             addressComponent.has("city") ? addressComponent.get("city").asText() : "",
                             addressComponent.has("district") ? addressComponent.get("district").asText() : "",
                             addressComponent.has("province") ? addressComponent.get("province").asText() : "",
                             addressComponent.has("streetNumber") ? addressComponent.get("streetNumber").asText() : "",
-                            regeocode.has("neighborhood") ? regeocode.get("neighborhood").asText() : ""
+                            regeocode.has("neighborhood") ? regeocode.get("neighborhood").asText() : "",
+                            regeocode.has("poi") ? regeocode.get("poi").asText() : "",
+                            regeocode.has("poitype") ? regeocode.get("poitype").asText() : ""
                     );
                 }
 
@@ -190,12 +207,19 @@ public class GaoDeService implements IGaoDeService {
                     List<GaoDeApiDTO.RouteStep> steps = new ArrayList<>();
                     if (path.has("steps") && path.get("steps").isArray()) {
                         for (JsonNode stepNode : path.get("steps")) {
+                            String stepDistance = stepNode.has("distance") ? stepNode.get("distance").asText() : "0";
+                            String stepDuration = stepNode.has("duration") ? stepNode.get("duration").asText() : "0";
+                            
                             steps.add(new GaoDeApiDTO.RouteStep(
                                     stepNode.has("instruction") ? stepNode.get("instruction").asText() : "",
-                                    stepNode.has("distance") ? stepNode.get("distance").asText() : "0",
-                                    stepNode.has("duration") ? stepNode.get("duration").asText() : "0",
+                                    stepDistance,
+                                    stepDuration,
+                                    formatDistance(stepDistance),
+                                    formatDuration(stepDuration),
                                     stepNode.has("start_location") ? stepNode.get("start_location").asText() : "",
-                                    stepNode.has("end_location") ? stepNode.get("end_location").asText() : ""
+                                    stepNode.has("end_location") ? stepNode.get("end_location").asText() : "",
+                                    stepNode.has("action") ? stepNode.get("action").asText() : "",
+                                    stepNode.has("assistant_action") ? stepNode.get("assistant_action").asText() : ""
                             ));
                         }
                     }
@@ -203,6 +227,8 @@ public class GaoDeService implements IGaoDeService {
                     return new GaoDeApiDTO.RoutePlanningResponse(
                             distance,
                             duration,
+                            formatDistance(distance),
+                            formatDuration(duration),
                             originLongitude + "," + originLatitude,
                             destinationLongitude + "," + destinationLatitude,
                             steps
@@ -301,12 +327,16 @@ public class GaoDeService implements IGaoDeService {
                             poiNode.has("id") ? poiNode.get("id").asText() : "",
                             poiNode.has("name") ? poiNode.get("name").asText() : "",
                             poiNode.has("type") ? poiNode.get("type").asText() : "",
+                            poiNode.has("typecode") ? poiNode.get("typecode").asText() : "",
                             poiNode.has("address") ? poiNode.get("address").asText() : "",
                             location,
                             longitude,
                             latitude,
                             poiNode.has("tel") ? poiNode.get("tel").asText() : "",
-                            poiNode.has("distance") ? poiNode.get("distance").asText() : ""
+                            poiNode.has("distance") ? poiNode.get("distance").asText() : "",
+                            poiNode.has("rating") ? poiNode.get("rating").asText() : "",
+                            poiNode.has("biz_ext") ? poiNode.get("biz_ext").asText() : "",
+                            poiNode.has("timestamp") ? poiNode.get("timestamp").asText() : ""
                     ));
                 }
             }
@@ -359,7 +389,9 @@ public class GaoDeService implements IGaoDeService {
                             rootNode.has("adcode") ? rootNode.get("adcode").asText() : "",
                             rootNode.has("district") ? rootNode.get("district").asText() : "",
                             rootNode.has("isp") ? rootNode.get("isp").asText() : "",
-                            rootNode.has("areacode") ? rootNode.get("areacode").asText() : ""
+                            rootNode.has("areacode") ? rootNode.get("areacode").asText() : "",
+                            rootNode.has("country") ? rootNode.get("country").asText() : "",
+                            rootNode.has("citycode") ? rootNode.get("citycode").asText() : ""
                     );
                 }
 
@@ -368,6 +400,45 @@ public class GaoDeService implements IGaoDeService {
         } catch (Exception e) {
             logger.error("IP 定位失败：{}", e.getMessage(), e);
             throw new RuntimeException("IP 定位失败：" + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 格式化距离显示
+     * @param distanceMeters 距离（米）
+     * @return 格式化后的距离字符串
+     */
+    private String formatDistance(String distanceMeters) {
+        try {
+            int meters = Integer.parseInt(distanceMeters);
+            if (meters >= 1000) {
+                return String.format("%.2f 公里", meters / 1000.0);
+            }
+            return meters + " 米";
+        } catch (Exception e) {
+            return distanceMeters + " 米";
+        }
+    }
+
+    /**
+     * 格式化时长显示
+     * @param durationSeconds 时长（秒）
+     * @return 格式化后的时长字符串
+     */
+    private String formatDuration(String durationSeconds) {
+        try {
+            int seconds = Integer.parseInt(durationSeconds);
+            int hours = seconds / 3600;
+            int minutes = (seconds % 3600) / 60;
+            
+            if (hours > 0) {
+                return String.format("%d 小时%d分钟", hours, minutes);
+            } else if (minutes > 0) {
+                return String.format("%d分钟", minutes);
+            }
+            return seconds + "秒";
+        } catch (Exception e) {
+            return durationSeconds + "秒";
         }
     }
 }
