@@ -6,10 +6,14 @@ import org.springframework.web.multipart.MultipartFile;
 
 public interface IStorageService {
     // 上传并返回存储结果（包含物理路径和访问URL）
-    StorageResult upload(MultipartFile file);
+    StorageResult uploadByFile(MultipartFile file);
+
+    String uploadByByte(byte[] fileBytes, String Filename);
 
     // 根据URL删除物理文件
     void delete(String url);
+
+    byte[] downloadByUrl(String url);
 
     // 内部辅助类
     @Data

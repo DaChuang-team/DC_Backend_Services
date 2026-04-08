@@ -25,8 +25,8 @@ public class Product {
     private int category; //分类
     @Column(name = "origin", length = 30)
     private String origin; //地区
-    @Column(name = "image_URL", length = 255)
-    private String imageUrl; //图片URL
+    @Column(name = "TbImage_URL", length = 255)
+    private String TbImageUrl; // 首图缩略图URL
     @Column(name = "approved")
     private Boolean approved = false; //审核状态，默认为 false，表示未审核通过
     @Column(name = "published_at")
@@ -103,12 +103,12 @@ public class Product {
         this.origin = origin;
     }
 
-    public String getImageUrl() {
-        return imageUrl;
+    public String getTbImageUrl() {
+        return TbImageUrl;
     }
 
-    public void setImageUrl(String imageUrl) {
-        this.imageUrl = imageUrl;
+    public void setTbImageUrl(String imageUrl) {
+        this.TbImageUrl = imageUrl;
     }
 
     public Boolean getApproved() {

@@ -1,4 +1,4 @@
-package org.dachuang_team.dc_backend_services.pojo;
+package org.dachuang_team.dc_backend_services.pojo.AIPO;
 
 import jakarta.persistence.*;
 
@@ -11,12 +11,14 @@ public class AISessionContext {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true)
-    private Long userId;        // 关联系统用户 ID
+    private Long userId;        // 当前会话的所属用户ID
 
-    private String sessionId; // 存储当前会话的唯一标识符
+    private String sessionId; // 存储当前会话的唯一标识符以支持同一用户多个会话并行，
 
-    private String lastResponseId; // 存储最近一次Responses API的ID
+    // 使用sessionId定位会话、使用lastResponseId定位上下文
+    // 追问时sessionId不变，lastResponseId更新为最近一次Responses API返回的ID
+
+    private String lastResponseId; // 存储最近一次对话的ID，用于追问时关联上下文
     private String modelEndpoint;  // 记录使用的终端节点，追问时不支持切换其他版本模型回答
     private LocalDateTime lastResponseTime; // 记录最近一次Responses API的时间戳
     private LocalDateTime expireTime; // 上次交互时间超过3天则过期，清除上下文

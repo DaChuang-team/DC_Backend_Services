@@ -15,7 +15,8 @@ public class AIImgInteractionDTO {
             String recognizedResult,  // 识别出的内容
             String modelVersion,      // 使用的模型版本代号
             String responseId,        // 当前回合 ID，前端可保存用于后续追问
-            String sessionID          // 会话ID，前端需保存用于唯一标识一段对话
+            String sessionID,         // 会话ID，前端需保存用于唯一标识一段对话
+            String expireTime         // 该对话的过期时间，超过该时间后 sessionID 将失效，前端需保存并显示给用户以提示对话有效期
     ) {}
 
 
@@ -29,6 +30,6 @@ public class AIImgInteractionDTO {
     public record FollowUpResponse(
             String text,              // AI 回复的纯文本内容
             String responseId,        // 本轮回复的 ID，用于下一轮追问的 previousResponseId
-            String modelVersion       // 当前使用的模型版本
+            String newExpireTime      // 更新后的过期时间，前端需更新保存显示给用户
     ) {}
 }

@@ -32,9 +32,10 @@ public class PointsRecordService implements IPointsRecordService {
         return true;
     }
 
+    // 获取用户最近14天的积分变动记录，按时间倒序排列
     @Override
     public List<UserPointsRecord> getPointsRecords(Long userId) {
-        LocalDateTime thirtyDaysAgo = LocalDateTime.now().minusDays(30);
+        LocalDateTime thirtyDaysAgo = LocalDateTime.now().minusDays(14);
         return pointsRecordRepository.findByUserIdAndChangeTimeAfterOrderByChangeTimeDesc(userId, thirtyDaysAgo);
     }
 }

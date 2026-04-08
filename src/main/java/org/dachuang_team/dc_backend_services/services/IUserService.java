@@ -1,6 +1,8 @@
 package org.dachuang_team.dc_backend_services.services;
+import org.dachuang_team.dc_backend_services.pojo.Dto.UserAddressDTO;
 import org.dachuang_team.dc_backend_services.pojo.Dto.UserDTO;
 import org.dachuang_team.dc_backend_services.pojo.Dto.UserUpdateDTO;
+import org.dachuang_team.dc_backend_services.pojo.UserPO.UserAddress;
 import org.dachuang_team.dc_backend_services.pojo.UserPO.UserGeneral;
 
 import java.util.List;
@@ -55,4 +57,18 @@ public interface IUserService {
      * @return 是否登出成功
      */
     boolean logout(long userId);
+
+    List<UserAddress> getUserAddresses(Long userId);
+
+    void addUserAddress(Long userId, UserAddressDTO address);
+
+    void updateUserAddress(Long userId, Long addressId, UserAddressDTO address);
+
+    void deleteUserAddress(Long userId, Long addressId);
+
+    void setDefaultUserAddress(Long userId, Long addressId);
+
+    UserAddress getDefaultUserAddress(Long userId);
+
+    void unsetDefaultUserAddress(Long currentUserId, Long addressId);
 }

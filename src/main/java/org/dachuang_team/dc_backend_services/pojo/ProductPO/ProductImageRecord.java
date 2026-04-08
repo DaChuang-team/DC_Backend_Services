@@ -6,15 +6,21 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "product_image_record")
 public class ProductImageRecord {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String url;          // 访问路径
-    private String physicalPath; // 本地物理绝对路径
+    private String url;                    // 处理后的正式URL（或临时原图URL）
+    private String physicalPath;
     private LocalDateTime createdAt;
-    private Boolean isLinked = false; // 是否已绑定到商品
-    private Long productId; // 关联的商品ID
+    private Boolean isLinked = false;
+    private Long productId;
+
+    private Boolean isPrimary = false;     // 仅第0位为true
+
+    private Integer sortOrder;             // 0~4
+    private Boolean processed = false;     // 图像处理标注，在预处理时为false，生成大图时更新为true
+
+    private String thumbnailUrl;           // 缩略图url，仅首图有值（400×400）
 
     public Long getProductId() {
         return productId;
@@ -54,5 +60,45 @@ public class ProductImageRecord {
 
     public void setPhysicalPath(String physicalPath) {
         this.physicalPath = physicalPath;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public Boolean getPrimary() {
+        return isPrimary;
+    }
+
+    public void setPrimary(Boolean primary) {
+        isPrimary = primary;
+    }
+
+    public Integer getSortOrder() {
+        return sortOrder;
+    }
+
+    public void setSortOrder(Integer sortOrder) {
+        this.sortOrder = sortOrder;
+    }
+
+    public String getThumbnailUrl() {
+        return thumbnailUrl;
+    }
+
+    public void setThumbnailUrl(String thumbnailUrl) {
+        this.thumbnailUrl = thumbnailUrl;
+    }
+
+    public Boolean getProcessed() {
+        return processed;
+    }
+
+    public void setProcessed(Boolean processed) {
+        this.processed = processed;
     }
 }

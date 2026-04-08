@@ -21,10 +21,12 @@ import okhttp3.Dispatcher;
 import okhttp3.ConnectionPool;
 import com.volcengine.ark.runtime.service.ArkService;
 import jakarta.annotation.PreDestroy;
-import org.dachuang_team.dc_backend_services.pojo.AISessionContext;
+import org.dachuang_team.dc_backend_services.pojo.AIPO.AISessionContext;
+import org.dachuang_team.dc_backend_services.pojo.AIPO.AiUsageRecord;
 import org.dachuang_team.dc_backend_services.pojo.Dto.AIImgInteractionDTO;
 import org.dachuang_team.dc_backend_services.pojo.Dto.AITextInteractionDTO;
 import org.dachuang_team.dc_backend_services.repository.AISessionContextRepository;
+import org.dachuang_team.dc_backend_services.repository.AiUsageRecordRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,9 +35,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -49,6 +51,9 @@ public class AIService implements IAIServices{
     @Autowired
     private AISessionContextRepository contextRepository;
 
+    @Autowired
+    private AiUsageRecordRepository usageRecordRepository;
+
     public AIService(@Value("${volcengine.ark.api-key}") String apiKey, ObjectMapper mapper) {
         this.arkService = ArkService.builder()
                 .connectionPool(new ConnectionPool(5, 1, TimeUnit.SECONDS))
@@ -60,7 +65,8 @@ public class AIService implements IAIServices{
     }
 
     @Override
-    public AITextInteractionDTO.RuralTravelPlan generateTravelPlan(String query, int modelVersion) {
+    @Transactional(rollbackOn = Exception.class)
+    public AITextInteractionDTO.RuralTravelPlan generateTravelPlan(String query, int modelVersion, Long userId) {
         try {
             //定义消息列表
             List<ChatMessage> messages = new ArrayList<>();
@@ -132,6 +138,18 @@ public class AIService implements IAIServices{
                     .build();
 
             var response = arkService.createChatCompletion(request);
+
+            Long totalTokens = (response.getUsage() != null)
+                    ? response.getUsage().getTotalTokens()
+                    : -1L;
+
+            // 记录AI使用情况
+            AiUsageRecord usageRecord = new AiUsageRecord();
+            usageRecord.setUserId(userId);
+            usageRecord.setTokenCount(totalTokens);
+            usageRecord.setType("AI_ROUTINE_GENERATION");
+            usageRecord.setRequestTime(LocalDateTime.now());
+            usageRecordRepository.save(usageRecord);
 
             //解析结果
             if (!response.getChoices().isEmpty()) {
@@ -251,7 +269,7 @@ public class AIService implements IAIServices{
     }
 
     // 支持上下文缓存的图像识别接口，供前端新开启一个图像解析会话时调用，后续用户在同一会话中追加对话时可以使用返回的responseId进行上下文关联
-    @Transactional
+    @Transactional(rollbackOn = Exception.class)
     @Override
     public AIImgInteractionDTO.ImageRecognitionResponse recognizeImage(Long userId, AIImgInteractionDTO.ImageRecognitionRequest requestDTO) {
         try {
@@ -275,14 +293,15 @@ public class AIService implements IAIServices{
 
             // 完整的文本prompt
             String fullPrompt = String.format(
-                            "你是一名经验丰富、专业且热情的现场旅游讲解员，正在用真实、自然的口语为游客讲解。\n" +
+                            "你是一名经验丰富、专业且热情的现场私人旅游讲解员，正在用真实、自然的口语为游客讲解。\n" +
                             "用户当前定位：" + requestDTO.userLocation() + "\n" +
                             "用户刚刚上传了一张图片，你首先准确识别图片中最主要的主体（只关注最突出、最核心的那一个），然后结合用户的地理位置，撰写一篇完整、流畅、自然的口语讲解文案。\n\n" +
 
                             "讲解文案必须像真人导游在现场说话一样，连续、自然地说下去，不要出现任何编号或结构化格式。\n" +
                             "它应该是一段连贯的讲话，主语不能省略，句子之间要自然衔接，使用口语化表达，比如‘您现在看到的这座……’、‘咱们来聊聊它的历史……’、‘特别有意思的是……’等，让人听起来舒服、亲切。\n\n" +
+                            "如果用户后续追问，你就像正常对话一样继续用口语化的方式讲解，不要刻意重复之前说过的话，要自然衔接，像真人导游一样回答用户的问题。\n\n"    +
 
-                            "讲解内容一定要自然覆盖以下几个方面（但要融成一整段话，不要分点）：\n" +
+                            "讲解内容一定要至少自然覆盖以下几个方面（但要融成一整段话，不要分点）：\n" +
                             "- 先介绍主体的名字、确切位置、是什么类型（建筑/景点/展品/画作等），并结合图片里能看到的细节描述它的当前样子。\n" +
                             "- 再详细讲它的历史沿革：从起源到现在的完整故事，包括建造或创作的背景、关键年代、重要历史事件、功能变迁、经历过的战争或修复等（信息必须准确，如有争议请说‘据主流史料记载’）。\n" +
                             "- 接着讲它的文化和艺术价值：风格特点、主要设计师或艺术家、象征意义、在当地和世界上的地位。\n\n" +
@@ -295,7 +314,6 @@ public class AIService implements IAIServices{
                             "- 句子长度适中（每句15-25字左右），节奏感好，便于语音合成朗读。\n" +
                             "- 避免书面语、列表、缩写、主语省略；多用连接词让前后自然过渡。\n" +
                             "- 整体长度控制在200-300字左右（既完整又有故事感，听起来不累）。\n" +
-                            "- 最后用一句温暖的结束语收尾。\n\n" +
 
                             "重要：如果主体实在无法清晰辨认，请直接在讲解文案中说明原因并请求用户重新上传图片或提供更多描述。"
             );
@@ -307,8 +325,8 @@ public class AIService implements IAIServices{
                             .build())
                     .build());
 
-            // 当前时间戳 + 3天（259200秒），单位为秒。加1秒确保数据库中的过期时间比AI平台的稍晚，避免边界问题
-            long expireAt = Instant.now().getEpochSecond() + 259200 + 1;
+            // 当前时间戳 + 3天（259200秒），单位为秒。加100秒确保数据库中的过期时间比AI平台的稍晚，避免边界问题
+            long expireAt = Instant.now().getEpochSecond() + 259200 + 100;
 
             // 构造最终请求
             CreateResponsesRequest request = CreateResponsesRequest.builder()
@@ -323,6 +341,21 @@ public class AIService implements IAIServices{
             // 发起请求
             ResponseObject resp = arkService.createResponse(request);
 
+            Long totalTokens = -1L;
+
+            if (resp != null && resp.getUsage() != null && resp.getUsage().getTotalTokens() != null) {
+                totalTokens = resp.getUsage().getTotalTokens();
+            } else {
+                totalTokens = -1L;
+            }
+
+            AiUsageRecord usageRecord = new AiUsageRecord();
+            usageRecord.setUserId(userId);
+            usageRecord.setTokenCount(totalTokens);
+            usageRecord.setType("AI_IMAGE_RECOGNITION");
+            usageRecord.setRequestTime(LocalDateTime.now());
+            usageRecordRepository.save(usageRecord);
+
             // 解析
             String explanation = extractExplanationFromResponse(resp);
 
@@ -334,11 +367,85 @@ public class AIService implements IAIServices{
                     explanation,
                     getModelVersionInfo(requestDTO.modelVersion()),
                     resp.getId(),
-                    sessionId
+                    sessionId,
+                    LocalDateTime
+                            .now()
+                            .withSecond(0)
+                            .withNano(0)
+                            .plusDays(3)
+                            .format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"))
             );
 
         } catch (Exception e) {
             throw new RuntimeException("AI 图像识别服务异常: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    @Transactional(rollbackOn = Exception.class)
+    public AIImgInteractionDTO.FollowUpResponse continueConversation(Long userId, AIImgInteractionDTO.FollowUpRequest requestDTO) {
+        try {
+            // 查找会话上下文
+            AISessionContext context = contextRepository.findByUserIdAndSessionId(userId, requestDTO.sessionID());
+
+            // 检查上下文是否存在且未过期（超过3天未交互则过期）
+            if(context == null || context.getExpireTime().isBefore(LocalDateTime.now())) {
+                throw new RuntimeException("会话不存在或已过期，请重新上传图片发起新对话");
+            }
+
+
+            // 构建请求，关联上下文
+            CreateResponsesRequest followUpRequest = CreateResponsesRequest.builder()
+                    .model(context.getModelEndpoint())
+                    .input(ResponsesInput.builder()
+                            .addListItem(ItemEasyMessage.builder()
+                                    .role(ResponsesConstants.MESSAGE_ROLE_USER)
+                                    .content(MessageContent.builder()
+                                            .stringValue(requestDTO.content())
+                                            .build())
+                                    .build())
+                            .build())
+                    .previousResponseId(context.getLastResponseId()) // 关联上下文的关键
+                    .caching(ResponsesCaching.builder().type("enabled").build())
+                    .thinking(ResponsesThinking.builder().type(ResponsesConstants.THINKING_TYPE_DISABLED).build())
+                    .store(true)
+                    .build();
+
+            var response = arkService.createResponse(followUpRequest);
+
+            Long totalTokens = -1L;
+
+            if (response != null && response.getUsage() != null && response.getUsage().getTotalTokens() != null) {
+                totalTokens = response.getUsage().getTotalTokens();
+            } else {
+                totalTokens = -1L;
+            }
+
+            AiUsageRecord usageRecord = new AiUsageRecord();
+            usageRecord.setUserId(userId);
+            usageRecord.setTokenCount(totalTokens);
+            usageRecord.setType("AI_CONVERSATION");
+            usageRecord.setRequestTime(LocalDateTime.now());
+            usageRecordRepository.save(usageRecord);
+
+            String explanation = extractExplanationFromResponse(response);
+
+            // 更新会话上下文中的 lastResponseId 和 lastResponseTime
+            updateSessionContext(userId, requestDTO.sessionID(), response.getId());
+
+            return new AIImgInteractionDTO.FollowUpResponse(
+                    explanation,
+                    response.getId(),
+                    LocalDateTime
+                            .now()
+                            .withSecond(0)
+                            .withNano(0)
+                            .plusDays(3)
+                            .format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"))
+            );
+
+        } catch (Exception e) {
+            throw new RuntimeException("继续对话失败: " + e.getMessage(), e);
         }
     }
 
@@ -347,7 +454,7 @@ public class AIService implements IAIServices{
         return switch (modelVersion) {
             case 0 -> "ep-20260202151315-zvslq"; // 豆包1.6版本
             case 1 -> "ep-20260312135710-f8kfz"; // 豆包1.8版本
-            default -> throw new IllegalArgumentException("未知的模型版本: " + modelVersion);
+            default -> throw new IllegalArgumentException("不支持的模型版本: " + modelVersion);
         };
     }
 
@@ -355,7 +462,7 @@ public class AIService implements IAIServices{
         return switch (modelVersion) {
             case 0 -> "Doubao-Seed-1.6 251015";
             case 1 -> "Doubao-Seed-1.8 251228";
-            default -> "UNKNOWN_MODEL";
+            default -> throw new IllegalArgumentException("未知的模型代号");
         };
     }
 
@@ -371,7 +478,7 @@ public class AIService implements IAIServices{
         context.setLastResponseId(responseId); // 存储第一轮识别的 ID
         context.setModelEndpoint(endpointId);
         context.setLastResponseTime(LocalDateTime.now());
-        context.setExpireTime(LocalDateTime.now().plusDays(3)); // 对应 API 的 3 天有效期
+        context.setExpireTime(LocalDateTime.now().plusDays(3)); // 对应会话的过期时间，超过3天未交互则过期
 
         contextRepository.save(context);
         return newSessionId; // 返回给 Service 层，最终返回给前端
@@ -383,12 +490,12 @@ public class AIService implements IAIServices{
         AISessionContext context = contextRepository.findByUserIdAndSessionId(userId, sessionId);
 
         if(context == null) {
-            throw new RuntimeException("会话不存在或已过期，请开启新对话");
+            throw new IllegalArgumentException("会话不存在，请重新上传图片发起新对话");
         }
 
-        // 检查是否过期
+        // 再次检查是否过期
         if (context.getExpireTime().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("会话已超过 3 天有效期，请开启新对话");
+            throw new IllegalArgumentException("会话已过期，请重新上传图片发起新对话");
         }
 
         // 更新链条指针
