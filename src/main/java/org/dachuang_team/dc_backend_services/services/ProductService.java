@@ -3,9 +3,11 @@ package org.dachuang_team.dc_backend_services.services;
 import jakarta.transaction.Transactional;
 import org.dachuang_team.dc_backend_services.common.ImageProcessUtils;
 import org.dachuang_team.dc_backend_services.domain.DTO.ProductDTO;
+import org.dachuang_team.dc_backend_services.domain.PO.MerchantPO.Merchant;
 import org.dachuang_team.dc_backend_services.domain.PO.ProductPO.ProductImageRecord;
 import org.dachuang_team.dc_backend_services.domain.PO.ProductPO.Product;
 import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserGeneral;
+import org.dachuang_team.dc_backend_services.repository.MerchantRepository;
 import org.dachuang_team.dc_backend_services.repository.ProductImageRecordRepository;
 import org.dachuang_team.dc_backend_services.repository.ProductRepository;
 import org.dachuang_team.dc_backend_services.repository.UserRepository;
@@ -15,15 +17,13 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 @Service
 public class ProductService implements IProductService {
 
     @Autowired
     private ProductRepository productRepository;
-
-    @Autowired
-    private UserRepository userRepository;
 
     @Autowired
     private ProductImageRecordRepository productImageRecordRepository;
@@ -34,11 +34,19 @@ public class ProductService implements IProductService {
     @Autowired
     private ImageProcessUtils imageProcessUtils;
 
+    @Autowired
+    private MerchantRepository merchantRepository;
+
     @Override
-    public Product addProduct(ProductDTO productDTO, Long userId) {
+    public Product addProduct(ProductDTO productDTO, Long MerchantId) {
         try {
-            UserGeneral seller = userRepository.findById(userId)
-                    .orElseThrow(() -> new IllegalArgumentException("用户ID: " + userId + " 不存在"));
+            Merchant seller = merchantRepository.findById(MerchantId).get();
+            if(seller == null) {
+                throw new IllegalArgumentException("商家不存在");
+            }
+            if(seller.getStatus() == 0) {
+                throw new IllegalStateException("商家未审核通过，无法发布商品");
+            }
 
             // 创建商品对象
             Product product = new Product();
@@ -48,6 +56,7 @@ public class ProductService implements IProductService {
             product.setOrigin(productDTO.getOrigin());
             product.setDescription(productDTO.getDescription());
             product.setSeller(seller);
+            product.setSellerId(seller.getId());
             product.setStock(productDTO.getStock() != null ? productDTO.getStock() : 0);
             product.setPublishedAt(LocalDateTime.now());
             product.setLastModifiedAt(LocalDateTime.now());
@@ -65,6 +74,7 @@ public class ProductService implements IProductService {
             throw new RuntimeException("添加商品失败: " + e.getMessage());
         }
     }
+
 
     @Override
     @Transactional(rollbackOn = Exception.class)
@@ -87,7 +97,7 @@ public class ProductService implements IProductService {
             if (productDTO.getDescription() != null && !productDTO.getDescription().isEmpty()) {
                 existingProduct.setDescription(productDTO.getDescription());
             }
-            if (productDTO.getStock() != null && productDTO.getStock() >= 0) {
+            if (productDTO.getStock() != null && productDTO.getStock() >= 1) {
                 existingProduct.setStock(productDTO.getStock());
             }
             existingProduct.setLastModifiedAt(LocalDateTime.now());
@@ -128,8 +138,8 @@ public class ProductService implements IProductService {
                     .orElseThrow(() -> new IllegalArgumentException("商品不存在"));
 
             // 权限校验
-            if (Objects.equals(currentUserRole, "ROLE_USER")) {
-                if (!existingProduct.getSeller().getUserId().equals(currentUserId)) {
+            if (Objects.equals(currentUserRole, "ROLE_MERCHANT")) {
+                if (!existingProduct.getSeller().getId().equals(currentUserId)) {
                     throw new SecurityException("权限不足：您只能删除自己的商品");
                 }
             } else if (!Objects.equals(currentUserRole, "ROLE_ADMIN")) {

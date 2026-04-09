@@ -1,28 +1,14 @@
 package org.dachuang_team.dc_backend_services.domain.DTO;
 
-import java.math.BigDecimal;
+import jakarta.validation.constraints.NotBlank;
+
 import java.util.List;
 
 public class CreateOrderRequestDTO {
-    private String buyerId;
-    private String sellerId;
+    @NotBlank(message = "收货地址不能为空")
+    private String address;
+
     private List<OrderItemDto> items;
-
-    public String getBuyerId() {
-        return buyerId;
-    }
-
-    public void setBuyerId(String buyerId) {
-        this.buyerId = buyerId;
-    }
-
-    public String getSellerId() {
-        return sellerId;
-    }
-
-    public void setSellerId(String sellerId) {
-        this.sellerId = sellerId;
-    }
 
     public List<OrderItemDto> getItems() {
         return items;
@@ -32,12 +18,20 @@ public class CreateOrderRequestDTO {
         this.items = items;
     }
 
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
 
     public static class OrderItemDto {
+        @NotBlank(message = "商品ID不能为空")
         private String productId;
+        @NotBlank(message = "商品名称不能为空")
         private String productName;
-        private String productSnapshot;
-        private BigDecimal unitPrice;
+        @NotBlank(message = "数量不能为空")
         private Integer quantity;
 
         public String getProductId() {
@@ -56,28 +50,12 @@ public class CreateOrderRequestDTO {
             this.quantity = quantity;
         }
 
-        public BigDecimal getUnitPrice() {
-            return unitPrice;
-        }
-
-        public void setUnitPrice(BigDecimal unitPrice) {
-            this.unitPrice = unitPrice;
-        }
-
         public String getProductName() {
             return productName;
         }
 
         public void setProductName(String productName) {
             this.productName = productName;
-        }
-
-        public String getProductSnapshot() {
-            return productSnapshot;
-        }
-
-        public void setProductSnapshot(String productSnapshot) {
-            this.productSnapshot = productSnapshot;
         }
     }
 }

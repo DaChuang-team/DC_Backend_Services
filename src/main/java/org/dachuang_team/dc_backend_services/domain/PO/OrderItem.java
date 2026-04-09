@@ -19,8 +19,8 @@ public class OrderItem {
     private Order order;
 
     //商品id
-    @Column(name = "product_id", nullable = false, length = 64)
-    private String productId;
+    @Column(name = "product_id", nullable = false)
+    private Long productId;
 
     //商品名称快照
     @Column(name = "product_name", nullable = false, length = 200)
@@ -49,10 +49,10 @@ public class OrderItem {
     protected OrderItem() {}
 
     // 强制校验
-    public OrderItem(String productId, String productName,
+    public OrderItem(Long productId, String productName,
                      String productSnapshot, BigDecimal unitPrice, Integer quantity) {
-        if (productId == null || productId.isBlank())
-            throw new IllegalArgumentException("productId 不能为空");
+        if (productId == null || productId <= 0)
+            throw new IllegalArgumentException("productId 不合法");
         if (productName == null || productName.isBlank())
             throw new IllegalArgumentException("productName 不能为空");
         if (unitPrice == null || unitPrice.compareTo(BigDecimal.ZERO) <= 0)
@@ -73,7 +73,7 @@ public class OrderItem {
     public String getId() { return id; }
     public Order getOrder() { return order; }
     public void setOrder(Order order) { this.order = order; }  // 仅供 Order.setItems() 内部调用
-    public String getProductId() { return productId; }
+    public Long getProductId() { return productId; }
     public String getProductName() { return productName; }
     public String getProductSnapshot() { return productSnapshot; }
     public BigDecimal getUnitPrice() { return unitPrice; }

@@ -48,17 +48,20 @@ public class SecurityConfig {
                         .requestMatchers("/api/users/info", "/api/users/points/**").authenticated()
                         .requestMatchers("/api/users/all", "/api/users/delete").hasAnyRole("ADMIN","SUPER_ADMIN")
 
+                        .requestMatchers("/api/orders/create").hasAnyRole("USER")
+
                         .requestMatchers("/api/ai/**").hasRole("USER")
 
                         .requestMatchers("/api/gaode/**").hasRole("USER")
 
                         .requestMatchers("/api/tts/**").hasRole("USER")
 
-                        .requestMatchers("/api/products/currentUser", "/api/products/details").hasRole("USER")
+                        .requestMatchers("/api/products/currentUser", "/api/products/details").authenticated()
                         .requestMatchers("/api/products/all", "/api/products/unApproved", "/api/products/approve", "/api/products/disApprove").hasRole("ADMIN")
-                        .requestMatchers("/api/products/delete", "/api/products/update").authenticated()
+                        .requestMatchers("/api/products/delete", "/api/products/update","/api/products/add").hasRole("MERCHANT")
 
-                        .requestMatchers("/api/image/productImgUpload", "/api/image/uploadPurge", "/api/image/AIInteractionImgUpload", "/api/image/userAvatarUpload").hasRole("USER")
+                        .requestMatchers("/api/image/productImgUpload", "/api/image/uploadPurge").hasRole("MERCHANT")
+                        .requestMatchers("/api/image/AIInteractionImgUpload", "/api/image/userAvatarUpload").hasRole("USER")
                         .requestMatchers("/api/image/sysImgUpload").hasAnyRole("ADMIN","SUPER_ADMIN")
 
                         .requestMatchers("/api/admins/admindelete").hasRole("SUPER_ADMIN")

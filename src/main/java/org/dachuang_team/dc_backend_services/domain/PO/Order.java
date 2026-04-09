@@ -18,17 +18,21 @@ import java.util.UUID;
 @EntityListeners(AuditingEntityListener.class)
 public class Order {
 
-    //订单id，使用UUID生成
+    //订单id
     @Id
-    private String id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "order_number", nullable = false, unique = true, length = 32)
+    private String orderNumber;
 
     //买家ID，关联用户表，只存引用
     @Column(name = "buyer_id", nullable = false)
-    private String buyerId;
+    private Long buyerId;
 
     //商家ID，关联商家表，只存引用
     @Column(name = "seller_id", nullable = false)
-    private String sellerId;
+    private Long sellerId;
 
     //定义见枚举类
     @Enumerated(EnumType.STRING)
@@ -46,6 +50,9 @@ public class Order {
     //支付预留字段，存储第三方支付返回的上下文信息
     @Column(name = "payment_slot", columnDefinition = "TEXT")
     private String paymentSlot;
+
+    @Column(name = "receive_address", nullable = false)
+    private String receiveAddress;
 
     //乐观锁版本号防止并发修改
     @Version
@@ -78,13 +85,14 @@ public class Order {
     protected Order() {}
 
     // 强制校验
-    public Order(String buyerId, String sellerId, List<OrderItem> items) {
-        this.id = UUID.randomUUID().toString().replace("-", "");
+    public Order(Long buyerId, Long sellerId, List<OrderItem> items, String address) {
+        this.orderNumber = System.currentTimeMillis() + String.format("%03d", (int)(Math.random() * 1000));
         this.buyerId = buyerId;
         this.sellerId = sellerId;
         this.status = OrderStatus.PENDING_PAYMENT;
         this.setItems(items);
         this.totalAmount = calculateTotal();
+        this.receiveAddress = address;
     }
 
     // 计算总金额
@@ -100,9 +108,10 @@ public class Order {
         items.forEach(item -> item.setOrder(this));
     }
 
-    public String getId() { return id; }
-    public String getBuyerId() { return buyerId; }
-    public String getSellerId() { return sellerId; }
+    public Long getId() { return id; }
+    public String getOrderNumber() { return orderNumber; }
+    public Long getBuyerId() { return buyerId; }
+    public Long getSellerId() { return sellerId; }
     public OrderStatus getStatus() { return status; }
     public void setStatus(OrderStatus status) { this.status = status; }
     public BigDecimal getTotalAmount() { return totalAmount; }
@@ -118,4 +127,10 @@ public class Order {
     public LocalDateTime getCompletedAt() { return completedAt; }
     public void setCompletedAt(LocalDateTime completedAt) { this.completedAt = completedAt; }
     public List<OrderItem> getItems() { return Collections.unmodifiableList(items); }
+    public String getReceiveAddress() {
+        return receiveAddress;
+    }
+    public void setReceiveAddress(String receiveAddress) {
+        this.receiveAddress = receiveAddress;
+    }
 }

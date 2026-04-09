@@ -1,6 +1,8 @@
 package org.dachuang_team.dc_backend_services.domain.PO.ProductPO;
 
 import jakarta.persistence.*;
+import org.dachuang_team.dc_backend_services.domain.PO.MerchantPO.Merchant;
+import org.dachuang_team.dc_backend_services.domain.PO.OrderItem;
 import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserGeneral;
 
 import java.time.LocalDateTime;
@@ -36,14 +38,13 @@ public class Product {
     @Column(name = "description", length = 500)
     private String description; //商品描述
 
-    //外键：指向 User_General（卖家）
+    //外键：指向商家表，表示该商品由哪个商家发布
     @ManyToOne
-    @JoinColumn(name = "seller")
-    private UserGeneral seller;
+    @JoinColumn(name = "seller",nullable = false, updatable = false)
+    private Merchant seller;
 
-    // 关联的商品订单项
-    @OneToMany(mappedBy = "product")
-    private List<ProductOrderItem> OrderItems;
+    @Column(name = "seller_id", nullable = false, updatable = false)
+    private Long sellerId;
 
     // Getters and Setters
 
@@ -119,20 +120,12 @@ public class Product {
         this.approved = approved;
     }
 
-    public UserGeneral getSeller() {
+    public Merchant getSeller() {
         return seller;
     }
 
-    public void setSeller(UserGeneral seller) {
+    public void setSeller(Merchant seller) {
         this.seller = seller;
-    }
-
-    public List<ProductOrderItem> getOrderItems() {
-        return OrderItems;
-    }
-
-    public void setOrderItems(List<ProductOrderItem> OrderItems) {
-        this.OrderItems = OrderItems;
     }
 
     public LocalDateTime getLastModifiedAt() {
@@ -149,5 +142,13 @@ public class Product {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public Long getSellerId() {
+        return sellerId;
+    }
+
+    public void setSellerId(Long sellerId) {
+        this.sellerId = sellerId;
     }
 }

@@ -162,7 +162,7 @@ public class ProductController {
                     .orElseThrow(() -> new IllegalArgumentException("商品不存在"));
             // 权限校验,用户只能更新自己的商品，管理员可以更新所有商品
             if (Objects.equals(currentUserRole, "ROLE_USER")) {
-                if (!existingProduct.getSeller().getUserId().equals(currentUserId)) {
+                if (!existingProduct.getSeller().getId().equals(currentUserId)) {
                     return Result.error(403, "权限不足：您只能更新自己的商品");
                 }
             } else if (!Objects.equals(currentUserRole, "ROLE_ADMIN")) {

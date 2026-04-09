@@ -9,9 +9,10 @@ import java.util.stream.Collectors;
 
 public class OrderVO {
 
-    private String orderId;
-    private String buyerId;
-    private String sellerId;
+    private Long orderId;
+    private String orderNumber;
+    private Long buyerId;
+    private Long sellerId;
     private String status;
     private BigDecimal totalAmount;
     private String trackingNo;
@@ -19,9 +20,11 @@ public class OrderVO {
     private LocalDateTime paidAt;
     private LocalDateTime completedAt;
     private List<OrderItemVO> items;
+    private String address;
 
     public static OrderVO from(Order order) {
         OrderVO vo = new OrderVO();
+        vo.orderNumber = order.getOrderNumber();
         vo.orderId = order.getId();
         vo.buyerId = order.getBuyerId();
         vo.sellerId = order.getSellerId();
@@ -34,12 +37,14 @@ public class OrderVO {
         vo.items = order.getItems().stream()
                 .map(OrderItemVO::from)
                 .collect(Collectors.toList());
+        vo.address = order.getReceiveAddress();
         return vo;
     }
 
-    public String getOrderId() { return orderId; }
-    public String getBuyerId() { return buyerId; }
-    public String getSellerId() { return sellerId; }
+    public Long getOrderId() { return orderId; }
+    public String getOrderNumber() { return orderNumber; }
+    public Long getBuyerId() { return buyerId; }
+    public Long getSellerId() { return sellerId; }
     public String getStatus() { return status; }
     public BigDecimal getTotalAmount() { return totalAmount; }
     public String getTrackingNo() { return trackingNo; }
@@ -47,4 +52,5 @@ public class OrderVO {
     public LocalDateTime getPaidAt() { return paidAt; }
     public LocalDateTime getCompletedAt() { return completedAt; }
     public List<OrderItemVO> getItems() { return items; }
+    public String getAddress() { return address; }
 }

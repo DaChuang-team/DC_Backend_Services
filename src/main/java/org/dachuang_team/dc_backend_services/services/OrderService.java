@@ -1,20 +1,25 @@
 package org.dachuang_team.dc_backend_services.services;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
 import org.dachuang_team.dc_backend_services.common.OrderStateInterceptor;
 import org.dachuang_team.dc_backend_services.common.OrderStateListener;
+import org.dachuang_team.dc_backend_services.domain.PO.ProductPO.Product;
+import org.dachuang_team.dc_backend_services.domain.VO.ProductVO;
 import org.dachuang_team.dc_backend_services.enumeration.OrderEvent;
 import org.dachuang_team.dc_backend_services.enumeration.OrderStatus;
 import org.dachuang_team.dc_backend_services.domain.DTO.CreateOrderRequestDTO;
 import org.dachuang_team.dc_backend_services.domain.PO.Order;
 import org.dachuang_team.dc_backend_services.domain.PO.OrderItem;
 import org.dachuang_team.dc_backend_services.repository.OrderRepository;
+import org.dachuang_team.dc_backend_services.repository.ProductRepository;
 import org.dachuang_team.dc_backend_services.services.OrderServiceException.OrderAccessDeniedException;
 import org.dachuang_team.dc_backend_services.services.OrderServiceException.OrderNotFoundException;
 import org.dachuang_team.dc_backend_services.services.OrderServiceException.OrderStateException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
@@ -23,7 +28,10 @@ import org.springframework.statemachine.support.DefaultStateMachineContext;
 import org.springframework.stereotype.Service;
 
 import org.springframework.data.domain.Pageable;
+
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +48,9 @@ public class OrderService {
     private final OrderStateListener listener;
     private final OrderRepository orderRepository;
     private final PaymentProvider paymentProvider;
+
+    @Autowired
+    ProductRepository productRepository;
 
     public OrderService(StateMachine<OrderStatus, OrderEvent> stateMachine,
                         OrderStateInterceptor interceptor,
@@ -72,24 +83,63 @@ public class OrderService {
      * 但 Service 层不做此限制，保留扩展性。
      */
     @Transactional
-    public Order createOrder(CreateOrderRequestDTO request) {
-        validateCreateRequest(request);
+    public Order createOrder(CreateOrderRequestDTO request,Long buyerId) throws JsonProcessingException {
 
-        List<OrderItem> items = request.getItems().stream()
-                .map(dto -> new OrderItem(
-                        dto.getProductId(),
-                        dto.getProductName(),
-                        dto.getProductSnapshot(),
-                        dto.getUnitPrice(),
-                        dto.getQuantity()
-                ))
-                .collect(Collectors.toList());
+        Long sellerId = 0L;
 
-        Order order = new Order(request.getBuyerId(), request.getSellerId(), items);
-        Order saved = orderRepository.save(order);
-        log.info("订单创建成功: orderId={}, buyerId={}, totalAmount={}",
-                saved.getId(), saved.getBuyerId(), saved.getTotalAmount());
-        return saved;
+        List<OrderItem> items = new ArrayList<>();
+        for (CreateOrderRequestDTO.OrderItemDto dto : request.getItems()) {
+            Long pid = Long.valueOf(dto.getProductId());
+
+            // 去DB里查真实的完整商品信息
+            Product dbProduct = productRepository.findById(pid)
+                    .orElseThrow(() -> new IllegalArgumentException("商品不存在"));
+
+            if(!dbProduct.getApproved()) {
+                throw new IllegalArgumentException("商品未上架");
+            }
+
+            // 以DB的信息为准
+            BigDecimal actualPrice = BigDecimal.valueOf(dbProduct.getPrice());
+
+            // 原子扣库存
+            int updated = productRepository.decrementStock(pid, dto.getQuantity());
+            if (updated == 0) {
+                throw new IllegalStateException("商品 " + dbProduct.getProductName() + " 库存不足");
+            }
+
+            // 构建商品快照，保存到订单项里。快照里至少要包含单价和商品名称，其他信息可选。
+            ObjectMapper mapper = new ObjectMapper();
+            Map<String, Object> snapshotMap = new HashMap<>();
+            snapshotMap.put("productId", dbProduct.getProductId());
+            snapshotMap.put("productName", dbProduct.getProductName());
+            snapshotMap.put("price", dbProduct.getPrice());
+            snapshotMap.put("category", dbProduct.getCategory());
+            snapshotMap.put("origin", dbProduct.getOrigin());
+            snapshotMap.put("tbImageUrl", dbProduct.getTbImageUrl());
+            snapshotMap.put("sellerId", dbProduct.getSellerId());
+            snapshotMap.put("description", dbProduct.getDescription());
+            String productSnapshot = mapper.writeValueAsString(snapshotMap);
+
+            // 使用真实单价和商品名称构造订单明细
+            items.add(new OrderItem(
+                    dbProduct.getProductId(),
+                    dbProduct.getProductName(),
+                    productSnapshot,
+                    actualPrice,
+                    dto.getQuantity()
+            ));
+
+
+            // 这里的逻辑其实有点问题
+            // 意味着不能一次性下单不同卖家的东西
+            // 解决方案是不支持购物车合并下单，只支持单品下单，这样可以确保sellerId唯一
+            sellerId = dbProduct.getSellerId();
+        }
+
+        // order内自动根据最新的items计算总价
+        Order order = new Order( buyerId, sellerId, items, request.getAddress());
+        return orderRepository.save(order);
     }
 
     // 2.支付（预留）
@@ -106,7 +156,7 @@ public class OrderService {
      * 真实支付接入后，需要考虑支付回调的幂等处理（见注释）。
      */
     @Transactional
-    public Order payOrder(String orderId, String buyerId) throws OrderStateException {
+    public Order payOrder(Long orderId, Long buyerId) throws OrderStateException {
         Order order = getOrderAndValidateBuyer(orderId, buyerId);
         assertStatus(order, OrderStatus.PENDING_PAYMENT, "支付");
 
@@ -140,7 +190,7 @@ public class OrderService {
      * 只有商家本人才能操作，校验 sellerId。
      */
     @Transactional
-    public Order confirmOrder(String orderId, String sellerId) {
+    public Order confirmOrder(Long orderId, Long sellerId) {
         Order order = getOrderAndValidateSeller(orderId, sellerId);
         assertStatus(order, OrderStatus.PAID, "确认");
 
@@ -158,7 +208,7 @@ public class OrderService {
      * 发货时必须提供物流单号，物流单号不能为空。
      */
     @Transactional
-    public Order shipOrder(String orderId, String sellerId, String trackingNo) throws OrderStateException {
+    public Order shipOrder(Long orderId, Long sellerId, String trackingNo) throws OrderStateException {
         if (trackingNo == null || trackingNo.isBlank()) {
             throw new IllegalArgumentException("物流单号不能为空");
         }
@@ -181,7 +231,7 @@ public class OrderService {
      * 只有买家本人才能签收。
      */
     @Transactional
-    public Order receiveOrder(String orderId, String buyerId) {
+    public Order receiveOrder(Long orderId, Long buyerId) {
         Order order = getOrderAndValidateBuyer(orderId, buyerId);
         assertStatus(order, OrderStatus.SHIPPED, "签收");
 
@@ -199,7 +249,7 @@ public class OrderService {
      * 确认收货后订单进入终态，不可再发起退款。
      */
     @Transactional
-    public Order completeOrder(String orderId, String buyerId) {
+    public Order completeOrder(Long orderId, Long buyerId) {
         Order order = getOrderAndValidateBuyer(orderId, buyerId);
         assertStatus(order, OrderStatus.RECEIVED, "确认收货");
 
@@ -219,7 +269,7 @@ public class OrderService {
      * 这里只校验订单是否属于该买家，具体状态是否合法交给状态机判断。
      */
     @Transactional
-    public Order requestRefund(String orderId, String buyerId, String reason) throws OrderStateException {
+    public Order requestRefund(Long orderId, Long buyerId, String reason) throws OrderStateException {
         Order order = getOrderAndValidateBuyer(orderId, buyerId);
 
         // 将退款原因写入 paymentSlot（复用 JSON 字段，避免加列）
@@ -242,7 +292,7 @@ public class OrderService {
      * approve=false 时只做状态回退，不调用支付
      */
     @Transactional
-    public Order processRefund(String orderId, String sellerId, boolean approve) {
+    public Order processRefund(Long orderId, Long sellerId, boolean approve) {
         Order order = getOrderAndValidateSeller(orderId, sellerId);
         assertStatus(order, OrderStatus.REFUND_REQUESTED, "处理退款");
 
@@ -250,6 +300,9 @@ public class OrderService {
             // 支付插槽调用：执行退款
             paymentProvider.refund(order);
             sendEvent(order, OrderEvent.APPROVE_REFUND);
+            for(OrderItem item : order.getItems()) {
+                productRepository.incrementStock(Long.valueOf(item.getProductId()), item.getQuantity());
+            }
             log.info("商家同意退款: orderId={}", orderId);
         } else {
             sendEvent(order, OrderEvent.REJECT_REFUND);
@@ -267,12 +320,14 @@ public class OrderService {
      * 只有买家本人可以取消。
      */
     @Transactional
-    public Order cancelOrder(String orderId, String buyerId) {
+    public Order cancelOrder(Long orderId, Long buyerId) {
         Order order = getOrderAndValidateBuyer(orderId, buyerId);
         assertStatus(order, OrderStatus.PENDING_PAYMENT, "取消");
 
         sendEvent(order, OrderEvent.CANCEL);
-
+        for(OrderItem item : order.getItems()) {
+            productRepository.incrementStock(Long.valueOf(item.getProductId()), item.getQuantity());
+        }
         Order saved = orderRepository.save(order);
         log.info("买家取消订单: orderId={}, buyerId={}", orderId, buyerId);
         return saved;
@@ -282,14 +337,14 @@ public class OrderService {
 
     /** 查询单个订单（含订单项） */
     @Transactional
-    public Order getOrder(String orderId) {
+    public Order getOrder(Long orderId) {
         return orderRepository.findById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException("订单不存在: " + orderId));
     }
 
     /** 买家查询自己的订单列表，支持按状态筛选 */
     @Transactional
-    public Page<Order> getBuyerOrders(String buyerId, OrderStatus status, Pageable pageable) {
+    public Page<Order> getBuyerOrders(Long buyerId, OrderStatus status, Pageable pageable) {
         if (status != null) {
             return orderRepository.findByBuyerIdAndStatus(buyerId, status, pageable);
         }
@@ -298,7 +353,7 @@ public class OrderService {
 
     /** 商家查询自己的订单列表，支持按状态筛选 */
     @Transactional
-    public Page<Order> getSellerOrders(String sellerId, OrderStatus status, Pageable pageable) {
+    public Page<Order> getSellerOrders(Long sellerId, OrderStatus status, Pageable pageable) {
         if (status != null) {
             return orderRepository.findBySellerIdAndStatus(sellerId, status, pageable);
         }
@@ -343,25 +398,8 @@ public class OrderService {
         order.setStatus(stateMachine.getState().getId());
     }
 
-    // 下单前参数校验
-    private void validateCreateRequest(CreateOrderRequestDTO request) {
-        if (request.getBuyerId() == null || request.getBuyerId().isBlank()) {
-            throw new IllegalArgumentException("buyerId 不能为空");
-        }
-        if (request.getSellerId() == null || request.getSellerId().isBlank()) {
-            throw new IllegalArgumentException("sellerId 不能为空");
-        }
-        if (request.getItems() == null || request.getItems().isEmpty()) {
-            throw new IllegalArgumentException("订单至少包含一个订单项");
-        }
-        // 校验买家和商家不能是同一个人
-        if (request.getBuyerId().equals(request.getSellerId())) {
-            throw new IllegalArgumentException("买家和商家不能是同一个人");
-        }
-    }
-
     // 查询订单并校验买家身份
-    private Order getOrderAndValidateBuyer(String orderId, String buyerId) {
+    private Order getOrderAndValidateBuyer(Long orderId, Long buyerId) {
         Order order = getOrder(orderId);
         if (!order.getBuyerId().equals(buyerId)) {
             throw new OrderAccessDeniedException("无权操作此订单：非买家");
@@ -370,7 +408,7 @@ public class OrderService {
     }
 
     // 查询订单并校验商家身份
-    private Order getOrderAndValidateSeller(String orderId, String sellerId) {
+    private Order getOrderAndValidateSeller(Long orderId, Long sellerId) {
         Order order = getOrder(orderId);
         if (!order.getSellerId().equals(sellerId)) {
             throw new OrderAccessDeniedException("无权操作此订单：非商家");

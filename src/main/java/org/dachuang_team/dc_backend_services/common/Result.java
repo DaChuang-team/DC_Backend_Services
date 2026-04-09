@@ -40,6 +40,10 @@ public class Result<T> {
         return new Result<>(200, message, data);
     }
 
+    public static <T> Result<T> success(int code,String message, T data) {
+        return new Result<>(code, message, data);
+    }
+
     /**
      * 失败响应的快捷方法
      */

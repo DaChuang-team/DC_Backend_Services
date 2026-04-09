@@ -8,13 +8,13 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface OrderRepository extends JpaRepository<Order, String> {
+public interface OrderRepository extends JpaRepository<Order, Long> {
 
-    Page<Order> findByBuyerId(String buyerId, Pageable pageable);
+    Page<Order> findByBuyerId(Long buyerId, Pageable pageable);
 
-    Page<Order> findByBuyerIdAndStatus(String buyerId, OrderStatus status, Pageable pageable);
+    Page<Order> findByBuyerIdAndStatus(Long buyerId, OrderStatus status, Pageable pageable);
 
-    Page<Order> findBySellerId(String sellerId, Pageable pageable);
+    Page<Order> findBySellerId(Long sellerId, Pageable pageable);
 
-    Page<Order> findBySellerIdAndStatus(String sellerId, OrderStatus status, Pageable pageable);
+    Page<Order> findBySellerIdAndStatus(Long sellerId, OrderStatus status, Pageable pageable);
 }
