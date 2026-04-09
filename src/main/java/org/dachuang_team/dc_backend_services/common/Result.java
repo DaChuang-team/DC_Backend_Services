@@ -40,7 +40,8 @@ public class Result<T> {
         return new Result<>(200, message, data);
     }
 
-    public static <T> Result<T> success(int code,String message, T data) {
+    // 成功响应的快捷方法 (自定义状态码、信息和数据)
+    public static <T> Result<T> success(Integer code,String message, T data) {
         return new Result<>(code, message, data);
     }
 
