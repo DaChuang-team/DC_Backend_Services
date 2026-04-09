@@ -173,7 +173,7 @@ public class ProductController {
             // 保存更新后的商品
             Product savedProduct = productRepository.save(updatedProduct);
             // 构建返回体
-            Map<String, Object> productDetails = getProductDetails(currentUserId, savedProduct);
+            Map<String, Object> productDetails = getProductDetails(savedProduct);
 
             return Result.success("商品更新成功", productDetails);
         } catch (IllegalArgumentException e) {
@@ -228,7 +228,7 @@ public class ProductController {
             Long currentUserId = getCurrentUserId();
             Optional<Product> existing = productRepository.findByproductId(Pid);
             return existing.map(product -> {
-                Map<String, Object> productDetails = getProductDetails(currentUserId, product);
+                Map<String, Object> productDetails = getProductDetails(product);
 
                 return Result.success("获取商品详情成功", productDetails);
             }).orElseGet(() -> Result.error(404, "数据不存在"));
@@ -312,7 +312,7 @@ public class ProductController {
     }
 
     // 构建单个商品的详细信息返回体
-    private Map<String, Object> getProductDetails(Long currentUserId, Product savedProduct) {
+    private Map<String, Object> getProductDetails(Product savedProduct) {
 
         Map<String, Object> productDetails = new HashMap<>();
 
@@ -327,7 +327,7 @@ public class ProductController {
         productDetails.put("lastModifiedAt", savedProduct.getLastModifiedAt());
         productDetails.put("description", savedProduct.getDescription());
         productDetails.put("stock", savedProduct.getStock());
-        productDetails.put("sellerId", currentUserId);
+        productDetails.put("sellerId", savedProduct.getSellerId());
 
         // 获取productId
         Long productId = savedProduct.getProductId();

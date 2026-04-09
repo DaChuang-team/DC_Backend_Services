@@ -143,7 +143,7 @@ public class ProductService implements IProductService {
                     throw new SecurityException("权限不足：您只能删除自己的商品");
                 }
             } else if (!Objects.equals(currentUserRole, "ROLE_ADMIN")) {
-                throw new SecurityException("未知权限");
+                throw new SecurityException("权限不足：只有管理员或商家可以删除商品");
             }
 
             // 解绑并清理所有关联图片记录

@@ -75,12 +75,11 @@ public class OrderService {
     /**
      * 下单逻辑：
      * 1. 校验请求参数
-     * 2. 构建 OrderItem 列表（每个订单项在构造函数内自校验）
-     * 3. 构建 Order（构造函数内自动计算 totalAmount）
-     * 4. 持久化，初始状态为 PENDING_PAYMENT，无需触发状态机
-     * <p>
-     * 由于前端只针对单品购买，items 列表里只会有一个 OrderItem，
-     * 但 Service 层不做此限制，保留扩展性。
+     * 2. 构建OrderItem列表（每个订单项在构造函数内自校验）
+     * 3. 构建Order（构造函数内自动计算totalAmount）
+     * 4. 持久化，初始状态为PENDING_PAYMENT，无需触发状态机
+     * 由于前端只针对单品购买，items列表里只会有一个OrderItem，
+     * 但Service层不做此限制，保留扩展性。
      */
     @Transactional
     public Order createOrder(CreateOrderRequestDTO request,Long buyerId) throws JsonProcessingException {
@@ -147,12 +146,10 @@ public class OrderService {
     /**
      * 支付流程：
      * 1. 查询订单，校验买家身份
-     * 2. 触发支付插槽（现阶段为 MockPaymentProvider，后期替换实现即可）
-     * 3. 驱动状态机：PENDING_PAYMENT → PAID
+     * 2. 触发支付插槽（现阶段为 MockPaymentProvider）
+     * 3. 驱动状态机：PENDING_PAYMENT - PAID
      * 4. 记录支付时间
-     * <p>
      * 注意：paymentProvider.pay() 和 sendEvent() 都在同一个事务内，
-     * 若状态机迁移失败，支付插槽的内存操作也会随事务回滚。
      * 真实支付接入后，需要考虑支付回调的幂等处理（见注释）。
      */
     @Transactional
@@ -175,20 +172,18 @@ public class OrderService {
         /*
          * 真实支付接入说明（预留）：
          * 真实支付通常是异步回调模式：
-         *   1. paymentProvider.pay() 返回一个预支付 ID（如微信的 prepayId）
-         *   2. 前端用预支付 ID 拉起收银台
-         *   3. 用户完成支付后，第三方回调你的 /payment/callback 接口
-         *   4. 在回调接口里调用 payOrder() 完成状态迁移
-         * 回调接口需要加幂等保护（如用 paymentSlot 里的 tradeNo 做唯一键去重）。
+         *   1. paymentProvider.pay()返回一个预支付ID（如微信的prepayId）
+         *   2. 前端用预支付ID拉起收银台
+         *   3. 用户完成支付后，第三方回调 /payment/callback 接口
+         *   4. 在回调接口里调用payOrder()完成状态迁移
+         * 回调接口需要加幂等保护（如用paymentSlot里的tradeNo做唯一键去重）。
          */
     }
 
     // 3.商家确认
 
-    /**
-     * 商家确认订单：PAID → CONFIRMED
-     * 只有商家本人才能操作，校验 sellerId。
-     */
+     // 商家确认订单：PAID - CONFIRMED
+     // 只有商家本人才能操作，校验 sellerId。
     @Transactional
     public Order confirmOrder(Long orderId, Long sellerId) {
         Order order = getOrderAndValidateSeller(orderId, sellerId);
@@ -203,10 +198,8 @@ public class OrderService {
 
     // 4.商家发货
 
-    /**
-     * 商家发货：CONFIRMED → SHIPPED
-     * 发货时必须提供物流单号，物流单号不能为空。
-     */
+     // 商家发货：CONFIRMED - SHIPPED
+     // 发货时必须提供物流单号，物流单号不能为空。
     @Transactional
     public Order shipOrder(Long orderId, Long sellerId, String trackingNo) throws OrderStateException {
         if (trackingNo == null || trackingNo.isBlank()) {
@@ -226,10 +219,8 @@ public class OrderService {
 
     // 5.买家签收
 
-    /**
-     * 买家签收：SHIPPED → RECEIVED
-     * 只有买家本人才能签收。
-     */
+     // 买家签收：SHIPPED → RECEIVED
+     // 只有买家本人才能签收。
     @Transactional
     public Order receiveOrder(Long orderId, Long buyerId) {
         Order order = getOrderAndValidateBuyer(orderId, buyerId);
@@ -244,10 +235,8 @@ public class OrderService {
 
     // 6.买家确认收货（完成）
 
-    /**
-     * 买家确认收货：RECEIVED → COMPLETED
-     * 确认收货后订单进入终态，不可再发起退款。
-     */
+     // 买家确认收货：RECEIVED - COMPLETED
+     // 确认收货后订单进入终态，不可再发起退款。
     @Transactional
     public Order completeOrder(Long orderId, Long buyerId) {
         Order order = getOrderAndValidateBuyer(orderId, buyerId);
@@ -263,11 +252,8 @@ public class OrderService {
 
     // 7.申请退款
 
-    /**
-     * 申请退款：PAID / CONFIRMED / SHIPPED / RECEIVED → REFUND_REQUESTED
-     * 以上四个状态均可申请，状态机配置中已定义所有合法迁移路径。
-     * 这里只校验订单是否属于该买家，具体状态是否合法交给状态机判断。
-     */
+    // 申请退款：PAID / CONFIRMED / SHIPPED / RECEIVED - REFUND_REQUESTED
+    // 这里只校验订单是否属于该买家
     @Transactional
     public Order requestRefund(Long orderId, Long buyerId, String reason) throws OrderStateException {
         Order order = getOrderAndValidateBuyer(orderId, buyerId);
@@ -284,13 +270,10 @@ public class OrderService {
 
     // 8.商家处理退款
 
-    /**
-     * 商家同意退款：REFUND_REQUESTED → REFUNDED
-     * 商家拒绝退款：REFUND_REQUESTED → CONFIRMED（回到可继续操作的状态）
-     *
-     * approve=true  时调用支付插槽执行实际退款动作
-     * approve=false 时只做状态回退，不调用支付
-     */
+    // 商家同意退款：REFUND_REQUESTED → REFUNDED
+    // 商家拒绝退款：REFUND_REQUESTED → CONFIRMED
+    // approve=true时调用支付插槽执行实际退款动作
+    // approve=false时只做状态回退，不调用支付
     @Transactional
     public Order processRefund(Long orderId, Long sellerId, boolean approve) {
         Order order = getOrderAndValidateSeller(orderId, sellerId);
@@ -314,11 +297,9 @@ public class OrderService {
 
     // 9.取消订单
 
-    /**
-     * 取消订单：PENDING_PAYMENT → CANCELLED
-     * 仅待支付状态可取消，其他状态需走退款流程。
-     * 只有买家本人可以取消。
-     */
+    // 取消订单：PENDING_PAYMENT → CANCELLED
+    // 仅待支付状态可取消，其他状态需走退款流程。
+    // 只有买家本人可以取消。
     @Transactional
     public Order cancelOrder(Long orderId, Long buyerId) {
         Order order = getOrderAndValidateBuyer(orderId, buyerId);
@@ -335,14 +316,14 @@ public class OrderService {
 
     // 10.查询
 
-    /** 查询单个订单（含订单项） */
+    // 查询单个订单（含订单项）
     @Transactional
     public Order getOrder(Long orderId) {
         return orderRepository.findById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException("订单不存在: " + orderId));
     }
 
-    /** 买家查询自己的订单列表，支持按状态筛选 */
+    // 买家查询自己的订单列表，支持按状态筛选
     @Transactional
     public Page<Order> getBuyerOrders(Long buyerId, OrderStatus status, Pageable pageable) {
         if (status != null) {
@@ -351,7 +332,7 @@ public class OrderService {
         return orderRepository.findByBuyerId(buyerId, pageable);
     }
 
-    /** 商家查询自己的订单列表，支持按状态筛选 */
+    // 商家查询自己的订单列表，支持按状态筛选
     @Transactional
     public Page<Order> getSellerOrders(Long sellerId, OrderStatus status, Pageable pageable) {
         if (status != null) {
@@ -361,14 +342,8 @@ public class OrderService {
     }
 
 
-    /**
-     * 核心驱动方法：将状态机恢复到订单当前状态，再发送事件。
-     *
-     * 为什么每次都要 stop → reset → start？
-     * Spring StateMachine 默认是单例的，多个订单共用同一个状态机实例。
-     * 必须在每次操作前把状态机重置到当前订单的状态，
-     * 否则上一个请求留下的状态会影响当前请求。
-     */
+
+    // 将状态机恢复到订单当前状态，再发送事件
     private void sendEvent(Order order, OrderEvent event) throws OrderStateException {
         stateMachine.stop();
 
