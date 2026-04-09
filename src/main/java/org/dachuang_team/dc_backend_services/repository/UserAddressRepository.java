@@ -1,14 +1,13 @@
 package org.dachuang_team.dc_backend_services.repository;
 
 import io.lettuce.core.dynamic.annotation.Param;
-import org.dachuang_team.dc_backend_services.pojo.UserPO.UserAddress;
+import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserAddress;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
-import java.util.Optional;
 
 @Repository
 public interface UserAddressRepository extends JpaRepository<UserAddress, Long> {

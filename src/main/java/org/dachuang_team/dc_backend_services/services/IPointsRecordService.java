@@ -1,6 +1,6 @@
 package org.dachuang_team.dc_backend_services.services;
 
-import org.dachuang_team.dc_backend_services.pojo.UserPO.UserPointsRecord;
+import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserPointsRecord;
 
 import java.util.List;
 

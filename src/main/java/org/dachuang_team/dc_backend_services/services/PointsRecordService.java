@@ -1,7 +1,7 @@
 package org.dachuang_team.dc_backend_services.services;
 
 import org.dachuang_team.dc_backend_services.enumeration.PointsChangeReason;
-import org.dachuang_team.dc_backend_services.pojo.UserPO.UserPointsRecord;
+import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserPointsRecord;
 import org.dachuang_team.dc_backend_services.repository.PointsRecordRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;

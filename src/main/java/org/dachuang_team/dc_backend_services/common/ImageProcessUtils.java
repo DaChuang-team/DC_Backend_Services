@@ -2,8 +2,8 @@ package org.dachuang_team.dc_backend_services.common;
 
 import net.coobird.thumbnailator.Thumbnails;
 import net.coobird.thumbnailator.geometry.Positions;
-import org.dachuang_team.dc_backend_services.pojo.ImgPO.UserAvatarRecord;
-import org.dachuang_team.dc_backend_services.pojo.ProductPO.ProductImageRecord;
+import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.UserAvatarRecord;
+import org.dachuang_team.dc_backend_services.domain.PO.ProductPO.ProductImageRecord;
 import org.dachuang_team.dc_backend_services.services.OssStorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

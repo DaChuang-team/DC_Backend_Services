@@ -1,6 +1,6 @@
 package org.dachuang_team.dc_backend_services.services;
 
-import org.dachuang_team.dc_backend_services.pojo.Dto.AdminDTO;
+import org.dachuang_team.dc_backend_services.domain.DTO.AdminDTO;
 import java.util.List;
 
 /**

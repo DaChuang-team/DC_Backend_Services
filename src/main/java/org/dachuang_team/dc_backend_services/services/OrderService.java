@@ -6,9 +6,9 @@ import org.dachuang_team.dc_backend_services.common.OrderStateInterceptor;
 import org.dachuang_team.dc_backend_services.common.OrderStateListener;
 import org.dachuang_team.dc_backend_services.enumeration.OrderEvent;
 import org.dachuang_team.dc_backend_services.enumeration.OrderStatus;
-import org.dachuang_team.dc_backend_services.pojo.Dto.CreateOrderRequestDTO;
-import org.dachuang_team.dc_backend_services.pojo.Order;
-import org.dachuang_team.dc_backend_services.pojo.OrderItem;
+import org.dachuang_team.dc_backend_services.domain.DTO.CreateOrderRequestDTO;
+import org.dachuang_team.dc_backend_services.domain.PO.Order;
+import org.dachuang_team.dc_backend_services.domain.PO.OrderItem;
 import org.dachuang_team.dc_backend_services.repository.OrderRepository;
 import org.dachuang_team.dc_backend_services.services.OrderServiceException.OrderAccessDeniedException;
 import org.dachuang_team.dc_backend_services.services.OrderServiceException.OrderNotFoundException;
@@ -279,7 +279,6 @@ public class OrderService {
     }
 
     // 10.查询
-    // ================================================================
 
     /** 查询单个订单（含订单项） */
     @Transactional

@@ -1,7 +1,7 @@
 package org.dachuang_team.dc_backend_services.controller;
 
 import org.dachuang_team.dc_backend_services.common.Result;
-import org.dachuang_team.dc_backend_services.pojo.Dto.AdminDTO;
+import org.dachuang_team.dc_backend_services.domain.DTO.AdminDTO;
 import org.dachuang_team.dc_backend_services.services.AdminService;
 import org.dachuang_team.dc_backend_services.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;

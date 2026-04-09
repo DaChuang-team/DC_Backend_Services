@@ -1,10 +1,9 @@
 package org.dachuang_team.dc_backend_services.services;
 
 import jakarta.transaction.Transactional;
-import org.dachuang_team.dc_backend_services.pojo.Dto.MerchantRegisterDTO;
-import org.dachuang_team.dc_backend_services.pojo.Dto.MerchantResponseDTO;
-import org.dachuang_team.dc_backend_services.pojo.MerchantPO.Merchant;
-import org.dachuang_team.dc_backend_services.pojo.UserPO.UserGeneral;
+import org.dachuang_team.dc_backend_services.domain.DTO.MerchantRegisterDTO;
+import org.dachuang_team.dc_backend_services.domain.VO.MerchantVO;
+import org.dachuang_team.dc_backend_services.domain.PO.MerchantPO.Merchant;
 import org.dachuang_team.dc_backend_services.repository.MerchantRepository;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -64,7 +63,7 @@ public class MerchantService implements IMerchantService{
 
     @Override
     @Transactional(rollbackOn = Exception.class)
-    public MerchantResponseDTO merchantLogin(String loginID, String password){
+    public MerchantVO merchantLogin(String loginID, String password){
         try {
             Merchant merchant = merchantRepository.findByLoginID(loginID);
             if (merchant == null) {
@@ -85,11 +84,11 @@ public class MerchantService implements IMerchantService{
             // 生成并存储Token
             String token = authService.generateToken(merchant.getId(), "MERCHANT");
 
-            MerchantResponseDTO merchantResponseDTO = new MerchantResponseDTO();
-            BeanUtils.copyProperties(merchant, merchantResponseDTO);
-            merchantResponseDTO.setToken(token);
+            MerchantVO merchantVO = new MerchantVO();
+            BeanUtils.copyProperties(merchant, merchantVO);
+            merchantVO.setToken(token);
 
-            return merchantResponseDTO;
+            return merchantVO;
         } catch (IllegalArgumentException e) {
             throw e;
         } catch (Exception e) {

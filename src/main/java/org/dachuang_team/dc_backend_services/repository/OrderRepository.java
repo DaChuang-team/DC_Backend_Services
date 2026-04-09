@@ -1,13 +1,11 @@
 package org.dachuang_team.dc_backend_services.repository;
 
 import org.dachuang_team.dc_backend_services.enumeration.OrderStatus;
-import org.dachuang_team.dc_backend_services.pojo.Order;
+import org.dachuang_team.dc_backend_services.domain.PO.Order;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-
-import java.util.Optional;
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, String> {

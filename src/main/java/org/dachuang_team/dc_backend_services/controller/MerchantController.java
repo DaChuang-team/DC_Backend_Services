@@ -1,14 +1,12 @@
 package org.dachuang_team.dc_backend_services.controller;
 
 import org.dachuang_team.dc_backend_services.common.Result;
-import org.dachuang_team.dc_backend_services.pojo.Dto.MerchantLoginDTO;
-import org.dachuang_team.dc_backend_services.pojo.Dto.MerchantRegisterDTO;
-import org.dachuang_team.dc_backend_services.pojo.Dto.MerchantResponseDTO;
+import org.dachuang_team.dc_backend_services.domain.DTO.MerchantLoginDTO;
+import org.dachuang_team.dc_backend_services.domain.DTO.MerchantRegisterDTO;
+import org.dachuang_team.dc_backend_services.domain.VO.MerchantVO;
 import org.dachuang_team.dc_backend_services.services.MerchantService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/merchants")
@@ -31,9 +29,9 @@ public class MerchantController {
     }
 
     @PostMapping("/login")
-    public Result<MerchantResponseDTO> loginMerchant(@RequestBody MerchantLoginDTO merchantLoginDTO) {
+    public Result<MerchantVO> loginMerchant(@RequestBody MerchantLoginDTO merchantLoginDTO) {
         try {
-            MerchantResponseDTO resp = merchantService.merchantLogin(merchantLoginDTO.getLoginID(), merchantLoginDTO.getPassword());
+            MerchantVO resp = merchantService.merchantLogin(merchantLoginDTO.getLoginID(), merchantLoginDTO.getPassword());
             return Result.success("商户 " + merchantLoginDTO.getLoginID() + " 登录成功", resp);
         } catch (IllegalArgumentException e) {
             return Result.error(402, "参数错误" + e.getMessage(), null);

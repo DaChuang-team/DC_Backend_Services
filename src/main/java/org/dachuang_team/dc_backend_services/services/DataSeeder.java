@@ -1,7 +1,7 @@
 package org.dachuang_team.dc_backend_services.services;
 
-import org.dachuang_team.dc_backend_services.pojo.Attraction;
-import org.dachuang_team.dc_backend_services.pojo.ImgPO.SysImage;
+import org.dachuang_team.dc_backend_services.domain.PO.Attraction;
+import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.SysImage;
 import org.dachuang_team.dc_backend_services.repository.AttractionRepository;
 import org.dachuang_team.dc_backend_services.repository.SysImageRepository;
 import org.springframework.boot.ApplicationArguments;

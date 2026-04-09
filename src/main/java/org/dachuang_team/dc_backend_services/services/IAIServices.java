@@ -1,7 +1,7 @@
 package org.dachuang_team.dc_backend_services.services;
 
-import org.dachuang_team.dc_backend_services.pojo.Dto.AIImgInteractionDTO;
-import org.dachuang_team.dc_backend_services.pojo.Dto.AITextInteractionDTO;
+import org.dachuang_team.dc_backend_services.domain.DTO.AIImgInteractionDTO;
+import org.dachuang_team.dc_backend_services.domain.DTO.AITextInteractionDTO;
 
 /**
  * AI服务接口

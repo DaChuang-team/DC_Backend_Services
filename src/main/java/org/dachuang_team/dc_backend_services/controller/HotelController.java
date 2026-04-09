@@ -1,7 +1,7 @@
 package org.dachuang_team.dc_backend_services.controller;
 
 import org.dachuang_team.dc_backend_services.common.Result;
-import org.dachuang_team.dc_backend_services.pojo.HotelHomestay;
+import org.dachuang_team.dc_backend_services.domain.PO.HotelHomestay;
 import org.dachuang_team.dc_backend_services.repository.HotelHomestayRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;

@@ -4,7 +4,7 @@
  */
 package org.dachuang_team.dc_backend_services.services;
 
-import org.dachuang_team.dc_backend_services.pojo.Dto.GaoDeApiDTO;
+import org.dachuang_team.dc_backend_services.domain.DTO.GaoDeApiDTO;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;

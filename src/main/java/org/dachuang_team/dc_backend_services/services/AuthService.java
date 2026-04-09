@@ -1,6 +1,6 @@
 package org.dachuang_team.dc_backend_services.services;
 
-import org.dachuang_team.dc_backend_services.pojo.TokenSession;
+import org.dachuang_team.dc_backend_services.domain.PO.TokenSession;
 import org.dachuang_team.dc_backend_services.repository.UserSessionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;

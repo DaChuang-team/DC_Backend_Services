@@ -1,7 +1,7 @@
 package org.dachuang_team.dc_backend_services.controller;
 
-import org.dachuang_team.dc_backend_services.pojo.Dto.AIImgInteractionDTO;
-import org.dachuang_team.dc_backend_services.pojo.Dto.AITextInteractionDTO;
+import org.dachuang_team.dc_backend_services.domain.DTO.AIImgInteractionDTO;
+import org.dachuang_team.dc_backend_services.domain.DTO.AITextInteractionDTO;
 import org.dachuang_team.dc_backend_services.services.AIService;
 import org.dachuang_team.dc_backend_services.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -1,10 +1,10 @@
 package org.dachuang_team.dc_backend_services.controller;
 
 import org.dachuang_team.dc_backend_services.common.Result;
-import org.dachuang_team.dc_backend_services.pojo.Dto.ProductDTO;
-import org.dachuang_team.dc_backend_services.pojo.ProductPO.Product;
-import org.dachuang_team.dc_backend_services.pojo.ProductPO.ProductImageRecord;
-import org.dachuang_team.dc_backend_services.pojo.UserPO.UserGeneral;
+import org.dachuang_team.dc_backend_services.domain.DTO.ProductDTO;
+import org.dachuang_team.dc_backend_services.domain.PO.ProductPO.Product;
+import org.dachuang_team.dc_backend_services.domain.PO.ProductPO.ProductImageRecord;
+import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserGeneral;
 import org.dachuang_team.dc_backend_services.repository.ProductImageRecordRepository;
 import org.dachuang_team.dc_backend_services.repository.ProductRepository;
 import org.dachuang_team.dc_backend_services.repository.UserRepository;

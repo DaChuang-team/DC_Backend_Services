@@ -1,8 +1,8 @@
 package org.dachuang_team.dc_backend_services.common.task;
 
-import org.dachuang_team.dc_backend_services.pojo.ImgPO.AIInteractionImg;
-import org.dachuang_team.dc_backend_services.pojo.ImgPO.UserAvatarRecord;
-import org.dachuang_team.dc_backend_services.pojo.ProductPO.ProductImageRecord;
+import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.AIInteractionImg;
+import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.UserAvatarRecord;
+import org.dachuang_team.dc_backend_services.domain.PO.ProductPO.ProductImageRecord;
 import org.dachuang_team.dc_backend_services.repository.AIInteractionImgRepository;
 import org.dachuang_team.dc_backend_services.repository.ProductImageRecordRepository;
 import org.dachuang_team.dc_backend_services.repository.UserAvatarRecordRepository;

@@ -1,6 +1,6 @@
 package org.dachuang_team.dc_backend_services.repository;
 
-import org.dachuang_team.dc_backend_services.pojo.ImgPO.UserAvatarRecord;
+import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.UserAvatarRecord;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;
 

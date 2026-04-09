@@ -1,6 +1,6 @@
 package org.dachuang_team.dc_backend_services.services;
 
-import org.dachuang_team.dc_backend_services.pojo.Attraction;
+import org.dachuang_team.dc_backend_services.domain.PO.Attraction;
 import java.util.List;
 
 public interface IAttractionService {

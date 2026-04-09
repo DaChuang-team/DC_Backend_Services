@@ -21,12 +21,12 @@ import okhttp3.Dispatcher;
 import okhttp3.ConnectionPool;
 import com.volcengine.ark.runtime.service.ArkService;
 import jakarta.annotation.PreDestroy;
-import org.dachuang_team.dc_backend_services.pojo.AIPO.AISessionContext;
-import org.dachuang_team.dc_backend_services.pojo.AIPO.AiUsageRecord;
-import org.dachuang_team.dc_backend_services.pojo.Dto.AIImgInteractionDTO;
-import org.dachuang_team.dc_backend_services.pojo.Dto.AITextInteractionDTO;
+import org.dachuang_team.dc_backend_services.domain.PO.AIPO.AISessionContext;
+import org.dachuang_team.dc_backend_services.domain.PO.AIPO.AIUsageRecord;
+import org.dachuang_team.dc_backend_services.domain.DTO.AIImgInteractionDTO;
+import org.dachuang_team.dc_backend_services.domain.DTO.AITextInteractionDTO;
 import org.dachuang_team.dc_backend_services.repository.AISessionContextRepository;
-import org.dachuang_team.dc_backend_services.repository.AiUsageRecordRepository;
+import org.dachuang_team.dc_backend_services.repository.AIUsageRecordRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,7 +52,7 @@ public class AIService implements IAIServices{
     private AISessionContextRepository contextRepository;
 
     @Autowired
-    private AiUsageRecordRepository usageRecordRepository;
+    private AIUsageRecordRepository usageRecordRepository;
 
     public AIService(@Value("${volcengine.ark.api-key}") String apiKey, ObjectMapper mapper) {
         this.arkService = ArkService.builder()
@@ -144,7 +144,7 @@ public class AIService implements IAIServices{
                     : -1L;
 
             // 记录AI使用情况
-            AiUsageRecord usageRecord = new AiUsageRecord();
+            AIUsageRecord usageRecord = new AIUsageRecord();
             usageRecord.setUserId(userId);
             usageRecord.setTokenCount(totalTokens);
             usageRecord.setType("AI_ROUTINE_GENERATION");
@@ -349,7 +349,7 @@ public class AIService implements IAIServices{
                 totalTokens = -1L;
             }
 
-            AiUsageRecord usageRecord = new AiUsageRecord();
+            AIUsageRecord usageRecord = new AIUsageRecord();
             usageRecord.setUserId(userId);
             usageRecord.setTokenCount(totalTokens);
             usageRecord.setType("AI_IMAGE_RECOGNITION");
@@ -421,7 +421,7 @@ public class AIService implements IAIServices{
                 totalTokens = -1L;
             }
 
-            AiUsageRecord usageRecord = new AiUsageRecord();
+            AIUsageRecord usageRecord = new AIUsageRecord();
             usageRecord.setUserId(userId);
             usageRecord.setTokenCount(totalTokens);
             usageRecord.setType("AI_CONVERSATION");

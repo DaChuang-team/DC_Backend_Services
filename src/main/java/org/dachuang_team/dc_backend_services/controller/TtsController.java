@@ -1,7 +1,7 @@
 package org.dachuang_team.dc_backend_services.controller;
 
 import org.dachuang_team.dc_backend_services.common.Result;
-import org.dachuang_team.dc_backend_services.pojo.Dto.TtsRequestDTO;
+import org.dachuang_team.dc_backend_services.domain.DTO.TtsRequestDTO;
 import org.dachuang_team.dc_backend_services.services.TtsService;
 import org.dachuang_team.dc_backend_services.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;

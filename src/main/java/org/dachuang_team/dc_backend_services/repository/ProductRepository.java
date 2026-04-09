@@ -1,7 +1,7 @@
 package org.dachuang_team.dc_backend_services.repository;
 
-import org.dachuang_team.dc_backend_services.pojo.ProductPO.Product;
-import org.dachuang_team.dc_backend_services.pojo.UserPO.UserGeneral;
+import org.dachuang_team.dc_backend_services.domain.PO.ProductPO.Product;
+import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserGeneral;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

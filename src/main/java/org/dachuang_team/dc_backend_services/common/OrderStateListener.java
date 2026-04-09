@@ -1,6 +1,5 @@
 package org.dachuang_team.dc_backend_services.common;
 
-import org.dachuang_team.dc_backend_services.config.RedisConfig;
 import org.dachuang_team.dc_backend_services.enumeration.OrderEvent;
 import org.dachuang_team.dc_backend_services.enumeration.OrderStatus;
 import org.slf4j.Logger;

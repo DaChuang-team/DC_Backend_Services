@@ -1,14 +1,12 @@
 package org.dachuang_team.dc_backend_services.controller;
 
 import org.dachuang_team.dc_backend_services.common.Result;
-import org.dachuang_team.dc_backend_services.pojo.Dto.GaoDeApiDTO;
+import org.dachuang_team.dc_backend_services.domain.DTO.GaoDeApiDTO;
 import org.dachuang_team.dc_backend_services.services.IGaoDeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 高德地图 API 控制器

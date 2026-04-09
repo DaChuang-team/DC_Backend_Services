@@ -2,11 +2,11 @@ package org.dachuang_team.dc_backend_services.controller;
 
 import org.dachuang_team.dc_backend_services.common.Result;
 import org.dachuang_team.dc_backend_services.enumeration.SysImagePurpose;
-import org.dachuang_team.dc_backend_services.pojo.Dto.FileUploadResponseDTO;
-import org.dachuang_team.dc_backend_services.pojo.ImgPO.AIInteractionImg;
-import org.dachuang_team.dc_backend_services.pojo.ImgPO.UserAvatarRecord;
-import org.dachuang_team.dc_backend_services.pojo.ProductPO.ProductImageRecord;
-import org.dachuang_team.dc_backend_services.pojo.ImgPO.SysImage;
+import org.dachuang_team.dc_backend_services.domain.VO.FileUploadVO;
+import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.AIInteractionImg;
+import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.UserAvatarRecord;
+import org.dachuang_team.dc_backend_services.domain.PO.ProductPO.ProductImageRecord;
+import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.SysImage;
 import org.dachuang_team.dc_backend_services.repository.AIInteractionImgRepository;
 import org.dachuang_team.dc_backend_services.repository.ProductImageRecordRepository;
 import org.dachuang_team.dc_backend_services.repository.SysImageRepository;
@@ -39,7 +39,7 @@ public class ImageController {
     private AIInteractionImgRepository aiInteractionImgRepository;
 
     @PutMapping("/productImgUpload")
-    public Result<FileUploadResponseDTO> uploadImg(@RequestParam("file") MultipartFile file) {
+    public Result<FileUploadVO> uploadImg(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) return Result.error(406, "文件不能为空", null);
 
         // 调用存储服务保存物理文件
@@ -55,7 +55,7 @@ public class ImageController {
         productImageRecordRepository.save(record);
 
         // 构造并返回要求的 DTO
-        FileUploadResponseDTO response = new FileUploadResponseDTO();
+        FileUploadVO response = new FileUploadVO();
         response.setId(record.getId()); // 这个id是图片记录的id，前端后续绑定商品时需要传回这个id以便关联
         response.setUrl(result.getUrl());
         response.setFileName(result.getFileName());
@@ -65,7 +65,7 @@ public class ImageController {
 
     //上传用于AI交互的图片，记录上传用户和时间，供后续分析使用，不与商品绑定
     @PutMapping("/AIInteractionImgUpload")
-    public Result<FileUploadResponseDTO> uploadAIInteractionImg(@RequestParam("file") MultipartFile file) {
+    public Result<FileUploadVO> uploadAIInteractionImg(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) return Result.error(406, "文件不能为空", null);
 
         Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -80,7 +80,7 @@ public class ImageController {
         aiInteractionImgRepository.save(record);
 
         // 构造并返回要求的DTO，前端通过传递url对AI发起图片交互请求
-        FileUploadResponseDTO response = new FileUploadResponseDTO();
+        FileUploadVO response = new FileUploadVO();
         response.setUrl(result.getUrl());
         response.setFileName(result.getFileName());
 
@@ -88,7 +88,7 @@ public class ImageController {
     }
 
     @PutMapping("/userAvatarUpload")
-    public Result<FileUploadResponseDTO> uploadUserAvatar(@RequestParam("file") MultipartFile file) {
+    public Result<FileUploadVO> uploadUserAvatar(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) return Result.error(406, "文件不能为空", null);
 
         Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -104,7 +104,7 @@ public class ImageController {
         userAvatarRecordRepository.save(record);
 
         // 构造并返回要求的 DTO，前端后续调用修改用户信息接口时传回这个URL以便关联
-        FileUploadResponseDTO response = new FileUploadResponseDTO();
+        FileUploadVO response = new FileUploadVO();
         response.setUrl(result.getUrl());
         response.setFileName(result.getFileName());
 
@@ -127,7 +127,7 @@ public class ImageController {
 
     // 管理员接口，上传系统图片资源用于首页或其他区域展示
     @PutMapping("/sysImgUpload")
-    public Result<FileUploadResponseDTO> uploadSysImg(
+    public Result<FileUploadVO> uploadSysImg(
             @RequestParam("file") MultipartFile file,
             @RequestParam("purpose") String purpose) { //purpose参数定义见sysImage实体类注释
         if (file.isEmpty()) return Result.error(406, "文件不能为空", null);
@@ -143,7 +143,7 @@ public class ImageController {
         record.setImageName(result.getFileName());
         sysImageRepository.save(record);
 
-        FileUploadResponseDTO response = new FileUploadResponseDTO();
+        FileUploadVO response = new FileUploadVO();
         response.setUrl(result.getUrl());
         response.setFileName(result.getFileName());
 

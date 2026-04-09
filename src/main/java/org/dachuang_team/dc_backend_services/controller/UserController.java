@@ -1,17 +1,17 @@
 package org.dachuang_team.dc_backend_services.controller;
 
 import org.dachuang_team.dc_backend_services.common.Result;
-import org.dachuang_team.dc_backend_services.pojo.Dto.UserAddressDTO;
-import org.dachuang_team.dc_backend_services.pojo.Dto.UserUpdateDTO;
-import org.dachuang_team.dc_backend_services.pojo.UserPO.UserAddress;
-import org.dachuang_team.dc_backend_services.pojo.UserPO.UserPointsRecord;
-import org.dachuang_team.dc_backend_services.pojo.UserPO.UserGeneral;
+import org.dachuang_team.dc_backend_services.domain.DTO.UserAddressDTO;
+import org.dachuang_team.dc_backend_services.domain.DTO.UserUpdateDTO;
+import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserAddress;
+import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserPointsRecord;
+import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserGeneral;
 import org.dachuang_team.dc_backend_services.services.PointsRecordService;
 import org.dachuang_team.dc_backend_services.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-import org.dachuang_team.dc_backend_services.pojo.Dto.UserDTO;
+import org.dachuang_team.dc_backend_services.domain.DTO.UserDTO;
 
 
 import java.util.ArrayList;

@@ -1,9 +1,9 @@
 package org.dachuang_team.dc_backend_services.services;
-import org.dachuang_team.dc_backend_services.pojo.Dto.UserAddressDTO;
-import org.dachuang_team.dc_backend_services.pojo.Dto.UserDTO;
-import org.dachuang_team.dc_backend_services.pojo.Dto.UserUpdateDTO;
-import org.dachuang_team.dc_backend_services.pojo.UserPO.UserAddress;
-import org.dachuang_team.dc_backend_services.pojo.UserPO.UserGeneral;
+import org.dachuang_team.dc_backend_services.domain.DTO.UserAddressDTO;
+import org.dachuang_team.dc_backend_services.domain.DTO.UserDTO;
+import org.dachuang_team.dc_backend_services.domain.DTO.UserUpdateDTO;
+import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserAddress;
+import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserGeneral;
 
 import java.util.List;
 
