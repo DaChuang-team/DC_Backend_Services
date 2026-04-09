@@ -1,467 +1,415 @@
 package org.dachuang_team.dc_backend_services.services;
-
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
-import org.dachuang_team.dc_backend_services.pojo.HotelHomestay;
+import org.dachuang_team.dc_backend_services.common.OrderStateInterceptor;
+import org.dachuang_team.dc_backend_services.common.OrderStateListener;
+import org.dachuang_team.dc_backend_services.enumeration.OrderEvent;
+import org.dachuang_team.dc_backend_services.enumeration.OrderStatus;
+import org.dachuang_team.dc_backend_services.pojo.Dto.CreateOrderRequestDTO;
 import org.dachuang_team.dc_backend_services.pojo.Order;
-import org.dachuang_team.dc_backend_services.enumeration.OrderItemType;
-import org.dachuang_team.dc_backend_services.pojo.ProductPO.ProductOrderItem;
-import org.dachuang_team.dc_backend_services.pojo.HotelOrderItem;
-import org.dachuang_team.dc_backend_services.pojo.ProductPO.Product;
-import org.dachuang_team.dc_backend_services.pojo.UserPO.UserGeneral;
-import org.dachuang_team.dc_backend_services.pojo.Dto.OrderDTO;
-import org.dachuang_team.dc_backend_services.repository.HotelHomestayRepository;
-import org.dachuang_team.dc_backend_services.repository.ProductOrderItemRepository;
-import org.dachuang_team.dc_backend_services.repository.HotelOrderItemRepository;
+import org.dachuang_team.dc_backend_services.pojo.OrderItem;
 import org.dachuang_team.dc_backend_services.repository.OrderRepository;
-import org.dachuang_team.dc_backend_services.repository.ProductRepository;
-import org.dachuang_team.dc_backend_services.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.dachuang_team.dc_backend_services.services.OrderServiceException.OrderAccessDeniedException;
+import org.dachuang_team.dc_backend_services.services.OrderServiceException.OrderNotFoundException;
+import org.dachuang_team.dc_backend_services.services.OrderServiceException.OrderStateException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.support.MessageBuilder;
+import org.springframework.statemachine.StateMachine;
+import org.springframework.statemachine.support.DefaultStateMachineContext;
 import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.time.LocalDate;
+import org.springframework.data.domain.Pageable;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.HexFormat;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 
 @Service
 public class OrderService {
-    // 订单状态常量
-    public static final int STATUS_UNPAID = 0;
-    public static final int STATUS_PAID = 1;
-    public static final int STATUS_SHIPPED = 2;
-    public static final int STATUS_RECEIVED = 3;
-    public static final int STATUS_COMPLETED = 4;
-    public static final int STATUS_CANCELED = 5;
-    public static final int STATUS_BOOKED = 6;
-    public static final int STATUS_CHECKED_IN = 7;
 
-    private static final String ITEM_TYPE_PRODUCT = "PRODUCT";
-    private static final String ITEM_TYPE_HOTEL = "HOTEL";
+    private static final Logger log = LoggerFactory.getLogger(OrderService.class);
 
-    @Autowired
-    private OrderRepository orderRepository;
+    private final StateMachine<OrderStatus, OrderEvent> stateMachine;
+    private final OrderStateInterceptor interceptor;
+    private final OrderStateListener listener;
+    private final OrderRepository orderRepository;
+    private final PaymentProvider paymentProvider;
 
-    @Autowired
-    private ProductOrderItemRepository productOrderItemRepository;
+    public OrderService(StateMachine<OrderStatus, OrderEvent> stateMachine,
+                        OrderStateInterceptor interceptor,
+                        OrderStateListener listener,
+                        OrderRepository orderRepository,
+                        PaymentProvider paymentProvider) {
+        this.stateMachine = stateMachine;
+        this.interceptor = interceptor;
+        this.listener = listener;
+        this.orderRepository = orderRepository;
+        this.paymentProvider = paymentProvider;
 
-    @Autowired
-    private HotelOrderItemRepository hotelOrderItemRepository;
-
-    @Autowired
-    private ProductRepository productRepository;
-
-    @Autowired
-    private HotelHomestayRepository hotelHomestayRepository;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    // 订单预览，计算价格并返回快照信息
-    public OrderDTO.PreviewResponse previewOrder(Long userId, OrderDTO.PreviewRequest request) {
-        validateUser(userId);
-        CalculationContext context = buildCalculationContext(
-                request.getItemType(),
-                request.getItemId(),
-                request.getQuantity(),
-                request.getCheckInDate(),
-                request.getCheckOutDate(),
-                request.getRoomCount()
-        );
-
-        OrderDTO.PreviewResponse response = new OrderDTO.PreviewResponse();
-        response.setItemType(context.itemType.name());
-        response.setItemId(context.itemId);
-        response.setTotalAmount(context.totalAmount);
-        response.setPriceVersion(buildPriceVersion(context));
-        response.setItems(context.items);
-        return response;
+        // 注册拦截器和监听器
+        this.stateMachine.getStateMachineAccessor().doWithAllRegions(a -> {
+            a.addStateMachineInterceptor(interceptor);
+            stateMachine.addStateListener(listener);
+        });
     }
 
+    // 1.下单
+
+    /**
+     * 下单逻辑：
+     * 1. 校验请求参数
+     * 2. 构建 OrderItem 列表（每个订单项在构造函数内自校验）
+     * 3. 构建 Order（构造函数内自动计算 totalAmount）
+     * 4. 持久化，初始状态为 PENDING_PAYMENT，无需触发状态机
+     * <p>
+     * 由于前端只针对单品购买，items 列表里只会有一个 OrderItem，
+     * 但 Service 层不做此限制，保留扩展性。
+     */
     @Transactional
-    // 创建订单并写入对应订单项
-    public OrderDTO.OrderSummaryResponse createOrder(Long userId, OrderDTO.CreateRequest request) {
-        UserGeneral user = validateUser(userId);
-        if (request.getClientRequestId() == null || request.getClientRequestId().isBlank()) {
-            throw new IllegalArgumentException("clientRequestId 不能为空");
-        }
-        Order existing = orderRepository.findByClientRequestId(request.getClientRequestId()).orElse(null);
-        if (existing != null) {
-            ensureOrderOwnership(existing, userId);
-            return buildOrderSummary(existing);
-        }
+    public Order createOrder(CreateOrderRequestDTO request) {
+        validateCreateRequest(request);
 
-        CalculationContext context = buildCalculationContext(
-                request.getItemType(),
-                request.getItemId(),
-                request.getQuantity(),
-                request.getCheckInDate(),
-                request.getCheckOutDate(),
-                request.getRoomCount()
-        );
+        List<OrderItem> items = request.getItems().stream()
+                .map(dto -> new OrderItem(
+                        dto.getProductId(),
+                        dto.getProductName(),
+                        dto.getProductSnapshot(),
+                        dto.getUnitPrice(),
+                        dto.getQuantity()
+                ))
+                .collect(Collectors.toList());
 
-        String serverPriceVersion = buildPriceVersion(context);
-        if (!Objects.equals(serverPriceVersion, request.getPriceVersion())) {
-            throw new IllegalArgumentException("价格信息已变化，请重新预览后下单");
-        }
-
-        Order order = new Order();
-        order.setOrderNo(generateOrderNo());
-        order.setStatus(STATUS_UNPAID);
-        order.setCreatedAt(LocalDateTime.now());
-        order.setUser(user);
-        order.setDeliveryAddress(request.getDeliveryAddress());
-        order.setDiscountAmount(0D);
-        order.setTotalPrice(context.totalAmount);
-        order.setPayAmount(context.totalAmount);
-        order.setClientRequestId(request.getClientRequestId());
-        Order savedOrder = orderRepository.save(order);
-
-        buildOrderItems(savedOrder, context);
-
-        return buildOrderSummary(savedOrder);
+        Order order = new Order(request.getBuyerId(), request.getSellerId(), items);
+        Order saved = orderRepository.save(order);
+        log.info("订单创建成功: orderId={}, buyerId={}, totalAmount={}",
+                saved.getId(), saved.getBuyerId(), saved.getTotalAmount());
+        return saved;
     }
 
+    // 2.支付（预留）
+
+    /**
+     * 支付流程：
+     * 1. 查询订单，校验买家身份
+     * 2. 触发支付插槽（现阶段为 MockPaymentProvider，后期替换实现即可）
+     * 3. 驱动状态机：PENDING_PAYMENT → PAID
+     * 4. 记录支付时间
+     * <p>
+     * 注意：paymentProvider.pay() 和 sendEvent() 都在同一个事务内，
+     * 若状态机迁移失败，支付插槽的内存操作也会随事务回滚。
+     * 真实支付接入后，需要考虑支付回调的幂等处理（见注释）。
+     */
     @Transactional
-    // 支付订单
-    public OrderDTO.PayResponse payOrder(Long userId, Long orderId, OrderDTO.PayRequest request) {
-        if (request.getPayChannel() == null || request.getPayChannel().isBlank()) {
-            throw new IllegalArgumentException("payChannel 不能为空");
-        }
-        Order order = getOwnedOrder(userId, orderId);
-        if (!Objects.equals(order.getStatus(), STATUS_UNPAID)) {
-            throw new IllegalArgumentException("当前状态不可支付");
-        }
-        order.setStatus(STATUS_PAID);
+    public Order payOrder(String orderId, String buyerId) throws OrderStateException {
+        Order order = getOrderAndValidateBuyer(orderId, buyerId);
+        assertStatus(order, OrderStatus.PENDING_PAYMENT, "支付");
+
+        // 支付插槽调用
+        String paymentResult = paymentProvider.pay(order);
+        order.setPaymentSlot(paymentResult);
+
+        // 驱动状态机
+        sendEvent(order, OrderEvent.PAY);
         order.setPaidAt(LocalDateTime.now());
-        orderRepository.save(order);
 
-        OrderDTO.PayResponse response = new OrderDTO.PayResponse();
-        response.setOrderId(order.getOrderId());
-        response.setStatus(order.getStatus());
-        response.setPaidAt(order.getPaidAt());
-        return response;
+        Order saved = orderRepository.save(order);
+        log.info("订单支付成功: orderId={}", orderId);
+        return saved;
+
+        /*
+         * 真实支付接入说明（预留）：
+         * 真实支付通常是异步回调模式：
+         *   1. paymentProvider.pay() 返回一个预支付 ID（如微信的 prepayId）
+         *   2. 前端用预支付 ID 拉起收银台
+         *   3. 用户完成支付后，第三方回调你的 /payment/callback 接口
+         *   4. 在回调接口里调用 payOrder() 完成状态迁移
+         * 回调接口需要加幂等保护（如用 paymentSlot 里的 tradeNo 做唯一键去重）。
+         */
     }
 
-    // 查询订单详情
-    public OrderDTO.OrderDetailResponse getOrderDetail(Long userId, Long orderId) {
-        Order order = getOwnedOrder(userId, orderId);
-        return buildOrderDetail(order);
-    }
+    // 3.商家确认
 
-    // 分页查询我的订单
-    public List<OrderDTO.OrderSummaryResponse> getMyOrders(Long userId, Integer page, Integer size, Integer status) {
-        validateUser(userId);
-        int safePage = page == null || page < 1 ? 1 : page;
-        int safeSize = size == null || size < 1 ? 20 : Math.min(size, 100);
-        Pageable pageable = PageRequest.of(safePage - 1, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<Order> result;
-        if (status == null) {
-            result = orderRepository.findByUserUserId(userId, pageable);
-        } else {
-            result = orderRepository.findByUserUserIdAndStatus(userId, status, pageable);
-        }
-        List<OrderDTO.OrderSummaryResponse> list = new ArrayList<>();
-        for (Order order : result.getContent()) {
-            list.add(buildOrderSummary(order));
-        }
-        return list;
-    }
-
+    /**
+     * 商家确认订单：PAID → CONFIRMED
+     * 只有商家本人才能操作，校验 sellerId。
+     */
     @Transactional
-    // 取消订单
-    public OrderDTO.CancelResponse cancelOrder(Long userId, Long orderId) {
-        Order order = getOwnedOrder(userId, orderId);
-        if (!Objects.equals(order.getStatus(), STATUS_UNPAID)) {
-            throw new IllegalArgumentException("只有待支付订单允许取消");
-        }
-        order.setStatus(STATUS_CANCELED);
-        orderRepository.save(order);
+    public Order confirmOrder(String orderId, String sellerId) {
+        Order order = getOrderAndValidateSeller(orderId, sellerId);
+        assertStatus(order, OrderStatus.PAID, "确认");
 
-        OrderDTO.CancelResponse response = new OrderDTO.CancelResponse();
-        response.setOrderId(order.getOrderId());
-        response.setStatus(order.getStatus());
-        return response;
+        sendEvent(order, OrderEvent.CONFIRM);
+
+        Order saved = orderRepository.save(order);
+        log.info("商家确认订单: orderId={}, sellerId={}", orderId, sellerId);
+        return saved;
     }
 
-    // 校验并返回用户
-    private UserGeneral validateUser(Long userId) {
-        if (userId == null) {
-            throw new IllegalArgumentException("用户未登录");
+    // 4.商家发货
+
+    /**
+     * 商家发货：CONFIRMED → SHIPPED
+     * 发货时必须提供物流单号，物流单号不能为空。
+     */
+    @Transactional
+    public Order shipOrder(String orderId, String sellerId, String trackingNo) throws OrderStateException {
+        if (trackingNo == null || trackingNo.isBlank()) {
+            throw new IllegalArgumentException("物流单号不能为空");
         }
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+
+        Order order = getOrderAndValidateSeller(orderId, sellerId);
+        assertStatus(order, OrderStatus.CONFIRMED, "发货");
+
+        order.setTrackingNo(trackingNo);
+        sendEvent(order, OrderEvent.SHIP);
+
+        Order saved = orderRepository.save(order);
+        log.info("商家发货: orderId={}, trackingNo={}", orderId, trackingNo);
+        return saved;
     }
 
-    // 校验并获取订单
-    private Order getOwnedOrder(Long userId, Long orderId) {
-        validateUser(userId);
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("订单不存在"));
-        ensureOrderOwnership(order, userId);
+    // 5.买家签收
+
+    /**
+     * 买家签收：SHIPPED → RECEIVED
+     * 只有买家本人才能签收。
+     */
+    @Transactional
+    public Order receiveOrder(String orderId, String buyerId) {
+        Order order = getOrderAndValidateBuyer(orderId, buyerId);
+        assertStatus(order, OrderStatus.SHIPPED, "签收");
+
+        sendEvent(order, OrderEvent.RECEIVE);
+
+        Order saved = orderRepository.save(order);
+        log.info("买家签收: orderId={}, buyerId={}", orderId, buyerId);
+        return saved;
+    }
+
+    // 6.买家确认收货（完成）
+
+    /**
+     * 买家确认收货：RECEIVED → COMPLETED
+     * 确认收货后订单进入终态，不可再发起退款。
+     */
+    @Transactional
+    public Order completeOrder(String orderId, String buyerId) {
+        Order order = getOrderAndValidateBuyer(orderId, buyerId);
+        assertStatus(order, OrderStatus.RECEIVED, "确认收货");
+
+        sendEvent(order, OrderEvent.COMPLETE);
+        order.setCompletedAt(LocalDateTime.now());
+
+        Order saved = orderRepository.save(order);
+        log.info("买家确认收货，订单完成: orderId={}", orderId);
+        return saved;
+    }
+
+    // 7.申请退款
+
+    /**
+     * 申请退款：PAID / CONFIRMED / SHIPPED / RECEIVED → REFUND_REQUESTED
+     * 以上四个状态均可申请，状态机配置中已定义所有合法迁移路径。
+     * 这里只校验订单是否属于该买家，具体状态是否合法交给状态机判断。
+     */
+    @Transactional
+    public Order requestRefund(String orderId, String buyerId, String reason) throws OrderStateException {
+        Order order = getOrderAndValidateBuyer(orderId, buyerId);
+
+        // 将退款原因写入 paymentSlot（复用 JSON 字段，避免加列）
+        appendRefundReason(order, reason);
+
+        sendEvent(order, OrderEvent.REQUEST_REFUND);
+
+        Order saved = orderRepository.save(order);
+        log.info("买家申请退款: orderId={}, buyerId={}, reason={}", orderId, buyerId, reason);
+        return saved;
+    }
+
+    // 8.商家处理退款
+
+    /**
+     * 商家同意退款：REFUND_REQUESTED → REFUNDED
+     * 商家拒绝退款：REFUND_REQUESTED → CONFIRMED（回到可继续操作的状态）
+     *
+     * approve=true  时调用支付插槽执行实际退款动作
+     * approve=false 时只做状态回退，不调用支付
+     */
+    @Transactional
+    public Order processRefund(String orderId, String sellerId, boolean approve) {
+        Order order = getOrderAndValidateSeller(orderId, sellerId);
+        assertStatus(order, OrderStatus.REFUND_REQUESTED, "处理退款");
+
+        if (approve) {
+            // 支付插槽调用：执行退款
+            paymentProvider.refund(order);
+            sendEvent(order, OrderEvent.APPROVE_REFUND);
+            log.info("商家同意退款: orderId={}", orderId);
+        } else {
+            sendEvent(order, OrderEvent.REJECT_REFUND);
+            log.info("商家拒绝退款: orderId={}", orderId);
+        }
+
+        return orderRepository.save(order);
+    }
+
+    // 9.取消订单
+
+    /**
+     * 取消订单：PENDING_PAYMENT → CANCELLED
+     * 仅待支付状态可取消，其他状态需走退款流程。
+     * 只有买家本人可以取消。
+     */
+    @Transactional
+    public Order cancelOrder(String orderId, String buyerId) {
+        Order order = getOrderAndValidateBuyer(orderId, buyerId);
+        assertStatus(order, OrderStatus.PENDING_PAYMENT, "取消");
+
+        sendEvent(order, OrderEvent.CANCEL);
+
+        Order saved = orderRepository.save(order);
+        log.info("买家取消订单: orderId={}, buyerId={}", orderId, buyerId);
+        return saved;
+    }
+
+    // 10.查询
+    // ================================================================
+
+    /** 查询单个订单（含订单项） */
+    @Transactional
+    public Order getOrder(String orderId) {
+        return orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException("订单不存在: " + orderId));
+    }
+
+    /** 买家查询自己的订单列表，支持按状态筛选 */
+    @Transactional
+    public Page<Order> getBuyerOrders(String buyerId, OrderStatus status, Pageable pageable) {
+        if (status != null) {
+            return orderRepository.findByBuyerIdAndStatus(buyerId, status, pageable);
+        }
+        return orderRepository.findByBuyerId(buyerId, pageable);
+    }
+
+    /** 商家查询自己的订单列表，支持按状态筛选 */
+    @Transactional
+    public Page<Order> getSellerOrders(String sellerId, OrderStatus status, Pageable pageable) {
+        if (status != null) {
+            return orderRepository.findBySellerIdAndStatus(sellerId, status, pageable);
+        }
+        return orderRepository.findBySellerId(sellerId, pageable);
+    }
+
+
+    /**
+     * 核心驱动方法：将状态机恢复到订单当前状态，再发送事件。
+     *
+     * 为什么每次都要 stop → reset → start？
+     * Spring StateMachine 默认是单例的，多个订单共用同一个状态机实例。
+     * 必须在每次操作前把状态机重置到当前订单的状态，
+     * 否则上一个请求留下的状态会影响当前请求。
+     */
+    private void sendEvent(Order order, OrderEvent event) throws OrderStateException {
+        stateMachine.stop();
+
+        stateMachine.getStateMachineAccessor().doWithAllRegions(a ->
+                a.resetStateMachine(new DefaultStateMachineContext<>(
+                        order.getStatus(), null, null, null))
+        );
+
+        stateMachine.start();
+
+        Message<OrderEvent> message = MessageBuilder
+                .withPayload(event)
+                .setHeader("orderId", order.getId())
+                .setHeader("order", order)
+                .build();
+
+        boolean accepted = stateMachine.sendEvent(message);
+
+        if (!accepted) {
+            throw new OrderStateException(
+                    String.format("当前状态 [%s] 不允许执行操作 [%s]，请检查订单状态后重试",
+                            order.getStatus(), event)
+            );
+        }
+
+        // 状态机迁移成功后，将新状态同步回订单实体
+        order.setStatus(stateMachine.getState().getId());
+    }
+
+    // 下单前参数校验
+    private void validateCreateRequest(CreateOrderRequestDTO request) {
+        if (request.getBuyerId() == null || request.getBuyerId().isBlank()) {
+            throw new IllegalArgumentException("buyerId 不能为空");
+        }
+        if (request.getSellerId() == null || request.getSellerId().isBlank()) {
+            throw new IllegalArgumentException("sellerId 不能为空");
+        }
+        if (request.getItems() == null || request.getItems().isEmpty()) {
+            throw new IllegalArgumentException("订单至少包含一个订单项");
+        }
+        // 校验买家和商家不能是同一个人
+        if (request.getBuyerId().equals(request.getSellerId())) {
+            throw new IllegalArgumentException("买家和商家不能是同一个人");
+        }
+    }
+
+    // 查询订单并校验买家身份
+    private Order getOrderAndValidateBuyer(String orderId, String buyerId) {
+        Order order = getOrder(orderId);
+        if (!order.getBuyerId().equals(buyerId)) {
+            throw new OrderAccessDeniedException("无权操作此订单：非买家");
+        }
         return order;
     }
 
-    // 权限校验，确保订单归属当前用户
-    private void ensureOrderOwnership(Order order, Long userId) {
-        if (order.getUser() == null || !Objects.equals(order.getUser().getUserId(), userId)) {
-            throw new IllegalArgumentException("无权访问该订单");
+    // 查询订单并校验商家身份
+    private Order getOrderAndValidateSeller(String orderId, String sellerId) {
+        Order order = getOrder(orderId);
+        if (!order.getSellerId().equals(sellerId)) {
+            throw new OrderAccessDeniedException("无权操作此订单：非商家");
+        }
+        return order;
+    }
+
+    // 状态错误处理
+    private void assertStatus(Order order, OrderStatus expected, String action) {
+        if (order.getStatus() != expected) {
+            throw new OrderStateException(
+                    String.format("订单当前状态为 [%s]，无法执行 [%s] 操作，需要状态为 [%s]",
+                            order.getStatus(), action, expected)
+            );
         }
     }
 
-    // 生成计算上下文
-    private CalculationContext buildCalculationContext(
-            String itemType,
-            Long itemId,
-            Integer quantity,
-            LocalDate checkInDate,
-            LocalDate checkOutDate,
-            Integer roomCount
-    ) {
-        if (itemType == null || itemType.isBlank()) {
-            throw new IllegalArgumentException("itemType 不能为空");
-        }
-        if (itemId == null) {
-            throw new IllegalArgumentException("itemId 不能为空");
-        }
-
-        String normalizedType = itemType.toUpperCase(Locale.ROOT);
-        if (ITEM_TYPE_PRODUCT.equals(normalizedType)) {
-            return buildProductCalculation(itemId, quantity);
-        }
-        if (ITEM_TYPE_HOTEL.equals(normalizedType)) {
-            return buildHotelCalculation(itemId, checkInDate, checkOutDate, roomCount);
-        }
-        throw new IllegalArgumentException("itemType 仅支持 PRODUCT 或 HOTEL");
-    }
-
-    // 计算商品订单价格与快照
-    private CalculationContext buildProductCalculation(Long itemId, Integer quantity) {
-        if (quantity == null || quantity <= 0) {
-            throw new IllegalArgumentException("quantity 必须大于 0");
-        }
-        Product product = productRepository.findById(itemId)
-                .orElseThrow(() -> new IllegalArgumentException("商品不存在"));
-        if (Boolean.FALSE.equals(product.getApproved())) {
-            throw new IllegalArgumentException("商品未通过审核，暂不可下单");
-        }
-
-        double unitPrice = product.getPrice();
-        double total = unitPrice * quantity;
-
-        OrderDTO.OrderItemView itemView = new OrderDTO.OrderItemView();
-        itemView.setItemType(OrderItemType.PRODUCT.name());
-        itemView.setItemId(product.getProductId());
-        itemView.setItemName(product.getProductName());
-        itemView.setQuantity(quantity);
-        itemView.setUnitPrice(unitPrice);
-        itemView.setLineAmount(total);
-
-        CalculationContext context = new CalculationContext();
-        context.itemType = OrderItemType.PRODUCT;
-        context.itemId = product.getProductId();
-        context.itemName = product.getProductName();
-        context.unitPrice = unitPrice;
-        context.quantity = quantity;
-        context.roomCount = null;
-        context.nightCount = null;
-        context.checkInDate = null;
-        context.checkOutDate = null;
-        context.totalAmount = total;
-        context.items = List.of(itemView);
-        context.product = product;
-        return context;
-    }
-
-    // 计算酒店订单价格与快照
-    private CalculationContext buildHotelCalculation(
-            Long itemId,
-            LocalDate checkInDate,
-            LocalDate checkOutDate,
-            Integer roomCount
-    ) {
-        if (checkInDate == null || checkOutDate == null) {
-            throw new IllegalArgumentException("酒店订单必须传入 checkInDate 和 checkOutDate");
-        }
-        if (!checkOutDate.isAfter(checkInDate)) {
-            throw new IllegalArgumentException("checkOutDate 必须晚于 checkInDate");
-        }
-        if (roomCount == null || roomCount <= 0) {
-            throw new IllegalArgumentException("roomCount 必须大于 0");
-        }
-        HotelHomestay hotel = hotelHomestayRepository.findById(itemId)
-                .orElseThrow(() -> new IllegalArgumentException("酒店不存在"));
-        if (Boolean.FALSE.equals(hotel.getIsAvailable())) {
-            throw new IllegalArgumentException("酒店当前不可预订");
-        }
-        if (hotel.getPrice() == null || hotel.getPrice() <= 0) {
-            throw new IllegalArgumentException("酒店价格异常，暂不可下单");
-        }
-
-        int nightCount = (int) ChronoUnit.DAYS.between(checkInDate, checkOutDate);
-        double unitPrice = hotel.getPrice();
-        double total = unitPrice * roomCount * nightCount;
-
-        OrderDTO.OrderItemView itemView = new OrderDTO.OrderItemView();
-        itemView.setItemType(OrderItemType.HOTEL.name());
-        itemView.setItemId(hotel.getHotelId());
-        itemView.setItemName(hotel.getHotelName());
-        itemView.setRoomCount(roomCount);
-        itemView.setNightCount(nightCount);
-        itemView.setCheckInDate(checkInDate);
-        itemView.setCheckOutDate(checkOutDate);
-        itemView.setUnitPrice(unitPrice);
-        itemView.setLineAmount(total);
-
-        CalculationContext context = new CalculationContext();
-        context.itemType = OrderItemType.HOTEL;
-        context.itemId = hotel.getHotelId();
-        context.itemName = hotel.getHotelName();
-        context.unitPrice = unitPrice;
-        context.quantity = 1;
-        context.roomCount = roomCount;
-        context.nightCount = nightCount;
-        context.checkInDate = checkInDate;
-        context.checkOutDate = checkOutDate;
-        context.totalAmount = total;
-        context.items = List.of(itemView);
-        context.hotel = hotel;
-        return context;
-    }
-
-    // 写入不同类型的订单项
-    private void buildOrderItems(Order order, CalculationContext context) {
-        if (OrderItemType.PRODUCT.equals(context.itemType)) {
-            ProductOrderItem item = new ProductOrderItem();
-            item.setOrder(order);
-            item.setItemNameSnapshot(context.itemName);
-            item.setUnitPriceSnapshot(context.unitPrice);
-            item.setPriceAtOrder(context.totalAmount);
-            item.setQuantity(context.quantity == null ? 1 : context.quantity);
-            item.setProduct(context.product);
-            productOrderItemRepository.save(item);
-            return;
-        }
-
-        HotelOrderItem item = new HotelOrderItem();
-        item.setOrder(order);
-        item.setItemNameSnapshot(context.itemName);
-        item.setUnitPriceSnapshot(context.unitPrice);
-        item.setPriceAtOrder(context.totalAmount);
-        item.setRoomCount(context.roomCount);
-        item.setNightCount(context.nightCount);
-        item.setCheckInDate(context.checkInDate);
-        item.setCheckOutDate(context.checkOutDate);
-        item.setHotelId(context.hotel.getHotelId());
-        hotelOrderItemRepository.save(item);
-    }
-
-    // 生成订单号
-    private String generateOrderNo() {
-        return "ORD" + System.currentTimeMillis() + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
-    }
-
-    // 构建价格版本用于防篡改
-    private String buildPriceVersion(CalculationContext context) {
-        String raw = String.join("|",
-                context.itemType.name(),
-                String.valueOf(context.itemId),
-                String.valueOf(context.unitPrice),
-                String.valueOf(context.quantity),
-                String.valueOf(context.roomCount),
-                String.valueOf(context.nightCount),
-                String.valueOf(context.checkInDate),
-                String.valueOf(context.checkOutDate),
-                String.valueOf(context.totalAmount));
+    // 退款原因直接写入PaymentSlot
+    private void appendRefundReason(Order order, String reason) {
         try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(raw.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hash);
-        } catch (Exception e) {
-            throw new RuntimeException("构建价格版本失败", e);
-        }
-    }
-
-    // 生成订单摘要
-    private OrderDTO.OrderSummaryResponse buildOrderSummary(Order order) {
-        OrderDTO.OrderSummaryResponse response = new OrderDTO.OrderSummaryResponse();
-        response.setOrderId(order.getOrderId());
-        response.setOrderNo(order.getOrderNo());
-        response.setStatus(order.getStatus());
-        response.setPayAmount(order.getPayAmount());
-        response.setCreatedAt(order.getCreatedAt());
-        return response;
-    }
-
-    // 生成订单详情并合并订单项
-    private OrderDTO.OrderDetailResponse buildOrderDetail(Order order) {
-        List<OrderDTO.OrderItemView> itemViews = new ArrayList<>();
-        List<ProductOrderItem> productItems = productOrderItemRepository.findByOrderOrderId(order.getOrderId());
-        for (ProductOrderItem item : productItems) {
-            OrderDTO.OrderItemView itemView = new OrderDTO.OrderItemView();
-            itemView.setItemType(OrderItemType.PRODUCT.name());
-            itemView.setItemName(item.getItemNameSnapshot());
-            itemView.setQuantity(item.getQuantity());
-            itemView.setUnitPrice(item.getUnitPriceSnapshot());
-            itemView.setLineAmount(item.getPriceAtOrder());
-            if (item.getProduct() != null) {
-                itemView.setItemId(item.getProduct().getProductId());
+            ObjectMapper mapper = new ObjectMapper();
+            Map<String, Object> slot = new HashMap<>();
+            if (order.getPaymentSlot() != null && !order.getPaymentSlot().isBlank()) {
+                slot = mapper.readValue(order.getPaymentSlot(),
+                        new TypeReference<Map<String, Object>>() {});
             }
-            itemViews.add(itemView);
+            slot.put("refundReason", reason);
+            slot.put("refundRequestedAt", LocalDateTime.now().toString());
+            order.setPaymentSlot(mapper.writeValueAsString(slot));
+        } catch (Exception e) {
+            log.warn("写入退款原因失败，忽略: {}", e.getMessage());
         }
-        List<HotelOrderItem> hotelItems = hotelOrderItemRepository.findByOrderOrderId(order.getOrderId());
-        for (HotelOrderItem item : hotelItems) {
-            OrderDTO.OrderItemView itemView = new OrderDTO.OrderItemView();
-            itemView.setItemType(OrderItemType.HOTEL.name());
-            itemView.setItemName(item.getItemNameSnapshot());
-            itemView.setQuantity(1);
-            itemView.setRoomCount(item.getRoomCount());
-            itemView.setNightCount(item.getNightCount());
-            itemView.setCheckInDate(item.getCheckInDate());
-            itemView.setCheckOutDate(item.getCheckOutDate());
-            itemView.setUnitPrice(item.getUnitPriceSnapshot());
-            itemView.setLineAmount(item.getPriceAtOrder());
-            itemView.setItemId(item.getHotelId());
-            itemViews.add(itemView);
-        }
-
-        OrderDTO.OrderDetailResponse response = new OrderDTO.OrderDetailResponse();
-        response.setOrderId(order.getOrderId());
-        response.setOrderNo(order.getOrderNo());
-        response.setStatus(order.getStatus());
-        response.setTotalPrice(order.getTotalPrice());
-        response.setPayAmount(order.getPayAmount());
-        response.setDiscountAmount(order.getDiscountAmount());
-        response.setDeliveryAddress(order.getDeliveryAddress());
-        response.setCreatedAt(order.getCreatedAt());
-        response.setPaidAt(order.getPaidAt());
-        response.setItems(itemViews);
-        return response;
-    }
-
-    private static class CalculationContext {
-        private OrderItemType itemType;
-        private Long itemId;
-        private String itemName;
-        private Double unitPrice;
-        private Integer quantity;
-        private Integer roomCount;
-        private Integer nightCount;
-        private LocalDate checkInDate;
-        private LocalDate checkOutDate;
-        private Double totalAmount;
-        private List<OrderDTO.OrderItemView> items;
-        private Product product;
-        private HotelHomestay hotel;
     }
 }
+
+/**
+ * 有三点需要特别留意。
+ * 第一：sendEvent()每次都会stop-reset-start状态机，这是因为Spring StateMachine默认单例，多个订单共用同一实例，必须在每次操作前把它重置到当前订单的状态。
+ * 第二：assertStatus()和状态机是双重保险：前者提前给出友好提示，后者作为最终兜底，二者不要删掉任何一个。
+ * 第三：退款原因复用了paymentSlot的JSON字段，前期不需要加列，后期如果退款场景变复杂可以单独建一张order_refund_records表。
+ */
