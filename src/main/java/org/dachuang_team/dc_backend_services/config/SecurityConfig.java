@@ -45,10 +45,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/users/updateInfo", "/api/users/checkIn", "/api/users/logout","/api/users/address",
                                 "/api/users/deleteAddress","/api/users/updateAddress","/api/users/setDefaultAddress",
                                 "/api/users/unsetDefaultAddress","/api/users/getDefaultAddress").hasRole("USER")
-                        .requestMatchers("/api/users/info", "/api/users/points/**").authenticated()
+                        .requestMatchers("/api/users/info", "/api/users/points/**").hasAnyRole("USER","ADMIN","SUPER_ADMIN")
                         .requestMatchers("/api/users/all", "/api/users/delete").hasAnyRole("ADMIN","SUPER_ADMIN")
 
-                        .requestMatchers("/api/orders/create").hasAnyRole("USER")
+                        .requestMatchers("/api/orders/create","/api/orders/pay").hasAnyRole("USER")
 
                         .requestMatchers("/api/ai/**").hasRole("USER")
 

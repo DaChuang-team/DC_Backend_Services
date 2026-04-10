@@ -11,10 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -31,5 +28,13 @@ public class OrderController {
         Order order = orderService.createOrder(request, currentUserId);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(Result.success(201, "订单创建成功", OrderVO.from(order)));
+    }
+
+    @PostMapping("/pay")
+    public ResponseEntity<Result<OrderVO>> payOrder(
+            @RequestParam String orderNumber) throws JsonProcessingException {
+        Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Order order = orderService.payOrder(orderNumber, currentUserId);
+        return ResponseEntity.ok(Result.success(200, "订单支付成功", OrderVO.from(order)));
     }
 }

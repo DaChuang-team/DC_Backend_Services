@@ -24,17 +24,16 @@ import org.springframework.data.domain.Page;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.statemachine.StateMachine;
+import org.springframework.statemachine.StateMachineEventResult;
 import org.springframework.statemachine.support.DefaultStateMachineContext;
 import org.springframework.stereotype.Service;
 
 import org.springframework.data.domain.Pageable;
+import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 
@@ -153,8 +152,8 @@ public class OrderService {
      * 真实支付接入后，需要考虑支付回调的幂等处理（见注释）。
      */
     @Transactional
-    public Order payOrder(Long orderId, Long buyerId) throws OrderStateException {
-        Order order = getOrderAndValidateBuyer(orderId, buyerId);
+    public Order payOrder(String orderNumber, Long buyerId) throws OrderStateException {
+        Order order = getOrderAndValidateBuyer(orderNumber, buyerId);
         assertStatus(order, OrderStatus.PENDING_PAYMENT, "支付");
 
         // 支付插槽调用
@@ -166,7 +165,7 @@ public class OrderService {
         order.setPaidAt(LocalDateTime.now());
 
         Order saved = orderRepository.save(order);
-        log.info("订单支付成功: orderId={}", orderId);
+        log.info("订单支付成功:，订单号：{}", orderNumber);
         return saved;
 
         /*
@@ -185,14 +184,14 @@ public class OrderService {
      // 商家确认订单：PAID - CONFIRMED
      // 只有商家本人才能操作，校验 sellerId。
     @Transactional
-    public Order confirmOrder(Long orderId, Long sellerId) {
-        Order order = getOrderAndValidateSeller(orderId, sellerId);
+    public Order confirmOrder(String orderNumber, Long sellerId) {
+        Order order = getOrderAndValidateSeller(orderNumber, sellerId);
         assertStatus(order, OrderStatus.PAID, "确认");
 
         sendEvent(order, OrderEvent.CONFIRM);
 
         Order saved = orderRepository.save(order);
-        log.info("商家确认订单: orderId={}, sellerId={}", orderId, sellerId);
+        log.info("商家确认订单: orderId={}, sellerId={}", orderNumber, sellerId);
         return saved;
     }
 
@@ -201,19 +200,19 @@ public class OrderService {
      // 商家发货：CONFIRMED - SHIPPED
      // 发货时必须提供物流单号，物流单号不能为空。
     @Transactional
-    public Order shipOrder(Long orderId, Long sellerId, String trackingNo) throws OrderStateException {
+    public Order shipOrder(String orderNumber, Long sellerId, String trackingNo) throws OrderStateException {
         if (trackingNo == null || trackingNo.isBlank()) {
             throw new IllegalArgumentException("物流单号不能为空");
         }
 
-        Order order = getOrderAndValidateSeller(orderId, sellerId);
+        Order order = getOrderAndValidateSeller(orderNumber, sellerId);
         assertStatus(order, OrderStatus.CONFIRMED, "发货");
 
         order.setTrackingNo(trackingNo);
         sendEvent(order, OrderEvent.SHIP);
 
         Order saved = orderRepository.save(order);
-        log.info("商家发货: orderId={}, trackingNo={}", orderId, trackingNo);
+        log.info("商家发货: orderId={}, trackingNo={}", orderNumber, trackingNo);
         return saved;
     }
 
@@ -222,14 +221,14 @@ public class OrderService {
      // 买家签收：SHIPPED → RECEIVED
      // 只有买家本人才能签收。
     @Transactional
-    public Order receiveOrder(Long orderId, Long buyerId) {
-        Order order = getOrderAndValidateBuyer(orderId, buyerId);
+    public Order receiveOrder(String orderNumber, Long buyerId) {
+        Order order = getOrderAndValidateBuyer(orderNumber, buyerId);
         assertStatus(order, OrderStatus.SHIPPED, "签收");
 
         sendEvent(order, OrderEvent.RECEIVE);
 
         Order saved = orderRepository.save(order);
-        log.info("买家签收: orderId={}, buyerId={}", orderId, buyerId);
+        log.info("买家签收: orderId={}, buyerId={}", orderNumber, buyerId);
         return saved;
     }
 
@@ -238,15 +237,15 @@ public class OrderService {
      // 买家确认收货：RECEIVED - COMPLETED
      // 确认收货后订单进入终态，不可再发起退款。
     @Transactional
-    public Order completeOrder(Long orderId, Long buyerId) {
-        Order order = getOrderAndValidateBuyer(orderId, buyerId);
+    public Order completeOrder(String orderNumber, Long buyerId) {
+        Order order = getOrderAndValidateBuyer(orderNumber, buyerId);
         assertStatus(order, OrderStatus.RECEIVED, "确认收货");
 
         sendEvent(order, OrderEvent.COMPLETE);
         order.setCompletedAt(LocalDateTime.now());
 
         Order saved = orderRepository.save(order);
-        log.info("买家确认收货，订单完成: orderId={}", orderId);
+        log.info("买家确认收货，订单完成，订单号：{}",orderNumber);
         return saved;
     }
 
@@ -255,16 +254,43 @@ public class OrderService {
     // 申请退款：PAID / CONFIRMED / SHIPPED / RECEIVED - REFUND_REQUESTED
     // 这里只校验订单是否属于该买家
     @Transactional
-    public Order requestRefund(Long orderId, Long buyerId, String reason) throws OrderStateException {
-        Order order = getOrderAndValidateBuyer(orderId, buyerId);
+    public Order requestRefund(String orderNumber, Long buyerId, String reason, String refoundType, BigDecimal partialAmount) throws OrderStateException {
+        Order order = getOrderAndValidateBuyer(orderNumber, buyerId);
+        BigDecimal actualAmount;
+        if (Objects.equals(refoundType, "ALL")) {
+            if (order.getStatus() != OrderStatus.PAID &&
+                    order.getStatus() != OrderStatus.CONFIRMED &&
+                    order.getStatus() != OrderStatus.SHIPPED &&
+                    order.getStatus() != OrderStatus.RECEIVED) {
+                throw new OrderStateException("当前订单状态不允许申请全额退款");
+            }
+            actualAmount = order.getTotalAmount(); // 全额退款时，直接从订单获取总金额
+        } else if (Objects.equals(refoundType, "PARTIAL")) { // 部分退款
+            if (partialAmount == null || partialAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("部分退款金额必须大于0");
+            }
+            if (partialAmount.compareTo(order.getTotalAmount()) >= 0) {
+                throw new IllegalArgumentException("部分退款金额必须小于订单总金额");
+            }
+            // 部分退款允许在多个状态申请，但都需要校验订单金额
+            if (order.getStatus() != OrderStatus.PAID &&
+                    order.getStatus() != OrderStatus.CONFIRMED &&
+                    order.getStatus() != OrderStatus.SHIPPED &&
+                    order.getStatus() != OrderStatus.RECEIVED) {
+                throw new OrderStateException("当前订单状态不允许申请部分退款");
+            }
+            actualAmount = partialAmount; //部分退款时，由买家填入金额
+        } else {
+            throw new IllegalArgumentException("未知的退款类型: " + refoundType);
+        }
 
-        // 将退款原因写入 paymentSlot（复用 JSON 字段，避免加列）
-        appendRefundReason(order, reason);
+        // 将退款原因写入 paymentSlot（复用 JSON 字段）
+        appendRefundReason(order, reason, actualAmount);
 
         sendEvent(order, OrderEvent.REQUEST_REFUND);
 
         Order saved = orderRepository.save(order);
-        log.info("买家申请退款: orderId={}, buyerId={}, reason={}", orderId, buyerId, reason);
+        log.info("买家申请退款: orderId={}, buyerId={}, reason={} amount={}", orderNumber, buyerId, reason, actualAmount);
         return saved;
     }
 
@@ -275,8 +301,8 @@ public class OrderService {
     // approve=true时调用支付插槽执行实际退款动作
     // approve=false时只做状态回退，不调用支付
     @Transactional
-    public Order processRefund(Long orderId, Long sellerId, boolean approve) {
-        Order order = getOrderAndValidateSeller(orderId, sellerId);
+    public Order processRefund(String orderNumber, Long sellerId, boolean approve) {
+        Order order = getOrderAndValidateSeller(orderNumber, sellerId);
         assertStatus(order, OrderStatus.REFUND_REQUESTED, "处理退款");
 
         if (approve) {
@@ -286,10 +312,10 @@ public class OrderService {
             for(OrderItem item : order.getItems()) {
                 productRepository.incrementStock(Long.valueOf(item.getProductId()), item.getQuantity());
             }
-            log.info("商家同意退款: orderId={}", orderId);
+            log.info("商家同意退款: orderId={}", orderNumber);
         } else {
             sendEvent(order, OrderEvent.REJECT_REFUND);
-            log.info("商家拒绝退款: orderId={}", orderId);
+            log.info("商家拒绝退款: orderId={}", orderNumber);
         }
 
         return orderRepository.save(order);
@@ -301,8 +327,8 @@ public class OrderService {
     // 仅待支付状态可取消，其他状态需走退款流程。
     // 只有买家本人可以取消。
     @Transactional
-    public Order cancelOrder(Long orderId, Long buyerId) {
-        Order order = getOrderAndValidateBuyer(orderId, buyerId);
+    public Order cancelOrder(String orderNumber, Long buyerId) {
+        Order order = getOrderAndValidateBuyer(orderNumber, buyerId);
         assertStatus(order, OrderStatus.PENDING_PAYMENT, "取消");
 
         sendEvent(order, OrderEvent.CANCEL);
@@ -310,7 +336,7 @@ public class OrderService {
             productRepository.incrementStock(Long.valueOf(item.getProductId()), item.getQuantity());
         }
         Order saved = orderRepository.save(order);
-        log.info("买家取消订单: orderId={}, buyerId={}", orderId, buyerId);
+        log.info("买家取消订单: orderId={}, buyerId={}", orderNumber, buyerId);
         return saved;
     }
 
@@ -345,14 +371,14 @@ public class OrderService {
 
     // 将状态机恢复到订单当前状态，再发送事件
     private void sendEvent(Order order, OrderEvent event) throws OrderStateException {
-        stateMachine.stop();
+        stateMachine.stopReactively().block();
 
         stateMachine.getStateMachineAccessor().doWithAllRegions(a ->
-                a.resetStateMachine(new DefaultStateMachineContext<>(
-                        order.getStatus(), null, null, null))
+                a.resetStateMachineReactively(new DefaultStateMachineContext<>(
+                        order.getStatus(), null, null, null)).block()
         );
 
-        stateMachine.start();
+        stateMachine.startReactively().block();
 
         Message<OrderEvent> message = MessageBuilder
                 .withPayload(event)
@@ -360,7 +386,11 @@ public class OrderService {
                 .setHeader("order", order)
                 .build();
 
-        boolean accepted = stateMachine.sendEvent(message);
+        boolean accepted = Boolean.TRUE.equals(
+                stateMachine.sendEvent(Mono.just(message))
+                        .map(result -> result.getResultType() == StateMachineEventResult.ResultType.ACCEPTED)
+                        .blockFirst()
+        );
 
         if (!accepted) {
             throw new OrderStateException(
@@ -374,8 +404,11 @@ public class OrderService {
     }
 
     // 查询订单并校验买家身份
-    private Order getOrderAndValidateBuyer(Long orderId, Long buyerId) {
-        Order order = getOrder(orderId);
+    private Order getOrderAndValidateBuyer(String orderNumber, Long buyerId) {
+        Order order = orderRepository.findByOrderNumber(orderNumber);
+        if (order == null) {
+            throw new OrderNotFoundException("订单不存在: " + orderNumber);
+        }
         if (!order.getBuyerId().equals(buyerId)) {
             throw new OrderAccessDeniedException("无权操作此订单：非买家");
         }
@@ -383,8 +416,11 @@ public class OrderService {
     }
 
     // 查询订单并校验商家身份
-    private Order getOrderAndValidateSeller(Long orderId, Long sellerId) {
-        Order order = getOrder(orderId);
+    private Order getOrderAndValidateSeller(String orderNumber, Long sellerId) {
+        Order order = orderRepository.findByOrderNumber(orderNumber);
+        if (order == null) {
+            throw new OrderNotFoundException("订单不存在: " + orderNumber);
+        }
         if (!order.getSellerId().equals(sellerId)) {
             throw new OrderAccessDeniedException("无权操作此订单：非商家");
         }
@@ -402,7 +438,7 @@ public class OrderService {
     }
 
     // 退款原因直接写入PaymentSlot
-    private void appendRefundReason(Order order, String reason) {
+    private void appendRefundReason(Order order, String reason,BigDecimal amount) {
         try {
             ObjectMapper mapper = new ObjectMapper();
             Map<String, Object> slot = new HashMap<>();
@@ -412,6 +448,7 @@ public class OrderService {
             }
             slot.put("refundReason", reason);
             slot.put("refundRequestedAt", LocalDateTime.now().toString());
+            slot.put("amount", amount);
             order.setPaymentSlot(mapper.writeValueAsString(slot));
         } catch (Exception e) {
             log.warn("写入退款原因失败，忽略: {}", e.getMessage());

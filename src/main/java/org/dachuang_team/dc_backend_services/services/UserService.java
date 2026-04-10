@@ -59,6 +59,7 @@ public class UserService implements IUserService {
         if (userRepository.findByUserName(user.getUserName()) != null) {
             throw new IllegalArgumentException("用户名: " + user.getUserName() + " 已存在");
         }
+
         LocalDateTime now = LocalDateTime.now();
         String encodedPassword = passwordEncoder.encode(user.getUserPassword());
         UserGeneral newUser = new UserGeneral();

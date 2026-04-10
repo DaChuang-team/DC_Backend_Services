@@ -14,13 +14,13 @@ public class OrderStateInterceptor
     @Override
     public Message<OrderEvent> preEvent(Message<OrderEvent> message,
                                         StateMachine<OrderStatus, OrderEvent> stateMachine) {
-        // 从消息头中获取订单 ID，做前置校验
-        String orderId = (String) message.getHeaders().get("orderId");
-        if (orderId == null || orderId.isBlank()) {
+        Long orderId = message.getHeaders().get("orderId", Long.class);
+        if (orderId == null) {
             throw new IllegalArgumentException("orderId 不能为空");
         }
         return message;
     }
+
 
     @Override
     public Exception stateMachineError(StateMachine<OrderStatus, OrderEvent> stateMachine,
