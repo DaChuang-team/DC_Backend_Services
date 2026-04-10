@@ -6,7 +6,6 @@ import jakarta.transaction.Transactional;
 import org.dachuang_team.dc_backend_services.common.OrderStateInterceptor;
 import org.dachuang_team.dc_backend_services.common.OrderStateListener;
 import org.dachuang_team.dc_backend_services.domain.PO.ProductPO.Product;
-import org.dachuang_team.dc_backend_services.domain.VO.ProductVO;
 import org.dachuang_team.dc_backend_services.enumeration.OrderEvent;
 import org.dachuang_team.dc_backend_services.enumeration.OrderStatus;
 import org.dachuang_team.dc_backend_services.domain.DTO.CreateOrderRequestDTO;
@@ -34,7 +33,6 @@ import reactor.core.publisher.Mono;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 
 @Service
@@ -97,6 +95,10 @@ public class OrderService {
                 throw new IllegalArgumentException("商品未上架");
             }
 
+            if(dbProduct.getStock() < dto.getQuantity()) {
+                throw new IllegalArgumentException("商品 " + dbProduct.getProductName() + " 库存不足");
+            }
+
             // 以DB的信息为准
             BigDecimal actualPrice = BigDecimal.valueOf(dbProduct.getPrice());
 
@@ -131,7 +133,7 @@ public class OrderService {
 
             // 这里的逻辑其实有点问题
             // 意味着不能一次性下单不同卖家的东西
-            // 解决方案是不支持购物车合并下单，只支持单品下单，这样可以确保sellerId唯一
+            // 临时解决方案是不支持购物车合并下单，只支持单品下单，这样可以确保sellerId唯一
             sellerId = dbProduct.getSellerId();
         }
 
@@ -184,15 +186,15 @@ public class OrderService {
      // 商家确认订单：PAID - CONFIRMED
      // 只有商家本人才能操作，校验 sellerId。
     @Transactional
-    public Order confirmOrder(String orderNumber, Long sellerId) {
+    public String confirmOrder(String orderNumber, Long sellerId) {
         Order order = getOrderAndValidateSeller(orderNumber, sellerId);
         assertStatus(order, OrderStatus.PAID, "确认");
 
         sendEvent(order, OrderEvent.CONFIRM);
 
         Order saved = orderRepository.save(order);
-        log.info("商家确认订单: orderId={}, sellerId={}", orderNumber, sellerId);
-        return saved;
+        log.info("商家确认订单: 订单号：{}", orderNumber);
+        return saved.getOrderNumber();
     }
 
     // 4.商家发货
@@ -310,7 +312,7 @@ public class OrderService {
             paymentProvider.refund(order);
             sendEvent(order, OrderEvent.APPROVE_REFUND);
             for(OrderItem item : order.getItems()) {
-                productRepository.incrementStock(Long.valueOf(item.getProductId()), item.getQuantity());
+                productRepository.incrementStock(item.getProductId(), item.getQuantity());
             }
             log.info("商家同意退款: orderId={}", orderNumber);
         } else {
@@ -333,7 +335,7 @@ public class OrderService {
 
         sendEvent(order, OrderEvent.CANCEL);
         for(OrderItem item : order.getItems()) {
-            productRepository.incrementStock(Long.valueOf(item.getProductId()), item.getQuantity());
+            productRepository.incrementStock(item.getProductId(), item.getQuantity());
         }
         Order saved = orderRepository.save(order);
         log.info("买家取消订单: orderId={}, buyerId={}", orderNumber, buyerId);
@@ -344,9 +346,12 @@ public class OrderService {
 
     // 查询单个订单（含订单项）
     @Transactional
-    public Order getOrder(Long orderId) {
-        return orderRepository.findById(orderId)
-                .orElseThrow(() -> new OrderNotFoundException("订单不存在: " + orderId));
+    public Order getOrder(String orderNumber) {
+        Order order = orderRepository.findByOrderNumber(orderNumber);
+        if(order == null) {
+            throw new OrderNotFoundException("订单不存在: " + orderNumber);
+        }
+         return order;
     }
 
     // 买家查询自己的订单列表，支持按状态筛选

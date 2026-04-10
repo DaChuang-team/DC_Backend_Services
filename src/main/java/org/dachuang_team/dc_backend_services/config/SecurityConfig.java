@@ -49,6 +49,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/users/all", "/api/users/delete").hasAnyRole("ADMIN","SUPER_ADMIN")
 
                         .requestMatchers("/api/orders/create","/api/orders/pay").hasAnyRole("USER")
+                        .requestMatchers("/api/orders/confirm").hasRole("MERCHANT")
 
                         .requestMatchers("/api/ai/**").hasRole("USER")
 

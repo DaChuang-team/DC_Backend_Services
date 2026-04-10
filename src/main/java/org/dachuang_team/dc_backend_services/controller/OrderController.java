@@ -32,9 +32,17 @@ public class OrderController {
 
     @PostMapping("/pay")
     public ResponseEntity<Result<OrderVO>> payOrder(
-            @RequestParam String orderNumber) throws JsonProcessingException {
+            @RequestParam String orderNumber) {
         Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         Order order = orderService.payOrder(orderNumber, currentUserId);
         return ResponseEntity.ok(Result.success(200, "订单支付成功", OrderVO.from(order)));
+    }
+
+    @PostMapping("/confirm")
+    public ResponseEntity<Result<String>> confirmOrder(
+            @RequestParam String orderNumber) {
+        Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        String orderNo = orderService.confirmOrder(orderNumber, currentMerchantId);
+        return ResponseEntity.ok(Result.success(200, "订单 " + orderNo + " 确认成功", null));
     }
 }

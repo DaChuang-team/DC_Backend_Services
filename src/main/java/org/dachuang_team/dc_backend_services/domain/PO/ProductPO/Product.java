@@ -37,6 +37,8 @@ public class Product {
     private LocalDateTime lastModifiedAt; //最后修改时间，记录商品被修改的时间
     @Column(name = "description", length = 500)
     private String description; //商品描述
+    @Column(name = "sales", columnDefinition = "INT DEFAULT 0")
+    private Integer sales; //销量,默认为0,每次订单完成后增加
 
     //外键：指向商家表，表示该商品由哪个商家发布
     @ManyToOne
@@ -150,5 +152,13 @@ public class Product {
 
     public void setSellerId(Long sellerId) {
         this.sellerId = sellerId;
+    }
+
+    public Integer getSales() {
+        return sales;
+    }
+
+    public void setSales(Integer sales) {
+        this.sales = sales;
     }
 }
