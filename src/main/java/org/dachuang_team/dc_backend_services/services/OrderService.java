@@ -5,12 +5,18 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
 import org.dachuang_team.dc_backend_services.common.OrderStateInterceptor;
 import org.dachuang_team.dc_backend_services.common.OrderStateListener;
+import org.dachuang_team.dc_backend_services.domain.DTO.RefundRequestDTO;
+import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.RefundImg;
+import org.dachuang_team.dc_backend_services.domain.PO.OrderPO.RefundRequest;
 import org.dachuang_team.dc_backend_services.domain.PO.ProductPO.Product;
+import org.dachuang_team.dc_backend_services.domain.VO.RefundRequestVO;
 import org.dachuang_team.dc_backend_services.enumeration.OrderEvent;
 import org.dachuang_team.dc_backend_services.enumeration.OrderStatus;
 import org.dachuang_team.dc_backend_services.domain.DTO.CreateOrderRequestDTO;
-import org.dachuang_team.dc_backend_services.domain.PO.Order;
-import org.dachuang_team.dc_backend_services.domain.PO.OrderItem;
+import org.dachuang_team.dc_backend_services.domain.PO.OrderPO.Order;
+import org.dachuang_team.dc_backend_services.domain.PO.OrderPO.OrderItem;
+import org.dachuang_team.dc_backend_services.repository.RefundImgRepository;
+import org.dachuang_team.dc_backend_services.repository.RefundRequestRepository;
 import org.dachuang_team.dc_backend_services.repository.OrderRepository;
 import org.dachuang_team.dc_backend_services.repository.ProductRepository;
 import org.dachuang_team.dc_backend_services.services.OrderServiceException.OrderAccessDeniedException;
@@ -18,6 +24,7 @@ import org.dachuang_team.dc_backend_services.services.OrderServiceException.Orde
 import org.dachuang_team.dc_backend_services.services.OrderServiceException.OrderStateException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.messaging.Message;
@@ -48,6 +55,12 @@ public class OrderService {
 
     @Autowired
     ProductRepository productRepository;
+
+    @Autowired
+    RefundRequestRepository refundRequestRepository;
+
+    @Autowired
+    private RefundImgRepository refundImgRepository;
 
     public OrderService(StateMachine<OrderStatus, OrderEvent> stateMachine,
                         OrderStateInterceptor interceptor,
@@ -256,10 +269,10 @@ public class OrderService {
     // 申请退款：PAID / CONFIRMED / SHIPPED / RECEIVED - REFUND_REQUESTED
     // 这里只校验订单是否属于该买家
     @Transactional
-    public Order requestRefund(String orderNumber, Long buyerId, String reason, String refoundType, BigDecimal partialAmount) throws OrderStateException {
-        Order order = getOrderAndValidateBuyer(orderNumber, buyerId);
+    public RefundRequestVO requestRefund(RefundRequestDTO request, Long BuyerId) throws OrderStateException {
+        Order order = getOrderAndValidateBuyer(request.getOrderNumber(), BuyerId);
         BigDecimal actualAmount;
-        if (Objects.equals(refoundType, "ALL")) {
+        if (Objects.equals(request.getRefundType(), "ALL")) {
             if (order.getStatus() != OrderStatus.PAID &&
                     order.getStatus() != OrderStatus.CONFIRMED &&
                     order.getStatus() != OrderStatus.SHIPPED &&
@@ -267,11 +280,11 @@ public class OrderService {
                 throw new OrderStateException("当前订单状态不允许申请全额退款");
             }
             actualAmount = order.getTotalAmount(); // 全额退款时，直接从订单获取总金额
-        } else if (Objects.equals(refoundType, "PARTIAL")) { // 部分退款
-            if (partialAmount == null || partialAmount.compareTo(BigDecimal.ZERO) <= 0) {
+        } else if (Objects.equals(request.getRefundType(), "PARTIAL")) { // 部分退款
+            if (request.getRefundAmount() == null || request.getRefundAmount().compareTo(BigDecimal.ZERO) <= 0) {
                 throw new IllegalArgumentException("部分退款金额必须大于0");
             }
-            if (partialAmount.compareTo(order.getTotalAmount()) >= 0) {
+            if (request.getRefundAmount().compareTo(order.getTotalAmount()) >= 0) {
                 throw new IllegalArgumentException("部分退款金额必须小于订单总金额");
             }
             // 部分退款允许在多个状态申请，但都需要校验订单金额
@@ -281,19 +294,42 @@ public class OrderService {
                     order.getStatus() != OrderStatus.RECEIVED) {
                 throw new OrderStateException("当前订单状态不允许申请部分退款");
             }
-            actualAmount = partialAmount; //部分退款时，由买家填入金额
+            actualAmount = request.getRefundAmount(); //部分退款时，由买家填入金额
         } else {
-            throw new IllegalArgumentException("未知的退款类型: " + refoundType);
+            throw new IllegalArgumentException("未知的退款类型: " + request.getRefundAmount());
         }
 
-        // 将退款原因写入 paymentSlot（复用 JSON 字段）
-        appendRefundReason(order, reason, actualAmount);
+        RefundRequest refundRequest = new RefundRequest();
+        refundRequest.setOrderNumber(order.getOrderNumber());
+        refundRequest.setBuyerId(BuyerId);
+        refundRequest.setSellerId(order.getSellerId());
+        refundRequest.setRefundType(request.getRefundType());
+        refundRequest.setRefundAmount(actualAmount);
+        refundRequest.setOrderTotalAmount(order.getTotalAmount());
+        refundRequest.setReason(request.getReason());
+        refundRequest.setStatus("PENDING");
+        refundRequest.setRequestTime(LocalDateTime.now());
+
+        refundRequest.setImages(request.getImageIds() == null ? Collections.emptyList() : request.getImageIds().stream()
+                .map(id -> {
+                    RefundImg img = refundImgRepository.findById(id)
+                            .orElseThrow(() -> new IllegalArgumentException("退款凭证图片不存在: " + id));
+                    img.setRefundRequest(refundRequest);
+                    img.setLinked(true);
+                    img.setOrderNumber(order.getOrderNumber());
+                    return img;
+                })
+                .toList());
+
+        refundRequestRepository.save(refundRequest);
 
         sendEvent(order, OrderEvent.REQUEST_REFUND);
 
         Order saved = orderRepository.save(order);
-        log.info("买家申请退款: orderId={}, buyerId={}, reason={} amount={}", orderNumber, buyerId, reason, actualAmount);
-        return saved;
+        log.info("买家申请退款: orderId={}, buyerId={}, reason={} amount={}", request.getOrderNumber(), BuyerId, request.getReason(), actualAmount);
+        RefundRequestVO vo = new RefundRequestVO();
+        BeanUtils.copyProperties(refundRequest, vo);
+        return vo;
     }
 
     // 8.商家处理退款
@@ -303,7 +339,7 @@ public class OrderService {
     // approve=true时调用支付插槽执行实际退款动作
     // approve=false时只做状态回退，不调用支付
     @Transactional
-    public Order processRefund(String orderNumber, Long sellerId, boolean approve) {
+    public Order processRefund(String orderNumber, Long sellerId, boolean approve,String reason) throws OrderStateException {
         Order order = getOrderAndValidateSeller(orderNumber, sellerId);
         assertStatus(order, OrderStatus.REFUND_REQUESTED, "处理退款");
 

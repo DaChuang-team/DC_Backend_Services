@@ -1,6 +1,6 @@
 package org.dachuang_team.dc_backend_services.domain.VO;
 
-import org.dachuang_team.dc_backend_services.domain.PO.Order;
+import org.dachuang_team.dc_backend_services.domain.PO.OrderPO.Order;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

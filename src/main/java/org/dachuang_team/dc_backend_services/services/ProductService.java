@@ -4,20 +4,17 @@ import jakarta.transaction.Transactional;
 import org.dachuang_team.dc_backend_services.common.ImageProcessUtils;
 import org.dachuang_team.dc_backend_services.domain.DTO.ProductDTO;
 import org.dachuang_team.dc_backend_services.domain.PO.MerchantPO.Merchant;
-import org.dachuang_team.dc_backend_services.domain.PO.ProductPO.ProductImageRecord;
+import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.ProductImg;
 import org.dachuang_team.dc_backend_services.domain.PO.ProductPO.Product;
-import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserGeneral;
 import org.dachuang_team.dc_backend_services.repository.MerchantRepository;
 import org.dachuang_team.dc_backend_services.repository.ProductImageRecordRepository;
 import org.dachuang_team.dc_backend_services.repository.ProductRepository;
-import org.dachuang_team.dc_backend_services.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 @Service
 public class ProductService implements IProductService {
@@ -105,8 +102,8 @@ public class ProductService implements IProductService {
             // 处理图片列表（如果前端传了 imageIds）。如果图片有任何更新，都需要按顺序传递完整列表（包括未修改的），否则会被清空
             if (productDTO.getImageIds() != null) {
                 // 先解绑所有旧图片，相当于重置状态，等待新列表重新绑定（如果新列表不为空）
-                List<ProductImageRecord> oldRecords = productImageRecordRepository.findByProductId(existingProduct.getProductId());
-                for (ProductImageRecord rec : oldRecords) {
+                List<ProductImg> oldRecords = productImageRecordRepository.findByProductId(existingProduct.getProductId());
+                for (ProductImg rec : oldRecords) {
                     rec.setLinked(false);
                     rec.setProductId(null);
                     // 清空首图标识和排序
@@ -147,8 +144,8 @@ public class ProductService implements IProductService {
             }
 
             // 解绑并清理所有关联图片记录
-            List<ProductImageRecord> records = productImageRecordRepository.findByProductId(productId);
-            for (ProductImageRecord rec : records) {
+            List<ProductImg> records = productImageRecordRepository.findByProductId(productId);
+            for (ProductImg rec : records) {
                 // 删除OSS文件
                 if (rec.getUrl() != null && !rec.getUrl().isEmpty()) {
                     ossService.delete(rec.getUrl());
@@ -180,7 +177,7 @@ public class ProductService implements IProductService {
         // 具体实现在ImageProcessUtils里
         for (int i = 0; i < imageIds.size(); i++) {
             Long recordId = imageIds.get(i);
-            ProductImageRecord record = productImageRecordRepository.findById(recordId)
+            ProductImg record = productImageRecordRepository.findById(recordId)
                     .orElseThrow(() -> new RuntimeException("图片记录不存在: " + recordId));
 
             boolean isPrimary = (i == 0);
@@ -203,7 +200,7 @@ public class ProductService implements IProductService {
     }
 
     private void syncProductMainTbImage(Long productId, Long mainImageRecordId) {
-        ProductImageRecord mainRecord = productImageRecordRepository.findById(mainImageRecordId).get();
+        ProductImg mainRecord = productImageRecordRepository.findById(mainImageRecordId).get();
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new RuntimeException("商品未找到"));
 

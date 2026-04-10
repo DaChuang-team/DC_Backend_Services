@@ -3,7 +3,7 @@ package org.dachuang_team.dc_backend_services.controller;
 import org.dachuang_team.dc_backend_services.common.Result;
 import org.dachuang_team.dc_backend_services.domain.DTO.ProductDTO;
 import org.dachuang_team.dc_backend_services.domain.PO.ProductPO.Product;
-import org.dachuang_team.dc_backend_services.domain.PO.ProductPO.ProductImageRecord;
+import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.ProductImg;
 import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserGeneral;
 import org.dachuang_team.dc_backend_services.repository.ProductImageRecordRepository;
 import org.dachuang_team.dc_backend_services.repository.ProductRepository;
@@ -333,7 +333,7 @@ public class ProductController {
         Long productId = savedProduct.getProductId();
 
         // 按sortOrder排序查询
-        List<ProductImageRecord> images =
+        List<ProductImg> images =
                 productImageRecordRepository.findByProductIdOrderBySortOrderAsc(productId);
 
         // 组装返回（id + order + url）

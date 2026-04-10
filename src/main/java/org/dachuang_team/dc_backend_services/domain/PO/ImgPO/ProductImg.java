@@ -1,11 +1,11 @@
-package org.dachuang_team.dc_backend_services.domain.PO.ProductPO;
+package org.dachuang_team.dc_backend_services.domain.PO.ImgPO;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "product_image_record")
-public class ProductImageRecord {
+public class ProductImg {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 

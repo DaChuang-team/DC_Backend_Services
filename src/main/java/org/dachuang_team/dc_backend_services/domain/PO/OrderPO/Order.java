@@ -1,4 +1,4 @@
-package org.dachuang_team.dc_backend_services.domain.PO;
+package org.dachuang_team.dc_backend_services.domain.PO.OrderPO;
 
 import jakarta.persistence.*;
 import org.dachuang_team.dc_backend_services.enumeration.OrderStatus;
@@ -11,7 +11,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
 
 @Entity
 @Table(name = "orders")

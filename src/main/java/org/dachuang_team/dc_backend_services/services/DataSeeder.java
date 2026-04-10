@@ -1,7 +1,7 @@
 package org.dachuang_team.dc_backend_services.services;
 
 import org.dachuang_team.dc_backend_services.domain.PO.Attraction;
-import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.SysImage;
+import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.SysImg;
 import org.dachuang_team.dc_backend_services.repository.AttractionRepository;
 import org.dachuang_team.dc_backend_services.repository.SysImageRepository;
 import org.springframework.boot.ApplicationArguments;
@@ -33,11 +33,11 @@ public class DataSeeder implements ApplicationRunner {
         // Generate image data
         long imageCount = sysImageRepository.count();
         if (imageCount == 0) {
-            List<SysImage> SysImages = new ArrayList<>();
-            SysImages.add(createImage("https://dc-img-test.oss-cn-guangzhou.aliyuncs.com/1.jpg", "1.jpg", "MAIN_PAGE_BANNER"));
-            SysImages.add(createImage("https://dc-img-test.oss-cn-guangzhou.aliyuncs.com/2.png", "2.png", "MAIN_PAGE_BANNER"));
-            SysImages.add(createImage("https://dc-img-test.oss-cn-guangzhou.aliyuncs.com/3.jpg", "3.jpg", "MAIN_PAGE_BANNER"));
-            sysImageRepository.saveAll(SysImages);
+            List<SysImg> sysImgs = new ArrayList<>();
+            sysImgs.add(createImage("https://dc-img-test.oss-cn-guangzhou.aliyuncs.com/1.jpg", "1.jpg", "MAIN_PAGE_BANNER"));
+            sysImgs.add(createImage("https://dc-img-test.oss-cn-guangzhou.aliyuncs.com/2.png", "2.png", "MAIN_PAGE_BANNER"));
+            sysImgs.add(createImage("https://dc-img-test.oss-cn-guangzhou.aliyuncs.com/3.jpg", "3.jpg", "MAIN_PAGE_BANNER"));
+            sysImageRepository.saveAll(sysImgs);
             System.out.println("Generated 3 images.");
         }
 
@@ -123,8 +123,8 @@ public class DataSeeder implements ApplicationRunner {
         return h;
     }
 
-    private SysImage createImage(String url, String name, String purpose) {
-        SysImage img = new SysImage();
+    private SysImg createImage(String url, String name, String purpose) {
+        SysImg img = new SysImg();
         img.setImageUrl(url);
         img.setImageName(name);
         img.setPurpose(purpose);

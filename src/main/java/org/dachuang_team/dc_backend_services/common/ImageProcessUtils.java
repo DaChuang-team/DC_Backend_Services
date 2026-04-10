@@ -2,8 +2,8 @@ package org.dachuang_team.dc_backend_services.common;
 
 import net.coobird.thumbnailator.Thumbnails;
 import net.coobird.thumbnailator.geometry.Positions;
-import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.UserAvatarRecord;
-import org.dachuang_team.dc_backend_services.domain.PO.ProductPO.ProductImageRecord;
+import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.UserAvatar;
+import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.ProductImg;
 import org.dachuang_team.dc_backend_services.services.OssStorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,7 +26,7 @@ public class ImageProcessUtils {
     private OssStorageService ossService;
 
     //商品/民宿图片处理方法
-    public void processAndCompressImage(ProductImageRecord record, Long productId, int index, boolean isPrimary) {
+    public void processAndCompressImage(ProductImg record, Long productId, int index, boolean isPrimary) {
         try {
             // 处理主图（只有未处理过的才裁剪+压缩+上传）
             if (!Boolean.TRUE.equals(record.getProcessed())) {
@@ -112,7 +112,7 @@ public class ImageProcessUtils {
     }
 
     // 用户头像处理方法
-    public String userAvatarProcess(UserAvatarRecord record, Long userId){
+    public String userAvatarProcess(UserAvatar record, Long userId){
         try{
             // 用户头像只处理一次，后续如果用户再次上传新头像会覆盖原图并重新处理
             if (!record.isProcessed()) {

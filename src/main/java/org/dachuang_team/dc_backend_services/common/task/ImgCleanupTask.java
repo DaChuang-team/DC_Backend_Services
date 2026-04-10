@@ -1,8 +1,8 @@
 package org.dachuang_team.dc_backend_services.common.task;
 
 import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.AIInteractionImg;
-import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.UserAvatarRecord;
-import org.dachuang_team.dc_backend_services.domain.PO.ProductPO.ProductImageRecord;
+import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.UserAvatar;
+import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.ProductImg;
 import org.dachuang_team.dc_backend_services.repository.AIInteractionImgRepository;
 import org.dachuang_team.dc_backend_services.repository.ProductImageRecordRepository;
 import org.dachuang_team.dc_backend_services.repository.UserAvatarRecordRepository;
@@ -52,10 +52,10 @@ public class ImgCleanupTask {
             LocalDateTime threeDaysAgo = LocalDateTime.now().minusDays(3);
 
             // 查询符合条件的记录
-            List<ProductImageRecord> PdRecordsToDelete = productImageRecordRepository
+            List<ProductImg> PdRecordsToDelete = productImageRecordRepository
                     .findAllByCreatedAtBeforeAndIsLinkedFalse(threeDaysAgo);
 
-            List<UserAvatarRecord> avatarRecordsToDelete = userAvatarRecordRepository
+            List<UserAvatar> avatarRecordsToDelete = userAvatarRecordRepository
                     .findAllByUploadAtBeforeAndIsLinkedFalse(threeDaysAgo);
 
             List<AIInteractionImg> AIRecordToDelete =
@@ -67,7 +67,7 @@ public class ImgCleanupTask {
             }
 
             // 循环处理删除商品图片记录
-            for (ProductImageRecord record : PdRecordsToDelete) {
+            for (ProductImg record : PdRecordsToDelete) {
                 String url = record.getUrl();
                 if(record.getThumbnailUrl() != null) {
                     // 先删云端缩略图
@@ -90,7 +90,7 @@ public class ImgCleanupTask {
             }
 
             // 循环处理删除用户头像记录
-            for (UserAvatarRecord record : avatarRecordsToDelete) {
+            for (UserAvatar record : avatarRecordsToDelete) {
                 String url = record.getAvatarUrl();
                 try {
                     // 先删云端

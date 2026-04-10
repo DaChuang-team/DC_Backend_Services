@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "user_avatar")
-public class UserAvatarRecord {
+public class UserAvatar {
     // 用户头像表，保存用户上传的头像信息
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

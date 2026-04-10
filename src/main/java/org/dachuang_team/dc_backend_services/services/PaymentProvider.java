@@ -1,6 +1,6 @@
 package org.dachuang_team.dc_backend_services.services;
 
-import org.dachuang_team.dc_backend_services.domain.PO.Order;
+import org.dachuang_team.dc_backend_services.domain.PO.OrderPO.Order;
 
 public interface PaymentProvider {
     String pay(Order order);

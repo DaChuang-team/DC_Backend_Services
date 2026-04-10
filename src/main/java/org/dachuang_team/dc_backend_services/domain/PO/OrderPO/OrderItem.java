@@ -1,4 +1,4 @@
-package org.dachuang_team.dc_backend_services.domain.PO;
+package org.dachuang_team.dc_backend_services.domain.PO.OrderPO;
 
 import jakarta.persistence.*;
 

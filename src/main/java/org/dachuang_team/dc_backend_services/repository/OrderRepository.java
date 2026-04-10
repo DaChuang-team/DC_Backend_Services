@@ -1,7 +1,7 @@
 package org.dachuang_team.dc_backend_services.repository;
 
 import org.dachuang_team.dc_backend_services.enumeration.OrderStatus;
-import org.dachuang_team.dc_backend_services.domain.PO.Order;
+import org.dachuang_team.dc_backend_services.domain.PO.OrderPO.Order;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

@@ -5,7 +5,7 @@ import org.dachuang_team.dc_backend_services.common.ImageProcessUtils;
 import org.dachuang_team.dc_backend_services.config.RedisConfig;
 import org.dachuang_team.dc_backend_services.enumeration.PointsChangeReason;
 import org.dachuang_team.dc_backend_services.domain.DTO.UserAddressDTO;
-import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.UserAvatarRecord;
+import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.UserAvatar;
 import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserAddress;
 import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserCheckIn;
 import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserGeneral;
@@ -175,19 +175,19 @@ public class UserService implements IUserService {
         if (dto.getUserGender() != null) user.setUserGender(dto.getUserGender());
         if (dto.getUserAvatarURL() != null) {
             // 先解绑所有旧头像（如果有）
-            List<UserAvatarRecord> userOldAvatars = avatarRecordRepository.findByUserId(user.getUserId());
+            List<UserAvatar> userOldAvatars = avatarRecordRepository.findByUserId(user.getUserId());
             if (userOldAvatars != null && !userOldAvatars.isEmpty()) {
                 userOldAvatars.forEach(avatar -> avatar.setLinked(false));
             }
 
             // 再绑定新头像，并且校验这个头像URL确实存在，并且是当前用户上传的（即avatarRecord里有记录，并且记录的userId和当前用户一致）
-            UserAvatarRecord userAvatarRecord = avatarRecordRepository.findByAvatarUrl(dto.getUserAvatarURL());
-            if (userAvatarRecord == null) {
+            UserAvatar userAvatar = avatarRecordRepository.findByAvatarUrl(dto.getUserAvatarURL());
+            if (userAvatar == null) {
                 throw new IllegalArgumentException("当前头像不存在，请先上传头像");
-            } else if (!userAvatarRecord.getUserId().equals(user.getUserId())) {
+            } else if (!userAvatar.getUserId().equals(user.getUserId())) {
                 throw new IllegalArgumentException("没有权限访问当前头像资源");
             } else {
-                String url = imageProcessUtils.userAvatarProcess(userAvatarRecord, user.getUserId());
+                String url = imageProcessUtils.userAvatarProcess(userAvatar, user.getUserId());
                 user.setUserAvatarURL(url);
             }
         }

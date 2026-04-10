@@ -4,9 +4,9 @@ import org.dachuang_team.dc_backend_services.common.Result;
 import org.dachuang_team.dc_backend_services.enumeration.SysImagePurpose;
 import org.dachuang_team.dc_backend_services.domain.VO.FileUploadVO;
 import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.AIInteractionImg;
-import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.UserAvatarRecord;
-import org.dachuang_team.dc_backend_services.domain.PO.ProductPO.ProductImageRecord;
-import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.SysImage;
+import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.UserAvatar;
+import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.ProductImg;
+import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.SysImg;
 import org.dachuang_team.dc_backend_services.repository.AIInteractionImgRepository;
 import org.dachuang_team.dc_backend_services.repository.ProductImageRecordRepository;
 import org.dachuang_team.dc_backend_services.repository.SysImageRepository;
@@ -46,7 +46,7 @@ public class ImageController {
         IStorageService.StorageResult result = storageService.uploadByFile(file);
 
         // 创建并保存图片记录信息
-        ProductImageRecord record = new ProductImageRecord();
+        ProductImg record = new ProductImg();
         record.setUrl(result.getUrl()); // 初始上传时，储存原始图片URL
         record.setPhysicalPath(result.getPhysicalPath());
         record.setCreatedAt(LocalDateTime.now());
@@ -97,7 +97,7 @@ public class ImageController {
         IStorageService.StorageResult result = storageService.uploadByFile(file);
 
         // 创建并保存用户头像记录信息
-        UserAvatarRecord record = new UserAvatarRecord();
+        UserAvatar record = new UserAvatar();
         record.setAvatarUrl(result.getUrl());
         record.setUploadAt(LocalDateTime.now());
         record.setUserId(currentUserId);
@@ -116,12 +116,12 @@ public class ImageController {
     @DeleteMapping("/uploadPurge")
     public Result<String> deleteImg(@RequestParam String url) {
         // 先删数据库记录，再删物理文件
-        Optional<ProductImageRecord> record = productImageRecordRepository.findByUrl(url);
+        Optional<ProductImg> record = productImageRecordRepository.findByUrl(url);
         if (record.isEmpty()) return Result.error(404, "图片记录未找到");
-        ProductImageRecord productImageRecord = record.get();
-        if (productImageRecord.getLinked()) return Result.error(400, "图片已绑定到商品，无法删除");
+        ProductImg productImg = record.get();
+        if (productImg.getLinked()) return Result.error(400, "图片已绑定到商品，无法删除");
         storageService.delete(url);
-        productImageRecordRepository.delete(productImageRecord);
+        productImageRecordRepository.delete(productImg);
         return Result.success("图片已清理");
     }
 
@@ -137,7 +137,7 @@ public class ImageController {
 
         IStorageService.StorageResult result = storageService.uploadByFile(file);
 
-        SysImage record = new SysImage();
+        SysImg record = new SysImg();
         record.setImageUrl(result.getUrl());
         record.setPurpose(purpose);
         record.setImageName(result.getFileName());
@@ -155,7 +155,7 @@ public class ImageController {
     public Result<List<Map<String, Object>>> getSysImg(@RequestParam("purpose") String purpose) {
         if (purpose == null || purpose.isEmpty()) return Result.error(400, "用途参数不能为空");
 
-        List<SysImage> records = sysImageRepository.findByPurpose(purpose);
+        List<SysImg> records = sysImageRepository.findByPurpose(purpose);
         if (records.isEmpty()) return Result.error(404, "所属用途的图片未找到");
 
         List<Map<String, Object>> result = records.stream().map(record -> Map.<String, Object>of(

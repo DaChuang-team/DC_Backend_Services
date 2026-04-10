@@ -1,6 +1,6 @@
 package org.dachuang_team.dc_backend_services.domain.VO;
 
-import org.dachuang_team.dc_backend_services.domain.PO.OrderItem;
+import org.dachuang_team.dc_backend_services.domain.PO.OrderPO.OrderItem;
 
 import java.math.BigDecimal;
 

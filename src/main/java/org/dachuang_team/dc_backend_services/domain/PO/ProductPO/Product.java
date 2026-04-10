@@ -2,11 +2,8 @@ package org.dachuang_team.dc_backend_services.domain.PO.ProductPO;
 
 import jakarta.persistence.*;
 import org.dachuang_team.dc_backend_services.domain.PO.MerchantPO.Merchant;
-import org.dachuang_team.dc_backend_services.domain.PO.OrderItem;
-import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserGeneral;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Entity
 @Table(name = "product")

@@ -4,8 +4,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import jakarta.validation.Valid;
 import org.dachuang_team.dc_backend_services.common.Result;
 import org.dachuang_team.dc_backend_services.domain.DTO.CreateOrderRequestDTO;
-import org.dachuang_team.dc_backend_services.domain.PO.Order;
+import org.dachuang_team.dc_backend_services.domain.DTO.RefundRequestDTO;
+import org.dachuang_team.dc_backend_services.domain.PO.OrderPO.Order;
 import org.dachuang_team.dc_backend_services.domain.VO.OrderVO;
+import org.dachuang_team.dc_backend_services.domain.VO.RefundRequestVO;
 import org.dachuang_team.dc_backend_services.services.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -44,5 +46,13 @@ public class OrderController {
         Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         String orderNo = orderService.confirmOrder(orderNumber, currentMerchantId);
         return ResponseEntity.ok(Result.success(200, "订单 " + orderNo + " 确认成功", null));
+    }
+
+    @PostMapping("/refund/request")
+    public ResponseEntity<Result<RefundRequestVO>> requestRefund(
+            @RequestBody @Valid RefundRequestDTO request) throws JsonProcessingException {
+        Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        RefundRequestVO vo = orderService.requestRefund(request, currentUserId);
+        return ResponseEntity.ok(Result.success(200, "订单 " + request.getOrderNumber() + " 退款申请提交成功", vo));
     }
 }
