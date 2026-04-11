@@ -94,7 +94,7 @@ public class OrderService {
     @Transactional
     public Order createOrder(CreateOrderRequestDTO request,Long buyerId) throws JsonProcessingException {
 
-        Long sellerId = 0L;
+        Long orderSellerId = null; // 用于记录当前订单统一的卖家ID
 
         List<OrderItem> items = new ArrayList<>();
         for (CreateOrderRequestDTO.OrderItemDto dto : request.getItems()) {
@@ -103,6 +103,15 @@ public class OrderService {
             // 去DB里查真实的完整商品信息
             Product dbProduct = productRepository.findById(pid)
                     .orElseThrow(() -> new IllegalArgumentException("商品不存在"));
+
+            // 卖家一致性校验
+            if (orderSellerId == null) {
+                // 第一个商品，记录下卖家ID
+                orderSellerId = dbProduct.getSellerId();
+            } else if (!orderSellerId.equals(dbProduct.getSellerId())) {
+                // 后续商品，与第一个卖家ID对比发现不一致时拒绝下单
+                throw new IllegalArgumentException("不支持跨店合并下单，请分开结算不同商家的商品");
+            }
 
             if(!dbProduct.getApproved()) {
                 throw new IllegalArgumentException("商品未上架");
@@ -142,18 +151,14 @@ public class OrderService {
                     actualPrice,
                     dto.getQuantity()
             ));
-
-
-            // 这里的逻辑其实有点问题
-            // 意味着不能一次性下单不同卖家的东西
-            // 临时解决方案是不支持购物车合并下单，只支持单品下单，这样可以确保sellerId唯一
-            sellerId = dbProduct.getSellerId();
         }
 
+        // 此时orderSellerId一定是所有商品公共的sellerId，已验证无冲突
         // order内自动根据最新的items计算总价
-        Order order = new Order( buyerId, sellerId, items, request.getAddress());
+        Order order = new Order(buyerId, orderSellerId, items, request.getAddress());
         return orderRepository.save(order);
     }
+
 
     // 2.支付（预留）
 

@@ -6,7 +6,7 @@ import java.math.BigDecimal;
 
 public class OrderItemVO {
 
-    private String itemId;
+    private Long itemId;
     private Long productId;
     private String productName;
     private BigDecimal unitPrice;
@@ -24,7 +24,7 @@ public class OrderItemVO {
         return vo;
     }
 
-    public String getItemId() { return itemId; }
+    public Long getItemId() { return itemId; }
     public Long getProductId() { return productId; }
     public String getProductName() { return productName; }
     public BigDecimal getUnitPrice() { return unitPrice; }

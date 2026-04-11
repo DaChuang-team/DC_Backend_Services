@@ -11,7 +11,8 @@ import java.util.UUID;
 public class OrderItem {
 
     @Id
-    private String id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     //订单项关联订单，单向多对一关系。
     @ManyToOne(fetch = FetchType.LAZY)
@@ -60,7 +61,6 @@ public class OrderItem {
         if (quantity == null || quantity < 1)
             throw new IllegalArgumentException("数量必须 ≥ 1");
 
-        this.id = UUID.randomUUID().toString().replace("-", "");
         this.productId = productId;
         this.productName = productName;
         this.productSnapshot = productSnapshot;
@@ -70,7 +70,7 @@ public class OrderItem {
         this.createdAt = LocalDateTime.now();
     }
 
-    public String getId() { return id; }
+    public Long getId() { return id; }
     public Order getOrder() { return order; }
     public void setOrder(Order order) { this.order = order; }  // 仅供 Order.setItems() 内部调用
     public Long getProductId() { return productId; }
