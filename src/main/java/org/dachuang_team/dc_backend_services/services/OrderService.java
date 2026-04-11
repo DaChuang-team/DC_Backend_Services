@@ -94,7 +94,7 @@ public class OrderService {
     @Transactional
     public Order createOrder(CreateOrderRequestDTO request,Long buyerId) throws JsonProcessingException {
 
-        Long sellerId = 0L;
+        Long orderSellerId = null; // 用于记录当前订单统一的卖家ID
 
         List<OrderItem> items = new ArrayList<>();
         for (CreateOrderRequestDTO.OrderItemDto dto : request.getItems()) {
@@ -103,6 +103,15 @@ public class OrderService {
             // 去DB里查真实的完整商品信息
             Product dbProduct = productRepository.findById(pid)
                     .orElseThrow(() -> new IllegalArgumentException("商品不存在"));
+
+            // 卖家一致性校验
+            if (orderSellerId == null) {
+                // 第一个商品，记录下卖家ID
+                orderSellerId = dbProduct.getSellerId();
+            } else if (!orderSellerId.equals(dbProduct.getSellerId())) {
+                // 后续商品，与第一个卖家ID对比发现不一致时拒绝下单
+                throw new IllegalArgumentException("不支持跨店合并下单，请分开结算不同商家的商品");
+            }
 
             if(!dbProduct.getApproved()) {
                 throw new IllegalArgumentException("商品未上架");
@@ -142,18 +151,14 @@ public class OrderService {
                     actualPrice,
                     dto.getQuantity()
             ));
-
-
-            // 这里的逻辑其实有点问题
-            // 意味着不能一次性下单不同卖家的东西
-            // 临时解决方案是不支持购物车合并下单，只支持单品下单，这样可以确保sellerId唯一
-            sellerId = dbProduct.getSellerId();
         }
 
+        // 此时orderSellerId一定是所有商品公共的sellerId，已验证无冲突
         // order内自动根据最新的items计算总价
-        Order order = new Order( buyerId, sellerId, items, request.getAddress());
+        Order order = new Order(buyerId, orderSellerId, items, request.getAddress());
         return orderRepository.save(order);
     }
+
 
     // 2.支付（预留）
 
@@ -271,7 +276,10 @@ public class OrderService {
     @Transactional
     public RefundRequestVO requestRefund(RefundRequestDTO request, Long BuyerId) throws OrderStateException {
         if(refundRequestRepository.findByOrderNumber(request.getOrderNumber()) != null) {
-            throw new IllegalStateException("订单已存在未处理的退款申请");
+            // 不允许未处理的退款申请重复提交
+            if(refundRequestRepository.findByOrderNumber(request.getOrderNumber()).getStatus().equals("PENDING")) {
+                throw new IllegalStateException("订单已存在未处理的退款申请，请勿重复提交");
+            }
         }
         Order order = getOrderAndValidateBuyer(request.getOrderNumber(), BuyerId);
         String preOrderStatus = String.valueOf(order.getStatus());
@@ -351,6 +359,17 @@ public class OrderService {
         if (refundRequest == null) {
             throw new IllegalArgumentException("退款申请不存在");
         }
+        // 在执行自动化强制退款任务时，需要同时校验PreRefundStatus和Status，前者为空不允许退款，而后者必须是PENDING
+        if(refundRequest.getPreRefundStatus() == null) {
+            throw new IllegalStateException("异常的退款申请：退款前订单状态未知，无法处理");
+        }
+        if(refundRequest.getStatus().equals("APPROVED") ||
+                refundRequest.getStatus().equals("REJECTED") ||
+                refundRequest.getStatus().equals("CANCELLED") ||
+                refundRequest.getStatus().equals("REFUNDED")
+        ) {
+            throw new IllegalStateException("退款申请已处理，无法重复处理");
+        }
 
         if (approve) {
             // 支付插槽调用：执行退款
@@ -369,7 +388,7 @@ public class OrderService {
             sendEvent(order, OrderEvent.REJECT_REFUND,refundRequest.getPreRefundStatus().toString()); // 拒绝并回退
             refundRequest.setStatus("REJECTED");
             refundRequest.setRejectReason(reason);
-            refundRequest.setPreRefundStatus(null); // 商家拒绝退款状态回退后，退款前状态已无意义，如再仍要退款需要重新申请
+            refundRequest.setPreRefundStatus(null); // 商家拒绝退款状态回退后，退款前状态已无意义，如仍要退款需要重新申请
             refundRequest.setHandleTime(LocalDateTime.now());
             log.info("商家拒绝退款: orderId={}", orderNumber);
         }
