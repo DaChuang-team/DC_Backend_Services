@@ -62,16 +62,17 @@ public class OrderController {
     public ResponseEntity<Result<RefundRequestVO>> processRefund(
             @RequestBody @Valid RefundProcessDTO request) throws OrderStateException {
         Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        RefundRequestVO vo = orderService.processRefund(request.getOrderNumber(), currentMerchantId, request.getApprove(), request.getRejectReason());
-        String message = request.getApprove() ? "订单 " + request.getOrderNumber() + " 退款申请已批准" : "订单 " + request.getOrderNumber() + " 退款申请已拒绝，理由：" + request.getRejectReason();
+        RefundRequestVO vo = orderService.processRefund(request.getRefundNo(), currentMerchantId, request.getApprove(), request.getRejectReason());
+        String message = request.getApprove() ? "订单 " + vo.getOrderNumber() + " 下的退款请求 " + vo.getRefundNo() + " 已同意" :
+                "订单 " + vo.getOrderNumber() + " 下的退款请求 " + vo.getRefundNo() + " 已拒绝，拒绝原因：" + request.getRejectReason();
         return ResponseEntity.ok(Result.success(200, message, vo));
     }
 
     @PostMapping("/refund/cancel")
     public ResponseEntity<Result<RefundRequestVO>> cancelRefund(
-            @RequestParam String orderNumber) throws OrderStateException {
+            @RequestParam String refundNo) throws OrderStateException {
         Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        RefundRequestVO vo = orderService.cancelRefund(orderNumber, currentUserId);
-        return ResponseEntity.ok(Result.success(200, "订单 " + orderNumber + " 退款申请已取消", vo));
+        RefundRequestVO vo = orderService.cancelRefund(refundNo, currentUserId);
+        return ResponseEntity.ok(Result.success(200, "订单编号： " + vo.getOrderNumber() + " 下的退款请求 " + refundNo + " 已成功取消", vo));
     }
 }

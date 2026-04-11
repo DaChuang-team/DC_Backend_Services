@@ -16,6 +16,8 @@ public class RefundRequest {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "refund_no", nullable = false, unique = true, length = 32)
+    private String refundNo;
 
     @Column(columnDefinition = "VARCHAR(50)", nullable = false)
     private String orderNumber;
@@ -162,5 +164,13 @@ public class RefundRequest {
 
     public void setPreRefundStatus(OrderStatus preRefundStatus) {
         this.preRefundStatus = preRefundStatus;
+    }
+
+    public String getRefundNo() {
+        return refundNo;
+    }
+
+    public void setRefundNo(String refundNo) {
+        this.refundNo = refundNo;
     }
 }

@@ -8,6 +8,6 @@ public enum OrderStatus {
     RECEIVED,          // 买家已签收
     COMPLETED,         // 已完成
     REFUND_REQUESTED,  // 退款申请中
-    REFUNDED,          // 已退款
+    FULLY_REFUNDED,    // 全部退款完成，订单结束
     CANCELLED          // 已取消
 }

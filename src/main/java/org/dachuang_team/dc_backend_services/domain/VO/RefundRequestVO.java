@@ -8,6 +8,7 @@ import java.util.List;
 
 public class RefundRequestVO {
     private String orderNumber;
+    private String refundNo;  // 退款流水号，唯一标识一个退款请求
     private Long sellerId;      // 商家ID
     private Long buyerId;       // 买家ID
     private String refundType;  // ALL / PARTIAL
@@ -92,5 +93,11 @@ public class RefundRequestVO {
     }
     public void setImages(List<RefundImg> images) {
         this.images = images;
+    }
+    public String getRefundNo() {
+        return refundNo;
+    }
+    public void setRefundNo(String refundNo) {
+        this.refundNo = refundNo;
     }
 }

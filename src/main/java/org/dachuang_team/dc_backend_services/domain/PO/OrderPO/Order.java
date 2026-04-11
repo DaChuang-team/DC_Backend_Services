@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
 @Entity
 @Table(name = "orders")
@@ -71,6 +72,9 @@ public class Order {
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
+    @Column(name = "has_partial_refund")
+    private Boolean hasPartialRefund = false;
+
     //订单完成时间，买家确认收货填入
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
@@ -92,6 +96,7 @@ public class Order {
         this.setItems(items);
         this.totalAmount = calculateTotal();
         this.receiveAddress = address;
+        this.hasPartialRefund = false;
     }
 
     // 计算总金额
@@ -131,5 +136,13 @@ public class Order {
     }
     public void setReceiveAddress(String receiveAddress) {
         this.receiveAddress = receiveAddress;
+    }
+
+    public Boolean getHasPartialRefund() {
+        return hasPartialRefund;
+    }
+
+    public void setHasPartialRefund(Boolean hasPartialRefund) {
+        this.hasPartialRefund = hasPartialRefund;
     }
 }

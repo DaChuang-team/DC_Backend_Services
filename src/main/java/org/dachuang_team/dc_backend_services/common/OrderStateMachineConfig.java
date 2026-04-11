@@ -21,7 +21,7 @@ public class OrderStateMachineConfig
         states.withStates()
                 .initial(OrderStatus.PENDING_PAYMENT)
                 .end(OrderStatus.COMPLETED)
-                .end(OrderStatus.REFUNDED)
+                .end(OrderStatus.FULLY_REFUNDED)
                 .end(OrderStatus.CANCELLED)
                 .states(EnumSet.allOf(OrderStatus.class));
     }
@@ -33,46 +33,77 @@ public class OrderStateMachineConfig
                 // 主流程
                 .withExternal()
                 .source(OrderStatus.PENDING_PAYMENT).target(OrderStatus.PAID)
-                .event(OrderEvent.PAY) //待支付经过支付后进入已支付状态
+                .event(OrderEvent.PAY)
                 .and()
                 .withExternal()
                 .source(OrderStatus.PAID).target(OrderStatus.CONFIRMED)
-                .event(OrderEvent.CONFIRM) //已支付经过商家确认后进入商家已确认状态
+                .event(OrderEvent.CONFIRM)
                 .and()
                 .withExternal()
                 .source(OrderStatus.CONFIRMED).target(OrderStatus.SHIPPED)
-                .event(OrderEvent.SHIP) //已确认经过商家发货后进入已发货状态
+                .event(OrderEvent.SHIP)
                 .and()
                 .withExternal()
                 .source(OrderStatus.SHIPPED).target(OrderStatus.RECEIVED)
-                .event(OrderEvent.RECEIVE) //已发货经过签收后进入已签收状态
+                .event(OrderEvent.RECEIVE)
                 .and()
                 .withExternal()
                 .source(OrderStatus.RECEIVED).target(OrderStatus.COMPLETED)
-                .event(OrderEvent.COMPLETE) //已签收经过买家确认收货后进入已完成状态
+                .event(OrderEvent.COMPLETE)
+
+                // 申请退款
+                // 原有四个状态均可申请退款
                 .and()
-                // 退款分支（多个源状态都可申请退款）
                 .withExternal()
                 .source(OrderStatus.PAID).target(OrderStatus.REFUND_REQUESTED)
-                .event(OrderEvent.REQUEST_REFUND) //已支付可以申请退款
+                .event(OrderEvent.REQUEST_REFUND)
                 .and()
                 .withExternal()
                 .source(OrderStatus.CONFIRMED).target(OrderStatus.REFUND_REQUESTED)
-                .event(OrderEvent.REQUEST_REFUND) //已确认可以申请退款
+                .event(OrderEvent.REQUEST_REFUND)
                 .and()
                 .withExternal()
                 .source(OrderStatus.SHIPPED).target(OrderStatus.REFUND_REQUESTED)
-                .event(OrderEvent.REQUEST_REFUND) //已发货可以申请退款
+                .event(OrderEvent.REQUEST_REFUND)
                 .and()
                 .withExternal()
                 .source(OrderStatus.RECEIVED).target(OrderStatus.REFUND_REQUESTED)
-                .event(OrderEvent.REQUEST_REFUND) //已签收可以申请退款
+                .event(OrderEvent.REQUEST_REFUND)
+
+                // 同意退款
+                // 同意部分退款：回到申请前的状态（主流程继续），由 guard 决定目标
                 .and()
                 .withExternal()
-                .source(OrderStatus.REFUND_REQUESTED).target(OrderStatus.REFUNDED)
-                .event(OrderEvent.APPROVE_REFUND) //退款申请通过进入已退款状态
+                .source(OrderStatus.REFUND_REQUESTED).target(OrderStatus.PAID)
+                .event(OrderEvent.APPROVE_REFUND_PARTIAL)
+                .guard(context -> "PAID".equals(
+                        context.getMessageHeaders().get("preRefundStatus")))
+                .and()
+                .withExternal()
+                .source(OrderStatus.REFUND_REQUESTED).target(OrderStatus.CONFIRMED)
+                .event(OrderEvent.APPROVE_REFUND_PARTIAL)
+                .guard(context -> "CONFIRMED".equals(
+                        context.getMessageHeaders().get("preRefundStatus")))
+                .and()
+                .withExternal()
+                .source(OrderStatus.REFUND_REQUESTED).target(OrderStatus.SHIPPED)
+                .event(OrderEvent.APPROVE_REFUND_PARTIAL)
+                .guard(context -> "SHIPPED".equals(
+                        context.getMessageHeaders().get("preRefundStatus")))
+                .and()
+                .withExternal()
+                .source(OrderStatus.REFUND_REQUESTED).target(OrderStatus.RECEIVED)
+                .event(OrderEvent.APPROVE_REFUND_PARTIAL)
+                .guard(context -> "RECEIVED".equals(
+                        context.getMessageHeaders().get("preRefundStatus")))
+                .and()
+                // 同意全额退款：进入终态
+                .withExternal()
+                .source(OrderStatus.REFUND_REQUESTED).target(OrderStatus.FULLY_REFUNDED)
+                .event(OrderEvent.APPROVE_REFUND_FULL)
 
-                // 商家拒绝退款时根据退款前状态回退到对应状态
+                // 拒绝退款
+                // 根据退款前状态回退到对应状态
                 .and()
                 .withExternal()
                 .source(OrderStatus.REFUND_REQUESTED).target(OrderStatus.PAID)
@@ -98,37 +129,38 @@ public class OrderStateMachineConfig
                 .guard(context -> "RECEIVED".equals(
                         context.getMessageHeaders().get("preRefundStatus")))
 
-                // 取消（仅待支付可取消）
+                //  撤销退款
+                // 根据退款前状态回退到对应状态
+                .and()
+                .withExternal()
+                .source(OrderStatus.REFUND_REQUESTED).target(OrderStatus.PAID)
+                .event(OrderEvent.CANCEL_REFUND)
+                .guard(context -> "PAID".equals(
+                        context.getMessageHeaders().get("preRefundStatus")))
+                .and()
+                .withExternal()
+                .source(OrderStatus.REFUND_REQUESTED).target(OrderStatus.CONFIRMED)
+                .event(OrderEvent.CANCEL_REFUND)
+                .guard(context -> "CONFIRMED".equals(
+                        context.getMessageHeaders().get("preRefundStatus")))
+                .and()
+                .withExternal()
+                .source(OrderStatus.REFUND_REQUESTED).target(OrderStatus.SHIPPED)
+                .event(OrderEvent.CANCEL_REFUND)
+                .guard(context -> "SHIPPED".equals(
+                        context.getMessageHeaders().get("preRefundStatus")))
+                .and()
+                .withExternal()
+                .source(OrderStatus.REFUND_REQUESTED).target(OrderStatus.RECEIVED)
+                .event(OrderEvent.CANCEL_REFUND)
+                .guard(context -> "RECEIVED".equals(
+                        context.getMessageHeaders().get("preRefundStatus")))
+
+                // 取消订单
+                // 仅待支付状态可取消
                 .and()
                 .withExternal()
                 .source(OrderStatus.PENDING_PAYMENT).target(OrderStatus.CANCELLED)
-                .event(OrderEvent.CANCEL)
-                .and()
-                .withExternal()
-                .source(OrderStatus.REFUND_REQUESTED).target(OrderStatus.PAID)
-                .event(OrderEvent.CANCEL_REFUND)
-
-                // 用户撤销退款时根据退款前状态回退到对应状态
-                .guard(context -> "PAID".equals(
-                        context.getMessageHeaders().get("preRefundStatus")))
-                .and()
-                .withExternal()
-                .source(OrderStatus.REFUND_REQUESTED).target(OrderStatus.CONFIRMED)
-                .event(OrderEvent.CANCEL_REFUND)
-                .guard(context -> "CONFIRMED".equals(
-                        context.getMessageHeaders().get("preRefundStatus")))
-                .and()
-                .withExternal()
-                .source(OrderStatus.REFUND_REQUESTED).target(OrderStatus.SHIPPED)
-                .event(OrderEvent.CANCEL_REFUND)
-                .guard(context -> "SHIPPED".equals(
-                        context.getMessageHeaders().get("preRefundStatus")))
-                .and()
-                .withExternal()
-                .source(OrderStatus.REFUND_REQUESTED).target(OrderStatus.RECEIVED)
-                .event(OrderEvent.CANCEL_REFUND)
-                .guard(context -> "RECEIVED".equals(
-                        context.getMessageHeaders().get("preRefundStatus")));
-        ;
+                .event(OrderEvent.CANCEL);
     }
 }
