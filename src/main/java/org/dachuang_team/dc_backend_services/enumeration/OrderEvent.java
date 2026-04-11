@@ -7,7 +7,8 @@ public enum OrderEvent {
     RECEIVE,          // 买家签收
     COMPLETE,         // 买家确认收货
     REQUEST_REFUND,   // 申请退款
-    APPROVE_REFUND,   // 商家同意退款
+    APPROVE_REFUND_PARTIAL,  // 同意部分退款
+    APPROVE_REFUND_FULL,     // 同意全额退款
     REJECT_REFUND,    // 商家拒绝退款
     CANCEL,           // 取消订单
     CANCEL_REFUND,    // 撤销退款（仅限退款申请中）
