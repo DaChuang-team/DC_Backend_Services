@@ -9,5 +9,8 @@ public enum OrderEvent {
     REQUEST_REFUND,   // 申请退款
     APPROVE_REFUND,   // 商家同意退款
     REJECT_REFUND,    // 商家拒绝退款
-    CANCEL            // 取消订单
+    CANCEL,           // 取消订单
+    CANCEL_REFUND,    // 撤销退款（仅限退款申请中）
+    AUTO_CANCEL,      // 自动取消（仅限待支付超过15分钟）（预留）
+    AUTO_COMPLETE     // 自动完成（仅限已签收超过7天）（预留）
 }

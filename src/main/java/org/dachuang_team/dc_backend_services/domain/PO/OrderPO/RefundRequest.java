@@ -3,6 +3,7 @@ package org.dachuang_team.dc_backend_services.domain.PO.OrderPO;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.RefundImg;
+import org.dachuang_team.dc_backend_services.enumeration.OrderStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -37,7 +38,11 @@ public class RefundRequest {
     private String reason;
 
     @Column(columnDefinition = "VARCHAR(20) DEFAULT 'PENDING'", nullable = false)
-    private String status;  // PENDING / APPROVED / REJECTED / REFUNDED
+    private String status;  // PENDING / APPROVED / REJECTED / REFUNDED / CANCELED
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "pre_refund_status", length = 30)
+    private OrderStatus preRefundStatus;
 
     private String rejectReason;  // 商家拒绝时的原因
 
@@ -149,5 +154,13 @@ public class RefundRequest {
 
     public void setImages(List<RefundImg> images) {
         this.images = images;
+    }
+
+    public OrderStatus getPreRefundStatus() {
+        return preRefundStatus;
+    }
+
+    public void setPreRefundStatus(OrderStatus preRefundStatus) {
+        this.preRefundStatus = preRefundStatus;
     }
 }

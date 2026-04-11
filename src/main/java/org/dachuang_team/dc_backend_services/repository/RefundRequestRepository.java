@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface RefundRequestRepository extends JpaRepository<RefundRequest, Long> {
+    RefundRequest findByOrderNumber(String orderNumber);
 }

@@ -176,7 +176,7 @@ public class OrderService {
         order.setPaymentSlot(paymentResult);
 
         // 驱动状态机
-        sendEvent(order, OrderEvent.PAY);
+        sendEvent(order, OrderEvent.PAY, null);
         order.setPaidAt(LocalDateTime.now());
 
         Order saved = orderRepository.save(order);
@@ -203,7 +203,7 @@ public class OrderService {
         Order order = getOrderAndValidateSeller(orderNumber, sellerId);
         assertStatus(order, OrderStatus.PAID, "确认");
 
-        sendEvent(order, OrderEvent.CONFIRM);
+        sendEvent(order, OrderEvent.CONFIRM, null);
 
         Order saved = orderRepository.save(order);
         log.info("商家确认订单: 订单号：{}", orderNumber);
@@ -224,7 +224,7 @@ public class OrderService {
         assertStatus(order, OrderStatus.CONFIRMED, "发货");
 
         order.setTrackingNo(trackingNo);
-        sendEvent(order, OrderEvent.SHIP);
+        sendEvent(order, OrderEvent.SHIP, null);
 
         Order saved = orderRepository.save(order);
         log.info("商家发货: orderId={}, trackingNo={}", orderNumber, trackingNo);
@@ -240,7 +240,7 @@ public class OrderService {
         Order order = getOrderAndValidateBuyer(orderNumber, buyerId);
         assertStatus(order, OrderStatus.SHIPPED, "签收");
 
-        sendEvent(order, OrderEvent.RECEIVE);
+        sendEvent(order, OrderEvent.RECEIVE, null);
 
         Order saved = orderRepository.save(order);
         log.info("买家签收: orderId={}, buyerId={}", orderNumber, buyerId);
@@ -256,7 +256,7 @@ public class OrderService {
         Order order = getOrderAndValidateBuyer(orderNumber, buyerId);
         assertStatus(order, OrderStatus.RECEIVED, "确认收货");
 
-        sendEvent(order, OrderEvent.COMPLETE);
+        sendEvent(order, OrderEvent.COMPLETE, null);
         order.setCompletedAt(LocalDateTime.now());
 
         Order saved = orderRepository.save(order);
@@ -270,7 +270,11 @@ public class OrderService {
     // 这里只校验订单是否属于该买家
     @Transactional
     public RefundRequestVO requestRefund(RefundRequestDTO request, Long BuyerId) throws OrderStateException {
+        if(refundRequestRepository.findByOrderNumber(request.getOrderNumber()) != null) {
+            throw new IllegalStateException("订单已存在未处理的退款申请");
+        }
         Order order = getOrderAndValidateBuyer(request.getOrderNumber(), BuyerId);
+        String preOrderStatus = String.valueOf(order.getStatus());
         BigDecimal actualAmount;
         if (Objects.equals(request.getRefundType(), "ALL")) {
             if (order.getStatus() != OrderStatus.PAID &&
@@ -308,6 +312,7 @@ public class OrderService {
         refundRequest.setOrderTotalAmount(order.getTotalAmount());
         refundRequest.setReason(request.getReason());
         refundRequest.setStatus("PENDING");
+        refundRequest.setPreRefundStatus(OrderStatus.valueOf(preOrderStatus)); // 记录申请退款前的订单状态，商家拒绝退款时或买家撤销退款时需要回退
         refundRequest.setRequestTime(LocalDateTime.now());
 
         refundRequest.setImages(request.getImageIds() == null ? Collections.emptyList() : request.getImageIds().stream()
@@ -323,7 +328,7 @@ public class OrderService {
 
         refundRequestRepository.save(refundRequest);
 
-        sendEvent(order, OrderEvent.REQUEST_REFUND);
+        sendEvent(order, OrderEvent.REQUEST_REFUND, null);
 
         Order saved = orderRepository.save(order);
         log.info("买家申请退款: orderId={}, buyerId={}, reason={} amount={}", request.getOrderNumber(), BuyerId, request.getReason(), actualAmount);
@@ -332,31 +337,75 @@ public class OrderService {
         return vo;
     }
 
-    // 8.商家处理退款
+    // 8.退款处理
 
-    // 商家同意退款：REFUND_REQUESTED → REFUNDED
-    // 商家拒绝退款：REFUND_REQUESTED → CONFIRMED
+    // 商家同意退款：REFUND_REQUESTED - REFUNDED
+    // 商家拒绝退款：REFUND_REQUESTED - 根据退款前状态回退（PAID / CONFIRMED / SHIPPED / RECEIVED）
     // approve=true时调用支付插槽执行实际退款动作
     // approve=false时只做状态回退，不调用支付
     @Transactional
-    public Order processRefund(String orderNumber, Long sellerId, boolean approve,String reason) throws OrderStateException {
+    public RefundRequestVO processRefund(String orderNumber, Long sellerId, boolean approve, String reason) throws OrderStateException {
         Order order = getOrderAndValidateSeller(orderNumber, sellerId);
         assertStatus(order, OrderStatus.REFUND_REQUESTED, "处理退款");
+        RefundRequest refundRequest = refundRequestRepository.findByOrderNumber(orderNumber);
+        if (refundRequest == null) {
+            throw new IllegalArgumentException("退款申请不存在");
+        }
 
         if (approve) {
             // 支付插槽调用：执行退款
             paymentProvider.refund(order);
-            sendEvent(order, OrderEvent.APPROVE_REFUND);
+            sendEvent(order, OrderEvent.APPROVE_REFUND, null);
             for(OrderItem item : order.getItems()) {
                 productRepository.incrementStock(item.getProductId(), item.getQuantity());
             }
+            refundRequest.setStatus("APPROVED");
+            refundRequest.setHandleTime(LocalDateTime.now());
             log.info("商家同意退款: orderId={}", orderNumber);
         } else {
-            sendEvent(order, OrderEvent.REJECT_REFUND);
+            if(reason == null || reason.isBlank()) {
+                throw new IllegalArgumentException("拒绝退款必须提供理由");
+            }
+            sendEvent(order, OrderEvent.REJECT_REFUND,refundRequest.getPreRefundStatus().toString()); // 拒绝并回退
+            refundRequest.setStatus("REJECTED");
+            refundRequest.setRejectReason(reason);
+            refundRequest.setPreRefundStatus(null); // 商家拒绝退款状态回退后，退款前状态已无意义，如再仍要退款需要重新申请
+            refundRequest.setHandleTime(LocalDateTime.now());
             log.info("商家拒绝退款: orderId={}", orderNumber);
         }
+        refundRequestRepository.save(refundRequest);
+        RefundRequestVO vo = new RefundRequestVO();
+        BeanUtils.copyProperties(refundRequest, vo);
+        return vo;
+    }
 
-        return orderRepository.save(order);
+    // 买家撤销退款
+    // 买家撤销退款：REFUND_REQUESTED - 申请退款前的状态（PAID / CONFIRMED / SHIPPED / RECEIVED）
+    @Transactional
+    public RefundRequestVO cancelRefund(String orderNumber, Long userId) throws OrderStateException {
+        Order order = getOrderAndValidateBuyer(orderNumber, userId);
+        assertStatus(order, OrderStatus.REFUND_REQUESTED, "撤销退款");
+        RefundRequest refundRequest = refundRequestRepository.findByOrderNumber(orderNumber);
+        if(refundRequest == null) {
+            throw new IllegalArgumentException("退款申请不存在");
+        }
+        if(refundRequest.getPreRefundStatus() == null) {
+            throw new IllegalStateException("退款申请前状态未知，无法撤销");
+        }
+
+        String preOrderStatus = refundRequest.getPreRefundStatus().toString();
+
+        sendEvent(order, OrderEvent.CANCEL_REFUND, preOrderStatus); //取消并回退
+
+        refundRequest.setStatus("CANCELLED");
+        refundRequestRepository.save(refundRequest);
+        refundRequest.setPreRefundStatus(null);
+        refundRequest.setHandleTime(LocalDateTime.now());
+
+        RefundRequestVO vo = new RefundRequestVO();
+        BeanUtils.copyProperties(refundRequest, vo);
+        log.info("买家撤销退款: orderId={}, buyerId={}", orderNumber, userId);
+        return vo;
     }
 
     // 9.取消订单
@@ -369,7 +418,7 @@ public class OrderService {
         Order order = getOrderAndValidateBuyer(orderNumber, buyerId);
         assertStatus(order, OrderStatus.PENDING_PAYMENT, "取消");
 
-        sendEvent(order, OrderEvent.CANCEL);
+        sendEvent(order, OrderEvent.CANCEL, null);
         for(OrderItem item : order.getItems()) {
             productRepository.incrementStock(item.getProductId(), item.getQuantity());
         }
@@ -411,7 +460,7 @@ public class OrderService {
 
 
     // 将状态机恢复到订单当前状态，再发送事件
-    private void sendEvent(Order order, OrderEvent event) throws OrderStateException {
+    private void sendEvent(Order order, OrderEvent event, String preStatus) throws OrderStateException {
         stateMachine.stopReactively().block();
 
         stateMachine.getStateMachineAccessor().doWithAllRegions(a ->
@@ -421,11 +470,16 @@ public class OrderService {
 
         stateMachine.startReactively().block();
 
-        Message<OrderEvent> message = MessageBuilder
+        MessageBuilder<OrderEvent> builder = MessageBuilder
                 .withPayload(event)
                 .setHeader("orderId", order.getId())
-                .setHeader("order", order)
-                .build();
+                .setHeader("order", order);
+
+        if (preStatus != null && !preStatus.isBlank()) {
+            builder.setHeader("preRefundStatus", preStatus);
+        }
+
+        Message<OrderEvent> message = builder.build();
 
         boolean accepted = Boolean.TRUE.equals(
                 stateMachine.sendEvent(Mono.just(message))
