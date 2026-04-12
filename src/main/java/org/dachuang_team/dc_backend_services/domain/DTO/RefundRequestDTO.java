@@ -11,7 +11,7 @@ public class RefundRequestDTO {
     @NotBlank(message = "退款原因不能为空")
     private String reason;
     @NotBlank(message = "退款类型不能为空")
-    private String refundType; // ALL / PARTIAL
+    private String refundType; // ALL_NO_RT(仅退款) / ALL_RT(退货退款) / PARTIAL(部分退款不退货)
     private BigDecimal refundAmount; // 仅在refundType为PARTIAL时必填，且必须为正数且不超过订单总金额(由后端验证)
     private List<Long> imageIds;
 

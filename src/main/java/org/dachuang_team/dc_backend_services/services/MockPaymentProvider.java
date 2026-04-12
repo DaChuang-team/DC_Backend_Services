@@ -6,6 +6,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
+
 @Component
 @Primary
 public class MockPaymentProvider implements PaymentProvider {
@@ -20,9 +22,9 @@ public class MockPaymentProvider implements PaymentProvider {
         return "MOCK_PAYMENT_SUCCESS";
     }
     @Override
-    public void refund(Order order) {
+    public void refund(Order order, BigDecimal refundAmount) {
         // 模拟退款处理，直接成功
         log.info("Mock退款成功: 订单ID {} \n退款金额: {} ",
-                order.getId(), order.getTotalAmount());
+                order.getId(), refundAmount);
     }
 }

@@ -1,5 +1,6 @@
 package org.dachuang_team.dc_backend_services.common;
 
+import org.dachuang_team.dc_backend_services.services.OrderServiceException.OrderStateException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -31,5 +32,11 @@ public class GlobalExceptionHandler {
         // 这里可以自定义返回的错误码和信息
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Result.error(500, ex.getMessage()));
+    }
+
+    @ExceptionHandler(OrderStateException.class)
+    public ResponseEntity<Result<?>> handleOrderStateException(OrderStateException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Result.error(400, ex.getMessage()));
     }
 }

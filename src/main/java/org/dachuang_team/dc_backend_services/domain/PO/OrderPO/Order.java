@@ -78,6 +78,20 @@ public class Order {
     @Column(name = "has_partial_refund")
     private Boolean hasPartialRefund = false;
 
+    // 是否有待处理的退款申请
+    // 申请退款时置为 true，退款申请完结（通过/拒绝/撤销）后置为 false
+    // 发货、确认收货等关键节点前检查此字段，提示商家或买家有未处理的退款
+    @Column(name = "has_pending_refund", nullable = false)
+    private Boolean hasPendingRefund = false;
+
+    // 是否发生过退款（包括部分退款和全额退款），只要有任意一笔退款被批准过就置为 true，不可逆
+    @Column(name = "has_refund", nullable = false)
+    private Boolean hasRefund = false;
+
+    // 已通过的退款总金额，每次退款批准后累加，退款申请撤销或拒绝时不变。初始0，精度保留2位小数
+    @Column(name = "approved_refund_amount", nullable = false, precision = 10, scale = 2)
+    private BigDecimal approvedRefundAmount = BigDecimal.ZERO;
+
     //订单完成时间，买家确认收货填入
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
@@ -183,5 +197,27 @@ public class Order {
     }
     public void setShippingMethod(String shippingMethod) {
         this.shippingMethod = shippingMethod;
+    }
+    public Boolean getHasRefund() {
+        return hasRefund;
+    }
+    public void setHasRefund(Boolean hasRefund) {
+        this.hasRefund = hasRefund;
+    }
+    public Boolean getHasPendingRefund() {
+        return hasPendingRefund;
+    }
+    public void setHasPendingRefund(Boolean hasPendingRefund) {
+        this.hasPendingRefund = hasPendingRefund;
+    }
+    public BigDecimal getApprovedRefundAmount() {
+        return approvedRefundAmount;
+    }
+    public void addApprovedRefundAmount(BigDecimal amount) {
+        this.approvedRefundAmount = this.approvedRefundAmount.add(amount);
+    }
+
+    public BigDecimal remainingRefundable() {
+        return this.totalAmount.subtract(this.approvedRefundAmount);
     }
 }

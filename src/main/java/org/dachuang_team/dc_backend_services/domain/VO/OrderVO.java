@@ -22,6 +22,9 @@ public class OrderVO {
     private LocalDateTime completedAt;
     private List<OrderItemVO> items;
     private Boolean hasPartialRefund;
+    private Boolean hasPendingRefund = false;
+    private Boolean hasRefund = false;
+    private BigDecimal approvedRefundAmount = BigDecimal.ZERO;
     private String address;
 
     public static OrderVO from(Order order) {
@@ -68,5 +71,23 @@ public class OrderVO {
     }
     public void setShippingMethod(String shippingMethod) {
         this.shippingMethod = shippingMethod;
+    }
+    public BigDecimal getApprovedRefundAmount() {
+        return approvedRefundAmount;
+    }
+    public void setApprovedRefundAmount(BigDecimal approvedRefundAmount) {
+        this.approvedRefundAmount = approvedRefundAmount;
+    }
+    public Boolean getHasRefund() {
+        return hasRefund;
+    }
+    public void setHasRefund(Boolean hasRefund) {
+        this.hasRefund = hasRefund;
+    }
+    public Boolean getHasPendingRefund() {
+        return hasPendingRefund;
+    }
+    public void setHasPendingRefund(Boolean hasPendingRefund) {
+        this.hasPendingRefund = hasPendingRefund;
     }
 }

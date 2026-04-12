@@ -9,6 +9,7 @@ import org.dachuang_team.dc_backend_services.domain.DTO.RefundRequestDTO;
 import org.dachuang_team.dc_backend_services.domain.PO.OrderPO.Order;
 import org.dachuang_team.dc_backend_services.domain.VO.OrderVO;
 import org.dachuang_team.dc_backend_services.domain.VO.RefundRequestVO;
+import org.dachuang_team.dc_backend_services.enumeration.RefundStatus;
 import org.dachuang_team.dc_backend_services.services.OrderService;
 import org.dachuang_team.dc_backend_services.services.OrderServiceException.OrderStateException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,7 +58,9 @@ public class OrderController {
             @RequestBody @Valid RefundRequestDTO request) throws OrderStateException {
         Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         RefundRequestVO vo = orderService.requestRefund(request, currentUserId);
-        return ResponseEntity.ok(Result.success(200, "订单 " + request.getOrderNumber() + " 退款申请提交成功", vo));
+        String msg = vo.getStatus().equals(RefundStatus.AUTO_APPROVED) ? "订单 " + request.getOrderNumber() + " 尚未发货，退款申请已自动审核通过" :
+                "订单 " + request.getOrderNumber() + " 的退款申请已提交，等待商家审核";
+        return ResponseEntity.ok(Result.success(200, msg, vo));
     }
 
     @PostMapping("/refund/process")

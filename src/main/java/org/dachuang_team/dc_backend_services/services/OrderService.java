@@ -1,6 +1,5 @@
 package org.dachuang_team.dc_backend_services.services;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
 import org.dachuang_team.dc_backend_services.common.OrderStateInterceptor;
@@ -15,6 +14,7 @@ import org.dachuang_team.dc_backend_services.enumeration.OrderStatus;
 import org.dachuang_team.dc_backend_services.domain.DTO.CreateOrderRequestDTO;
 import org.dachuang_team.dc_backend_services.domain.PO.OrderPO.Order;
 import org.dachuang_team.dc_backend_services.domain.PO.OrderPO.OrderItem;
+import org.dachuang_team.dc_backend_services.enumeration.RefundStatus;
 import org.dachuang_team.dc_backend_services.repository.RefundImgRepository;
 import org.dachuang_team.dc_backend_services.repository.RefundRequestRepository;
 import org.dachuang_team.dc_backend_services.repository.OrderRepository;
@@ -225,9 +225,10 @@ public class OrderService {
 
         Order order = getOrderAndValidateSeller(orderNumber, sellerId);
 
-        if(order.getStatus() == OrderStatus.REFUND_REQUESTED) {
-            throw new OrderStateException("当前订单有待处理的退款申请，请先处理退款申请再执行发货");
+        if(order.getHasPendingRefund()) {
+            throw new IllegalStateException("订单有待处理的退款申请，请先处理退款后再发货");
         }
+
         assertStatus(order, OrderStatus.CONFIRMED, "发货");
 
         if(trackingNo == null || trackingNo.isEmpty()) {
@@ -251,7 +252,8 @@ public class OrderService {
     @Transactional
     public Order receiveOrder(String orderNumber, Long buyerId) {
         Order order = getOrderAndValidateBuyer(orderNumber, buyerId);
-        assertStatus(order, OrderStatus.SHIPPED, "签收");
+
+        assertStatus(order, OrderStatus.SHIPPING, "签收");
 
         sendEvent(order, OrderEvent.RECEIVE, null);
 
@@ -267,6 +269,11 @@ public class OrderService {
     @Transactional
     public Order completeOrder(String orderNumber, Long buyerId) {
         Order order = getOrderAndValidateBuyer(orderNumber, buyerId);
+
+        if(order.getHasPendingRefund()) {
+            throw new IllegalStateException("订单有待处理的退款申请，请先取消退款申请或联系商家处理退款申请后再确认收货");
+        }
+
         assertStatus(order, OrderStatus.RECEIVED, "确认收货");
 
         sendEvent(order, OrderEvent.COMPLETE, null);
@@ -279,81 +286,120 @@ public class OrderService {
 
     // 7.申请退款
 
-    // 申请退款：PAID / CONFIRMED / SHIPPED / RECEIVED - REFUND_REQUESTED
+    // 根据订单状态和退款类型不同，支持不同的退款类型和金额限制。
     // 这里只校验订单是否属于该买家
+    // 退款申请由退款服务处理，不阻塞订单流程，订单状态不变，但标记有待处理退款，商家处理后根据情况驱动状态机进入FULLY_REFUNDED终态。
     @Transactional
-    public RefundRequestVO requestRefund(RefundRequestDTO request, Long BuyerId) throws OrderStateException {
+    public RefundRequestVO requestRefund(RefundRequestDTO request, Long buyerId)
+            throws OrderStateException {
 
         if (refundRequestRepository.existsByOrderNumberAndStatus(
-                request.getOrderNumber(), "PENDING")) {
+                request.getOrderNumber(), RefundStatus.PENDING)){
             throw new IllegalStateException("已有未处理的退款申请，请勿重复提交");
         }
-
-        Order order = getOrderAndValidateBuyer(request.getOrderNumber(), BuyerId);
-        String preOrderStatus = String.valueOf(order.getStatus());
-
-        BigDecimal actualAmount;
-        BigDecimal refundedTotal = refundRequestRepository
-                .sumRefundAmountByOrderNumber(order.getOrderNumber());
-
-        if (Objects.equals(request.getRefundType(), "ALL")) {
-            if (refundedTotal.compareTo(BigDecimal.ZERO) > 0) {
-                throw new IllegalArgumentException(
-                        String.format("该订单已有退款申请（累计 %s），不能再申请全额退款", refundedTotal)
-                );
-            }
-            if (order.getStatus() != OrderStatus.PAID &&
-                    order.getStatus() != OrderStatus.CONFIRMED &&
-                    order.getStatus() != OrderStatus.SHIPPED &&
-                    order.getStatus() != OrderStatus.RECEIVED) {
-                throw new OrderStateException("当前订单状态不允许申请全额退款");
-            }
-            actualAmount = order.getTotalAmount().subtract(refundedTotal); //全额退款时，理论上用户之前不可能有已经通过的部分退款申请，但为了保险起见，还是把之前的部分退款金额扣掉，避免超额退款
-        } else if (Objects.equals(request.getRefundType(), "PARTIAL")) { // 部分退款
-            if (request.getRefundAmount() == null || request.getRefundAmount().compareTo(BigDecimal.ZERO) <= 0) {
-                throw new IllegalArgumentException("部分退款金额必须大于0");
-            }
-            if (request.getRefundAmount().compareTo(order.getTotalAmount()) >= 0) {
-                throw new IllegalArgumentException("部分退款金额必须小于订单总金额");
-            }
-            if (request.getRefundAmount().add(refundedTotal)
-                    .compareTo(order.getTotalAmount()) > 0) {
-                throw new IllegalArgumentException(
-                        String.format("退款金额超限：订单总额 %s，已申请 %s，本次最多可申请 %s",
-                                order.getTotalAmount(),
-                                refundedTotal,
-                                order.getTotalAmount().subtract(refundedTotal))
-                );
-            }
-            // 部分退款允许在多个状态申请，但都需要校验订单金额
-            if (order.getStatus() != OrderStatus.PAID &&
-                    order.getStatus() != OrderStatus.CONFIRMED &&
-                    order.getStatus() != OrderStatus.SHIPPED &&
-                    order.getStatus() != OrderStatus.RECEIVED) {
-                throw new OrderStateException("当前订单状态不允许申请部分退款");
-            }
-            actualAmount = request.getRefundAmount(); //部分退款时，由买家填入金额
-        } else {
-            throw new IllegalArgumentException("未知的退款类型: " + request.getRefundAmount());
+        if(!request.getRefundType().equals("ALL_NO_RT") && !request.getRefundType().equals("ALL_RT") && !request.getRefundType().equals("PARTIAL")) {
+            throw new IllegalArgumentException("未知的退款类型: " + request.getRefundType());
         }
 
         RefundRequest refundRequest = new RefundRequest();
+        Order order = getOrderAndValidateBuyer(request.getOrderNumber(), buyerId);
+        OrderStatus status = order.getStatus();
+
+        // 终态订单不允许申请退款
+        if (status == OrderStatus.COMPLETED
+                || status == OrderStatus.FULLY_REFUNDED
+                || status == OrderStatus.CANCELLED) {
+            throw new OrderStateException("当前订单状态不允许申请退款");
+        }
+
+        // PS：非签收状态下应该允许退货退款，反正后面都是走退款的状态流转
+
+        // 查询该订单已通过的退款总额
+        BigDecimal refundedTotal = order.getApprovedRefundAmount();
+        if (refundedTotal == null) refundedTotal = BigDecimal.ZERO;
+        BigDecimal actualAmount;
+
+        // 发货前，申请全额仅退款直接通过
+        if (status == OrderStatus.PAID || status == OrderStatus.CONFIRMED) {
+            if(!Objects.equals(request.getRefundType(), "ALL_NO_RT")) {
+                throw new IllegalArgumentException("未发货订单只能申请全额仅退款");
+            }
+            if (refundedTotal.compareTo(BigDecimal.ZERO) > 0) {
+                throw new IllegalArgumentException(
+                        String.format("该订单已有退款通过记录（累计 %s），不能再申请全额退款",
+                                refundedTotal));
+            }
+
+            actualAmount = order.getTotalAmount();
+            refundRequest.setRefundAmount(actualAmount);
+            order.addApprovedRefundAmount(actualAmount);
+            order.setAutoRefund(true);
+            order.setHasRefund(true);
+            for (OrderItem item : order.getItems()) {
+                productRepository.incrementStock(item.getProductId(), item.getQuantity());
+            }
+            // 直接退款
+            paymentProvider.refund(order, actualAmount);
+            refundRequest.setStatus(RefundStatus.AUTO_APPROVED);
+            refundRequest.setLastHandleTime(LocalDateTime.now());
+            sendEvent(order, OrderEvent.FULLY_REFUND, null);
+            log.info("未发货订单申请全额退款，自动批准: orderNumber={}, refundNo={}, buyerId={}, amount={}",
+                    request.getOrderNumber(), refundRequest.getRefundNo(), buyerId, actualAmount);
+
+        //  已发货，申请退款需要商家审核
+        } else {
+            if (Objects.equals(request.getRefundType(), "ALL_RT") || Objects.equals(request.getRefundType(), "ALL_NO_RT")) {
+                if (refundedTotal.compareTo(BigDecimal.ZERO) > 0) {
+                    throw new IllegalArgumentException(
+                            String.format("该订单已有退款通过记录（累计 %s），不能再申请全额退款",
+                                    refundedTotal));
+                }
+
+                actualAmount = order.getTotalAmount();
+
+            } else if (Objects.equals(request.getRefundType(), "PARTIAL")) {
+                if (request.getRefundAmount() == null
+                        || request.getRefundAmount().compareTo(BigDecimal.ZERO) <= 0) {
+                    throw new IllegalArgumentException("部分退款金额必须大于 0");
+                }
+                if (request.getRefundAmount().compareTo(order.getTotalAmount()) >= 0) {
+                    throw new IllegalArgumentException("部分退款金额必须小于订单总金额");
+                }
+                if (request.getRefundAmount().add(refundedTotal)
+                        .compareTo(order.getTotalAmount()) > 0) {
+                    throw new IllegalArgumentException(
+                            String.format("退款金额超限：订单总额 %s，已退款 %s，本次最多可申请 %s",
+                                    order.getTotalAmount(),
+                                    refundedTotal,
+                                    order.remainingRefundable()));
+                }
+                actualAmount = request.getRefundAmount();
+                // 标记订单有待处理退款
+                order.setHasPendingRefund(true);
+                log.info("买家申请退款: orderNumber={}, refundNo={}, buyerId={}, amount={}",
+                        request.getOrderNumber(), refundRequest.getRefundNo(), buyerId, actualAmount);
+            } else {
+                throw new IllegalArgumentException("未知的退款类型: " + request.getRefundType());
+            }
+            refundRequest.setStatus(RefundStatus.PENDING);
+        }
+
         refundRequest.setRefundNo(generateRefundNo());
         refundRequest.setOrderNumber(order.getOrderNumber());
-        refundRequest.setBuyerId(BuyerId);
+        refundRequest.setBuyerId(buyerId);
         refundRequest.setSellerId(order.getSellerId());
         refundRequest.setRefundType(request.getRefundType());
         refundRequest.setRefundAmount(actualAmount);
         refundRequest.setOrderTotalAmount(order.getTotalAmount());
         refundRequest.setReason(request.getReason());
-        refundRequest.setStatus("PENDING");
-        refundRequest.setPreRefundStatus(OrderStatus.valueOf(preOrderStatus)); // 记录申请退款前的订单状态，商家拒绝退款时或买家撤销退款时需要回退
         refundRequest.setRequestTime(LocalDateTime.now());
-
-        refundRequest.setImages(request.getImageIds() == null ? Collections.emptyList() : request.getImageIds().stream()
+        refundRequest.setImages(request.getImageIds() == null
+                ? Collections.emptyList()
+                : request.getImageIds().stream()
                 .map(id -> {
                     RefundImg img = refundImgRepository.findById(id)
-                            .orElseThrow(() -> new IllegalArgumentException("退款凭证图片不存在: " + id));
+                            .orElseThrow(() -> new IllegalArgumentException(
+                                    "退款凭证图片不存在: " + id));
                     img.setRefundRequest(refundRequest);
                     img.setLinked(true);
                     img.setOrderNumber(order.getOrderNumber());
@@ -362,83 +408,86 @@ public class OrderService {
                 .toList());
 
         refundRequestRepository.save(refundRequest);
+        orderRepository.save(order);
 
-        sendEvent(order, OrderEvent.REQUEST_REFUND, null);
-
-        Order saved = orderRepository.save(order);
-        log.info("买家申请退款: orderId={}, buyerId={}, reason={} amount={}", request.getOrderNumber(), BuyerId, request.getReason(), actualAmount);
         RefundRequestVO vo = new RefundRequestVO();
         BeanUtils.copyProperties(refundRequest, vo);
         return vo;
     }
 
-    // 8.退款处理
-
-    // 商家同意退款：REFUND_REQUESTED - 根据退款类型进入不同流程
-    // 商家拒绝退款：REFUND_REQUESTED - 根据退款前状态回退（PAID / CONFIRMED / SHIPPED / RECEIVED）
-    // approve=true时调用支付插槽执行实际退款动作
-    // approve=false时只做状态回退，不调用支付
+    // 商家处理退款
+    // 分为部分退款，退货退款和仅退款三种类型，商家同意部分退款时订单状态不变，同意全额退款时订单进入FULLY_REFUNDED终态（无论是否退货）
     @Transactional
-    public RefundRequestVO processRefund(String refundNo, Long sellerId, boolean approve, String reason)
+    public RefundRequestVO processRefund(String refundNo, Long sellerId,
+                                         boolean approve, String reason)
             throws OrderStateException {
 
         RefundRequest refundRequest = refundRequestRepository.findByRefundNo(refundNo)
                 .orElseThrow(() -> new IllegalArgumentException("退款申请不存在"));
 
-        String orderNumber = refundRequest.getOrderNumber();
-        Order order = getOrderAndValidateSeller(orderNumber, sellerId);
-        assertStatus(order, OrderStatus.REFUND_REQUESTED, "处理退款");
+        Order order = getOrderAndValidateSeller(refundRequest.getOrderNumber(), sellerId);
 
         if (!refundRequest.getSellerId().equals(sellerId)) {
             throw new OrderAccessDeniedException("无权处理此退款申请");
         }
-        if (refundRequest.getPreRefundStatus() == null) {
-            throw new IllegalStateException("异常的退款申请：退款前订单状态未知，无法处理");
+        if (!RefundStatus.PENDING.equals(refundRequest.getStatus())){
+            throw new IllegalStateException("退款申请已处理，请勿重复处理");
         }
-        if (!"PENDING".equals(refundRequest.getStatus())) {
-            throw new IllegalStateException("退款申请已处理，无法重复处理");
-        }
-
-        String preStatus = refundRequest.getPreRefundStatus().toString();
 
         if (approve) {
-            paymentProvider.refund(order);
 
             if ("PARTIAL".equals(refundRequest.getRefundType())) {
-                // 部分退款：回到申请前状态，主流程不中断
-                sendEvent(order, OrderEvent.APPROVE_REFUND_PARTIAL, preStatus);
-                // 更新订单部分退款标记和累计退款金额
-                order.setHasPartialRefund(true);
-                log.info("商家同意部分退款: refundNo={}, amount={}, 订单状态回到: {}",
+                // 部分退款：订单状态不变，更新累计退款金额和标记
+                order.addApprovedRefundAmount(refundRequest.getRefundAmount());
+                order.setHasRefund(true);
+                paymentProvider.refund(order, refundRequest.getRefundAmount());
+                log.info("商家同意部分退款: refundNo={}, amount={}, 订单状态维持: {}",
                         refundNo, refundRequest.getRefundAmount(), order.getStatus());
-            } else {
-                // 全额退款：进入终态，恢复库存
-                sendEvent(order, OrderEvent.APPROVE_REFUND_FULL, preStatus);
+            } else if ("ALL_NO_RT".equals(refundRequest.getRefundType())) {
+                // 全额退款（仅退款）：订单进入 FULLY_REFUNDED 终态，无需退货
+                sendEvent(order, OrderEvent.FULLY_REFUND, null);
+                order.addApprovedRefundAmount(refundRequest.getRefundAmount());
+                order.setHasRefund(true);
                 for (OrderItem item : order.getItems()) {
                     productRepository.incrementStock(item.getProductId(), item.getQuantity());
                 }
+                // 直接退款
+                paymentProvider.refund(order, refundRequest.getRefundAmount());
+                refundRequest.setStatus(RefundStatus.APPROVED);
                 log.info("商家同意全额退款: refundNo={}, 订单进入终态 FULLY_REFUNDED", refundNo);
+            } else if("ALL_RT".equals(refundRequest.getRefundType())) {
+                // 全额退款（退货退款），退款流程进入PENDING_RETURN状态，等待买家提交退货物流单号
+                order.addApprovedRefundAmount(refundRequest.getRefundAmount());
+                order.setHasRefund(true);
+                refundRequest.setStatus(RefundStatus.PENDING_RETURN);
+                // PS：在自动化确认收货的功能实现时，需要检查当前订单下是否还有不为REJECTED / CANCELLED / APPROVED / AUTO_APPROVED / REFUNDED的退款申请
+                // 如果有则不自动确认收货，直到这些退款申请都处理完毕。
+                log.info("商家同意全额退款（退货退款）: refundNo={}", refundNo);
+            } else {
+                throw new IllegalArgumentException("未知的退款类型: " + refundRequest.getRefundType());
             }
 
-            refundRequest.setStatus("APPROVED");
-            refundRequest.setHandleTime(LocalDateTime.now());
+            refundRequest.setLastHandleTime(LocalDateTime.now());
 
         } else {
             if (reason == null || reason.isBlank()) {
                 throw new IllegalArgumentException("拒绝退款必须提供理由");
             }
-
-            sendEvent(order, OrderEvent.REJECT_REFUND, preStatus);
-            refundRequest.setStatus("REJECTED");
+            // 拒绝退款,订单状态不变
+            refundRequest.setStatus(RefundStatus.REJECTED);
             refundRequest.setRejectReason(reason);
-            // 商家拒绝后退款前状态已无意义，清空
-            refundRequest.setPreRefundStatus(null);
-            refundRequest.setHandleTime(LocalDateTime.now());
-            log.info("商家拒绝退款: refundNo={}, orderNumber={}", refundNo, orderNumber);
+            refundRequest.setLastHandleTime(LocalDateTime.now());
+            log.info("商家拒绝退款: refundNo={}, orderNumber={}",
+                    refundNo, refundRequest.getOrderNumber());
         }
 
-        orderRepository.save(order);
         refundRequestRepository.save(refundRequest);
+
+        // 检查是否还有其他 PENDING 退款申请，没有则清除标记
+        boolean stillHasPending = refundRequestRepository
+                .existsByOrderNumberAndStatus(refundRequest.getOrderNumber(), RefundStatus.PENDING);
+        order.setHasPendingRefund(stillHasPending);
+        orderRepository.save(order);
 
         RefundRequestVO vo = new RefundRequestVO();
         BeanUtils.copyProperties(refundRequest, vo);
@@ -447,34 +496,34 @@ public class OrderService {
 
 
     @Transactional
-    public RefundRequestVO cancelRefund(String refundNo, Long buyerId) throws OrderStateException {
+    public RefundRequestVO cancelRefund(String refundNo, Long buyerId)
+            throws OrderStateException {
 
         RefundRequest refundRequest = refundRequestRepository.findByRefundNo(refundNo)
                 .orElseThrow(() -> new IllegalArgumentException("退款申请不存在"));
 
         Order order = getOrderAndValidateBuyer(refundRequest.getOrderNumber(), buyerId);
-        assertStatus(order, OrderStatus.REFUND_REQUESTED, "撤销退款");
 
-        if (refundRequest.getPreRefundStatus() == null) {
-            throw new IllegalStateException("退款申请前状态未知，无法撤销");
-        }
-        if (!"PENDING".equals(refundRequest.getStatus())) {
+        // 非终态均可撤销
+        if (RefundStatus.APPROVED.equals(refundRequest.getStatus()) ||
+            RefundStatus.REJECTED.equals(refundRequest.getStatus()) ||
+            RefundStatus.CANCELLED.equals(refundRequest.getStatus()) ||
+            RefundStatus.REFUNDED.equals(refundRequest.getStatus())) {
             throw new IllegalStateException("退款申请已处理，无法撤销");
         }
 
-        String preStatus = refundRequest.getPreRefundStatus().toString();
-        sendEvent(order, OrderEvent.CANCEL_REFUND, preStatus);
-
-        refundRequest.setStatus("CANCELLED");
-        // 撤销后退款前状态已无意义，清空
-        refundRequest.setPreRefundStatus(null);
-        refundRequest.setHandleTime(LocalDateTime.now());
-
-        orderRepository.save(order);
+        // 撤销退款
+        refundRequest.setStatus(RefundStatus.CANCELLED);
+        refundRequest.setLastHandleTime(LocalDateTime.now());
         refundRequestRepository.save(refundRequest);
 
-        log.info("买家撤销退款: refundNo={}, buyerId={}, 订单状态回到: {}",
-                refundNo, buyerId, order.getStatus());
+        // 检查是否还有其他 PENDING 退款申请，没有则清除标记
+        boolean stillHasPending = refundRequestRepository
+                .existsByOrderNumberAndStatus(refundRequest.getOrderNumber(), RefundStatus.PENDING);
+        order.setHasPendingRefund(stillHasPending);
+        orderRepository.save(order);
+
+        log.info("买家撤销退款: refundNo={}, buyerId={}", refundNo, buyerId);
 
         RefundRequestVO vo = new RefundRequestVO();
         BeanUtils.copyProperties(refundRequest, vo);
@@ -500,7 +549,99 @@ public class OrderService {
         return saved;
     }
 
-    // 10.查询
+    // 10 .退货退款流程
+
+    // 买家填写退货物流单号，确认已寄出商品
+    // PENDING_RETURN -> RETURNING
+    @Transactional
+    public RefundRequestVO submitReturnTracking(String refundNo, Long buyerId,
+                                                String returnTrackingNo) {
+
+        if (returnTrackingNo == null || returnTrackingNo.isBlank()) {
+            throw new IllegalArgumentException("退货物流单号不能为空");
+        }
+
+        RefundRequest refundRequest = refundRequestRepository.findByRefundNo(refundNo)
+                .orElseThrow(() -> new IllegalArgumentException("退款申请不存在"));
+
+        if (!refundRequest.getBuyerId().equals(buyerId)) {
+            throw new OrderAccessDeniedException("无权操作此退款申请");
+        }
+
+        if(!RefundStatus.PENDING_RETURN.equals(refundRequest.getStatus())) {
+            throw new IllegalStateException("当前退款申请状态不允许提交退货物流单号");
+        }
+
+        refundRequest.setReturnTrackingNo(returnTrackingNo);
+        refundRequest.setStatus(RefundStatus.RETURNING);
+        refundRequest.setReturnShippedTime(LocalDateTime.now());
+        refundRequestRepository.save(refundRequest);
+
+        log.info("买家填写退货物流: refundNo={}, trackingNo={}", refundNo, returnTrackingNo);
+
+        RefundRequestVO vo = new RefundRequestVO();
+        BeanUtils.copyProperties(refundRequest, vo);
+        return vo;
+    }
+
+    // 商家已收到退货，决定是否执行退款
+    // 同意：RETURN_RECEIVED -> APPROVED，执行退款。
+    // 拒绝：RETURN_RECEIVED -> REJECTED，如商品损坏不符合退货条件。
+    @Transactional
+    public RefundRequestVO confirmReturnReceived(String refundNo, Long sellerId,
+                                                 boolean approve, String reason)
+            throws OrderStateException {
+
+        RefundRequest refundRequest = refundRequestRepository.findByRefundNo(refundNo)
+                .orElseThrow(() -> new IllegalArgumentException("退款申请不存在"));
+
+        if (!refundRequest.getSellerId().equals(sellerId)) {
+            throw new OrderAccessDeniedException("无权处理此退款申请");
+        }
+        if (!RefundStatus.RETURNING.equals(refundRequest.getStatus())){
+            throw new IllegalStateException("买家尚未寄出商品，无法签收");
+        }
+
+        Order order = getOrderAndValidateSeller(refundRequest.getOrderNumber(), sellerId);
+
+        if (approve) {
+            paymentProvider.refund(order, refundRequest.getRefundAmount());
+
+            sendEvent(order, OrderEvent.FULLY_REFUND, null);
+            order.addApprovedRefundAmount(refundRequest.getRefundAmount());
+            order.setHasRefund(true);
+            for (OrderItem item : order.getItems()) {
+                productRepository.incrementStock(item.getProductId(), item.getQuantity());
+            }
+            log.info("退货退款（全额）完成: refundNo={}, 订单进入终态 FULLY_REFUNDED", refundNo);
+
+            refundRequest.setStatus(RefundStatus.APPROVED);
+            refundRequest.setLastHandleTime(LocalDateTime.now());
+
+        } else {
+            if (reason == null || reason.isBlank()) {
+                throw new IllegalArgumentException("拒绝退款必须提供理由");
+            }
+            refundRequest.setStatus(RefundStatus.REJECTED);
+            refundRequest.setRejectReason(reason);
+            refundRequest.setLastHandleTime(LocalDateTime.now());
+            log.info("商家确认收货后拒绝退款: refundNo={}, reason={}", refundNo, reason);
+        }
+
+        refundRequestRepository.save(refundRequest);
+
+        // 更新待处理退款标记
+        boolean stillHasPending = refundRequestRepository
+                .existsByOrderNumberAndStatus(refundRequest.getOrderNumber(), RefundStatus.PENDING);
+        order.setHasPendingRefund(stillHasPending);
+        orderRepository.save(order);
+
+        RefundRequestVO vo = new RefundRequestVO();
+        BeanUtils.copyProperties(refundRequest, vo);
+        return vo;
+    }
+
+    // 11.查询相关
 
     // 查询单个订单（含订单项）
     @Transactional
@@ -605,24 +746,6 @@ public class OrderService {
         }
     }
 
-    // 退款原因直接写入PaymentSlot
-    private void appendRefundReason(Order order, String reason,BigDecimal amount) {
-        try {
-            ObjectMapper mapper = new ObjectMapper();
-            Map<String, Object> slot = new HashMap<>();
-            if (order.getPaymentSlot() != null && !order.getPaymentSlot().isBlank()) {
-                slot = mapper.readValue(order.getPaymentSlot(),
-                        new TypeReference<Map<String, Object>>() {});
-            }
-            slot.put("refundReason", reason);
-            slot.put("refundRequestedAt", LocalDateTime.now().toString());
-            slot.put("amount", amount);
-            order.setPaymentSlot(mapper.writeValueAsString(slot));
-        } catch (Exception e) {
-            log.warn("写入退款原因失败，忽略: {}", e.getMessage());
-        }
-    }
-
     public String generateRefundNo() {
         String timestamp = LocalDateTime.now()
                 .format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
@@ -632,8 +755,7 @@ public class OrderService {
 }
 
 /**
- * 有三点需要特别留意。
+ * 有两点需要注意
  * 第一：sendEvent()每次都会stop-reset-start状态机，这是因为Spring StateMachine默认单例，多个订单共用同一实例，必须在每次操作前把它重置到当前订单的状态。
  * 第二：assertStatus()和状态机是双重保险：前者提前给出友好提示，后者作为最终兜底，二者不要删掉任何一个。
- * 第三：退款原因复用了paymentSlot的JSON字段，前期不需要加列，后期如果退款场景变复杂可以单独建一张order_refund_records表。
  */
