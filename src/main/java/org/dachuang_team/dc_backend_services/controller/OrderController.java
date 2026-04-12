@@ -17,6 +17,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Objects;
+
 @RestController
 @RequestMapping("/api/orders")
 public class OrderController {
@@ -74,5 +76,23 @@ public class OrderController {
         Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         RefundRequestVO vo = orderService.cancelRefund(refundNo, currentUserId);
         return ResponseEntity.ok(Result.success(200, "订单编号： " + vo.getOrderNumber() + " 下的退款请求 " + refundNo + " 已成功取消", vo));
+    }
+
+    @PostMapping("/cancel")
+    public ResponseEntity<Result<OrderVO>> cancelOrder(
+            @RequestParam String orderNumber) throws OrderStateException {
+        Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Order order = orderService.cancelOrder(orderNumber, currentUserId);
+        return ResponseEntity.ok(Result.success(200, "订单 " + orderNumber + " 已成功取消", OrderVO.from(order)));
+    }
+
+    @PostMapping("/ship")
+    public ResponseEntity<Result<OrderVO>> shipOrder(
+            @RequestParam String orderNumber,
+            @RequestParam String trackingNo) throws OrderStateException {
+        Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Order order = orderService.shipOrder(orderNumber, currentMerchantId, trackingNo);
+        String msg = "订单 " + orderNumber + " 已成功发货，发货方式：" + (Objects.equals(order.getShippingMethod(), "DELIVERY") ? "配送" + "，物流单号：" + trackingNo : "无须发货");
+        return ResponseEntity.ok(Result.success(200, msg, OrderVO.from(order)));
     }
 }

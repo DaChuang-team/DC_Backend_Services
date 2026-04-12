@@ -222,15 +222,22 @@ public class OrderService {
      // 发货时必须提供物流单号，物流单号不能为空。
     @Transactional
     public Order shipOrder(String orderNumber, Long sellerId, String trackingNo) throws OrderStateException {
-        if (trackingNo == null || trackingNo.isBlank()) {
-            throw new IllegalArgumentException("物流单号不能为空");
-        }
 
         Order order = getOrderAndValidateSeller(orderNumber, sellerId);
+
+        if(order.getStatus() == OrderStatus.REFUND_REQUESTED) {
+            throw new OrderStateException("当前订单有待处理的退款申请，请先处理退款申请再执行发货");
+        }
         assertStatus(order, OrderStatus.CONFIRMED, "发货");
 
-        order.setTrackingNo(trackingNo);
-        sendEvent(order, OrderEvent.SHIP, null);
+        if(trackingNo == null || trackingNo.isEmpty()) {
+            order.setShippingMethod("OTHER"); // 无须发货
+            sendEvent(order, OrderEvent.SERVE, null);
+        } else {
+            order.setShippingMethod("DELIVERY");
+            order.setTrackingNo(trackingNo); // 物流发货
+            sendEvent(order, OrderEvent.SHIP, null);
+        }
 
         Order saved = orderRepository.save(order);
         log.info("商家发货: orderId={}, trackingNo={}", orderNumber, trackingNo);
@@ -301,7 +308,7 @@ public class OrderService {
                     order.getStatus() != OrderStatus.RECEIVED) {
                 throw new OrderStateException("当前订单状态不允许申请全额退款");
             }
-            actualAmount = order.getTotalAmount(); // 全额退款时，直接从订单获取总金额
+            actualAmount = order.getTotalAmount().subtract(refundedTotal); //全额退款时，理论上用户之前不可能有已经通过的部分退款申请，但为了保险起见，还是把之前的部分退款金额扣掉，避免超额退款
         } else if (Objects.equals(request.getRefundType(), "PARTIAL")) { // 部分退款
             if (request.getRefundAmount() == null || request.getRefundAmount().compareTo(BigDecimal.ZERO) <= 0) {
                 throw new IllegalArgumentException("部分退款金额必须大于0");
@@ -367,7 +374,7 @@ public class OrderService {
 
     // 8.退款处理
 
-    // 商家同意退款：REFUND_REQUESTED - REFUNDED
+    // 商家同意退款：REFUND_REQUESTED - 根据退款类型进入不同流程
     // 商家拒绝退款：REFUND_REQUESTED - 根据退款前状态回退（PAID / CONFIRMED / SHIPPED / RECEIVED）
     // approve=true时调用支付插槽执行实际退款动作
     // approve=false时只做状态回退，不调用支付
@@ -381,8 +388,6 @@ public class OrderService {
         String orderNumber = refundRequest.getOrderNumber();
         Order order = getOrderAndValidateSeller(orderNumber, sellerId);
         assertStatus(order, OrderStatus.REFUND_REQUESTED, "处理退款");
-
-        BigDecimal sumRefundAmount = refundRequestRepository.sumRefundAmountByOrderNumber(orderNumber);
 
         if (!refundRequest.getSellerId().equals(sellerId)) {
             throw new OrderAccessDeniedException("无权处理此退款申请");
@@ -447,7 +452,6 @@ public class OrderService {
         RefundRequest refundRequest = refundRequestRepository.findByRefundNo(refundNo)
                 .orElseThrow(() -> new IllegalArgumentException("退款申请不存在"));
 
-        // 注意：你原来的代码里用 refundNo 去查订单，这里改为用退款记录里的 orderNumber 查
         Order order = getOrderAndValidateBuyer(refundRequest.getOrderNumber(), buyerId);
         assertStatus(order, OrderStatus.REFUND_REQUESTED, "撤销退款");
 

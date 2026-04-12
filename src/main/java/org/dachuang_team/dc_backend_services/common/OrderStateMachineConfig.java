@@ -33,23 +33,27 @@ public class OrderStateMachineConfig
                 // 主流程
                 .withExternal()
                 .source(OrderStatus.PENDING_PAYMENT).target(OrderStatus.PAID)
-                .event(OrderEvent.PAY)
+                .event(OrderEvent.PAY) // 待支付 -> 已支付，用户完成支付
                 .and()
                 .withExternal()
                 .source(OrderStatus.PAID).target(OrderStatus.CONFIRMED)
-                .event(OrderEvent.CONFIRM)
+                .event(OrderEvent.CONFIRM) // 已支付 -> 已确认，商家确认订单
                 .and()
                 .withExternal()
                 .source(OrderStatus.CONFIRMED).target(OrderStatus.SHIPPED)
-                .event(OrderEvent.SHIP)
+                .event(OrderEvent.SHIP) // 已确认 -> 已发货，商家发货
+                .and()
+                .withExternal()
+                .source(OrderStatus.CONFIRMED).target(OrderStatus.RECEIVED)
+                .event(OrderEvent.SERVE) // 已确认 -> 已收货，服务类、线下类订单直接进入已签收状态
                 .and()
                 .withExternal()
                 .source(OrderStatus.SHIPPED).target(OrderStatus.RECEIVED)
-                .event(OrderEvent.RECEIVE)
+                .event(OrderEvent.RECEIVE) // 已发货 -> 已收货，用户确认收货
                 .and()
                 .withExternal()
                 .source(OrderStatus.RECEIVED).target(OrderStatus.COMPLETED)
-                .event(OrderEvent.COMPLETE)
+                .event(OrderEvent.COMPLETE) // 已收货 -> 已完成，订单流程结束
 
                 // 申请退款
                 // 原有四个状态均可申请退款

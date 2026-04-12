@@ -4,6 +4,7 @@ public enum OrderEvent {
     PAY,              // 支付（预留）
     CONFIRM,          // 商家确认
     SHIP,             // 商家发货
+    SERVE,            // 商家提供服务或线下提供商品（无须发货），直接进入已签收状态
     RECEIVE,          // 买家签收
     COMPLETE,         // 买家确认收货
     REQUEST_REFUND,   // 申请退款

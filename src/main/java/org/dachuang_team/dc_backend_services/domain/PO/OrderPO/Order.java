@@ -43,6 +43,9 @@ public class Order {
     @Column(name = "total_amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal totalAmount;
 
+    @Column(name = "shipping_method")
+    private String shippingMethod; // 发货方式：DELIVERY(配送) 或 OTHER(无须发货)，发货时由系统自动填入
+
     //物流单号，发货后由商家填入。初始null
     @Column(name = "tracking_no", length = 64)
     private String trackingNo;
@@ -79,11 +82,19 @@ public class Order {
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 
-
     //订单项列表，保存订单时自动保存订单项，删除订单时自动删除订单项。
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL,
             fetch = FetchType.LAZY, orphanRemoval = true)
     private List<OrderItem> items = new ArrayList<>();
+
+    @Column(name = "auto_refund", nullable = false)
+    private Boolean autoRefund = false; //自动退款标记
+
+    @Column(name = "auto_received", nullable = false)
+    private Boolean autoReceived = false; // 自动签收标记
+
+    @Column(name = "auto_completed", nullable = false)
+    private Boolean autoCompleted = false; // 自动完成标记
 
     protected Order() {}
 
@@ -97,6 +108,9 @@ public class Order {
         this.totalAmount = calculateTotal();
         this.receiveAddress = address;
         this.hasPartialRefund = false;
+        this.autoRefund = false;
+        this.autoReceived = false;
+        this.autoCompleted = false;
     }
 
     // 计算总金额
@@ -137,12 +151,37 @@ public class Order {
     public void setReceiveAddress(String receiveAddress) {
         this.receiveAddress = receiveAddress;
     }
-
     public Boolean getHasPartialRefund() {
         return hasPartialRefund;
     }
-
     public void setHasPartialRefund(Boolean hasPartialRefund) {
         this.hasPartialRefund = hasPartialRefund;
+    }
+    public void setId(Long id) {
+        this.id = id;
+    }
+    public Boolean getAutoCompleted() {
+        return autoCompleted;
+    }
+    public void setAutoCompleted(Boolean autoCompleted) {
+        this.autoCompleted = autoCompleted;
+    }
+    public Boolean getAutoReceived() {
+        return autoReceived;
+    }
+    public void setAutoReceived(Boolean autoReceived) {
+        this.autoReceived = autoReceived;
+    }
+    public Boolean getAutoRefund() {
+        return autoRefund;
+    }
+    public void setAutoRefund(Boolean autoRefund) {
+        this.autoRefund = autoRefund;
+    }
+    public String getShippingMethod() {
+        return shippingMethod;
+    }
+    public void setShippingMethod(String shippingMethod) {
+        this.shippingMethod = shippingMethod;
     }
 }

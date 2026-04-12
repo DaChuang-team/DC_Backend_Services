@@ -16,10 +16,12 @@ public class OrderVO {
     private String status;
     private BigDecimal totalAmount;
     private String trackingNo;
+    private String shippingMethod;
     private LocalDateTime createdAt;
     private LocalDateTime paidAt;
     private LocalDateTime completedAt;
     private List<OrderItemVO> items;
+    private Boolean hasPartialRefund;
     private String address;
 
     public static OrderVO from(Order order) {
@@ -30,6 +32,7 @@ public class OrderVO {
         vo.sellerId = order.getSellerId();
         vo.status = order.getStatus().name();
         vo.totalAmount = order.getTotalAmount();
+        vo.shippingMethod = order.getShippingMethod();
         vo.trackingNo = order.getTrackingNo();
         vo.createdAt = order.getCreatedAt();
         vo.paidAt = order.getPaidAt();
@@ -37,6 +40,7 @@ public class OrderVO {
         vo.items = order.getItems().stream()
                 .map(OrderItemVO::from)
                 .collect(Collectors.toList());
+        vo.hasPartialRefund = order.getHasPartialRefund();
         vo.address = order.getReceiveAddress();
         return vo;
     }
@@ -53,4 +57,16 @@ public class OrderVO {
     public LocalDateTime getCompletedAt() { return completedAt; }
     public List<OrderItemVO> getItems() { return items; }
     public String getAddress() { return address; }
+    public Boolean getHasPartialRefund() {
+        return hasPartialRefund;
+    }
+    public void setHasPartialRefund(Boolean hasPartialRefund) {
+        this.hasPartialRefund = hasPartialRefund;
+    }
+    public String getShippingMethod() {
+        return shippingMethod;
+    }
+    public void setShippingMethod(String shippingMethod) {
+        this.shippingMethod = shippingMethod;
+    }
 }
