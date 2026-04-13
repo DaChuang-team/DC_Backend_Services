@@ -2,6 +2,7 @@ package org.dachuang_team.dc_backend_services.domain.PO.OrderPO;
 
 import jakarta.persistence.*;
 import org.dachuang_team.dc_backend_services.enumeration.OrderStatus;
+import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -11,7 +12,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
 
 @Entity
 @Table(name = "orders")
@@ -66,14 +66,27 @@ public class Order {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    //支付完成时间
+    @Column(name = "paid_at")
+    private LocalDateTime paidAt;
+
+    @Column(name = "confirmed_at", updatable = false)
+    private LocalDateTime confirmedAt;
+
+    @Column(name = "shipped_at", updatable = false)
+    private LocalDateTime shippedAt;
+
+    @Column(name = "received_at", updatable = false)
+    private LocalDateTime receivedAt;
+
+    //订单完成时间，买家确认收货填入
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
+
     //更新时间，每次save自动更新
     @LastModifiedDate
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
-
-    //支付完成时间
-    @Column(name = "paid_at")
-    private LocalDateTime paidAt;
 
     @Column(name = "has_partial_refund")
     private Boolean hasPartialRefund = false;
@@ -91,10 +104,6 @@ public class Order {
     // 已通过的退款总金额，每次退款批准后累加，退款申请撤销或拒绝时不变。初始0，精度保留2位小数
     @Column(name = "approved_refund_amount", nullable = false, precision = 10, scale = 2)
     private BigDecimal approvedRefundAmount = BigDecimal.ZERO;
-
-    //订单完成时间，买家确认收货填入
-    @Column(name = "completed_at")
-    private LocalDateTime completedAt;
 
     //订单项列表，保存订单时自动保存订单项，删除订单时自动删除订单项。
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL,
@@ -215,6 +224,34 @@ public class Order {
     }
     public void addApprovedRefundAmount(BigDecimal amount) {
         this.approvedRefundAmount = this.approvedRefundAmount.add(amount);
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getConfirmedAt() {
+        return confirmedAt;
+    }
+
+    public void setConfirmedAt(LocalDateTime confirmedAt) {
+        this.confirmedAt = confirmedAt;
+    }
+
+    public LocalDateTime getShippedAt() {
+        return shippedAt;
+    }
+
+    public void setShippedAt(LocalDateTime shippedAt) {
+        this.shippedAt = shippedAt;
+    }
+
+    public LocalDateTime getReceivedAt() {
+        return receivedAt;
+    }
+
+    public void setReceivedAt(LocalDateTime receivedAt) {
+        this.receivedAt = receivedAt;
     }
 
     public BigDecimal remainingRefundable() {

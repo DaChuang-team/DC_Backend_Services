@@ -19,6 +19,9 @@ public class OrderVO {
     private String shippingMethod;
     private LocalDateTime createdAt;
     private LocalDateTime paidAt;
+    private LocalDateTime confirmedAt;
+    private LocalDateTime shippedAt;
+    private LocalDateTime receivedAt;
     private LocalDateTime completedAt;
     private List<OrderItemVO> items;
     private Boolean hasPartialRefund;
@@ -38,6 +41,9 @@ public class OrderVO {
         vo.shippingMethod = order.getShippingMethod();
         vo.trackingNo = order.getTrackingNo();
         vo.createdAt = order.getCreatedAt();
+        vo.confirmedAt = order.getConfirmedAt();
+        vo.shippedAt = order.getShippedAt();
+        vo.receivedAt = order.getReceivedAt();
         vo.paidAt = order.getPaidAt();
         vo.completedAt = order.getCompletedAt();
         vo.items = order.getItems().stream()
@@ -89,5 +95,23 @@ public class OrderVO {
     }
     public void setHasPendingRefund(Boolean hasPendingRefund) {
         this.hasPendingRefund = hasPendingRefund;
+    }
+    public LocalDateTime getConfirmedAt() {
+        return confirmedAt;
+    }
+    public void setConfirmedAt(LocalDateTime confirmedAt) {
+        this.confirmedAt = confirmedAt;
+    }
+    public LocalDateTime getShippedAt() {
+        return shippedAt;
+    }
+    public void setShippedAt(LocalDateTime shippedAt) {
+        this.shippedAt = shippedAt;
+    }
+    public LocalDateTime getReceivedAt() {
+        return receivedAt;
+    }
+    public void setReceivedAt(LocalDateTime receivedAt) {
+        this.receivedAt = receivedAt;
     }
 }

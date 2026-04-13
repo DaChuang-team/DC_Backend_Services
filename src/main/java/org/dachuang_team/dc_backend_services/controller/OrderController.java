@@ -27,6 +27,7 @@ public class OrderController {
     @Autowired
     private OrderService orderService;
 
+    // 买家创建订单
     @PostMapping("/create")
     public ResponseEntity<Result<OrderVO>> createOrder(
             @RequestBody @Valid CreateOrderRequestDTO request) throws JsonProcessingException {
@@ -37,6 +38,7 @@ public class OrderController {
                 .body(Result.success(201, "订单创建成功", OrderVO.from(order)));
     }
 
+    // 买家支付
     @PostMapping("/pay")
     public ResponseEntity<Result<OrderVO>> payOrder(
             @RequestParam String orderNumber) {
@@ -45,6 +47,7 @@ public class OrderController {
         return ResponseEntity.ok(Result.success(200, "订单支付成功", OrderVO.from(order)));
     }
 
+    // 商家确认
     @PostMapping("/confirm")
     public ResponseEntity<Result<String>> confirmOrder(
             @RequestParam String orderNumber) {
@@ -53,6 +56,7 @@ public class OrderController {
         return ResponseEntity.ok(Result.success(200, "订单 " + orderNo + " 确认成功", null));
     }
 
+    // 买家申请退款
     @PostMapping("/refund/request")
     public ResponseEntity<Result<RefundRequestVO>> requestRefund(
             @RequestBody @Valid RefundRequestDTO request) throws OrderStateException {
@@ -63,6 +67,7 @@ public class OrderController {
         return ResponseEntity.ok(Result.success(200, msg, vo));
     }
 
+    // 商家处理退款
     @PostMapping("/refund/process")
     public ResponseEntity<Result<RefundRequestVO>> processRefund(
             @RequestBody @Valid RefundProcessDTO request) throws OrderStateException {
@@ -73,6 +78,7 @@ public class OrderController {
         return ResponseEntity.ok(Result.success(200, message, vo));
     }
 
+    // 买家撤销退款
     @PostMapping("/refund/cancel")
     public ResponseEntity<Result<RefundRequestVO>> cancelRefund(
             @RequestParam String refundNo) throws OrderStateException {
@@ -81,6 +87,7 @@ public class OrderController {
         return ResponseEntity.ok(Result.success(200, "订单编号： " + vo.getOrderNumber() + " 下的退款请求 " + refundNo + " 已成功取消", vo));
     }
 
+    // 买家取消订单
     @PostMapping("/cancel")
     public ResponseEntity<Result<OrderVO>> cancelOrder(
             @RequestParam String orderNumber) throws OrderStateException {
@@ -89,6 +96,7 @@ public class OrderController {
         return ResponseEntity.ok(Result.success(200, "订单 " + orderNumber + " 已成功取消", OrderVO.from(order)));
     }
 
+    // 商家发货
     @PostMapping("/ship")
     public ResponseEntity<Result<OrderVO>> shipOrder(
             @RequestParam String orderNumber,
@@ -97,5 +105,23 @@ public class OrderController {
         Order order = orderService.shipOrder(orderNumber, currentMerchantId, trackingNo);
         String msg = "订单 " + orderNumber + " 已成功发货，发货方式：" + (Objects.equals(order.getShippingMethod(), "DELIVERY") ? "配送" + "，物流单号：" + trackingNo : "无须发货");
         return ResponseEntity.ok(Result.success(200, msg, OrderVO.from(order)));
+    }
+
+    //买家签收
+    @PostMapping("/receive")
+    public ResponseEntity<Result<OrderVO>> receiveOrder(
+            @RequestParam String orderNumber) throws OrderStateException {
+        Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Order order = orderService.receiveOrder(orderNumber, currentUserId);
+        return ResponseEntity.ok(Result.success(200, "订单 " + orderNumber + " 已签收", OrderVO.from(order)));
+    }
+
+    // 买家确认收货
+    @PostMapping("/complete")
+    public ResponseEntity<Result<OrderVO>> completeOrder(
+            @RequestParam String orderNumber) throws OrderStateException {
+        Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Order order = orderService.completeOrder(orderNumber, currentUserId);
+        return ResponseEntity.ok(Result.success(200, "订单 " + orderNumber + " 已确认收货", OrderVO.from(order)));
     }
 }

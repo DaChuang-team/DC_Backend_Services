@@ -210,6 +210,7 @@ public class OrderService {
         assertStatus(order, OrderStatus.PAID, "确认");
 
         sendEvent(order, OrderEvent.CONFIRM, null);
+        order.setConfirmedAt(LocalDateTime.now());
 
         Order saved = orderRepository.save(order);
         log.info("商家确认订单: 订单号：{}", orderNumber);
@@ -218,7 +219,7 @@ public class OrderService {
 
     // 4.商家发货
 
-     // 商家发货：CONFIRMED - SHIPPED
+     // 商家发货：CONFIRMED - SHIPPING
      // 发货时必须提供物流单号，物流单号不能为空。
     @Transactional
     public Order shipOrder(String orderNumber, Long sellerId, String trackingNo) throws OrderStateException {
@@ -233,21 +234,22 @@ public class OrderService {
 
         if(trackingNo == null || trackingNo.isEmpty()) {
             order.setShippingMethod("OTHER"); // 无须发货
+            order.setReceivedAt(LocalDateTime.now()); // 无须发货的订单直接进入已收货状态
             sendEvent(order, OrderEvent.SERVE, null);
         } else {
             order.setShippingMethod("DELIVERY");
             order.setTrackingNo(trackingNo); // 物流发货
             sendEvent(order, OrderEvent.SHIP, null);
         }
-
+        order.setShippedAt(LocalDateTime.now());
         Order saved = orderRepository.save(order);
         log.info("商家发货: orderId={}, trackingNo={}", orderNumber, trackingNo);
         return saved;
     }
 
-    // 5.买家签收
+    // 5.买家签收（通常来讲是自动的）
 
-     // 买家签收：SHIPPED → RECEIVED
+     // 买家签收：SHIPPING → RECEIVED
      // 只有买家本人才能签收。
     @Transactional
     public Order receiveOrder(String orderNumber, Long buyerId) {
@@ -257,6 +259,7 @@ public class OrderService {
 
         sendEvent(order, OrderEvent.RECEIVE, null);
 
+        order.setReceivedAt(LocalDateTime.now());
         Order saved = orderRepository.save(order);
         log.info("买家签收: orderId={}, buyerId={}", orderNumber, buyerId);
         return saved;
@@ -578,6 +581,32 @@ public class OrderService {
         refundRequestRepository.save(refundRequest);
 
         log.info("买家填写退货物流: refundNo={}, trackingNo={}", refundNo, returnTrackingNo);
+
+        RefundRequestVO vo = new RefundRequestVO();
+        BeanUtils.copyProperties(refundRequest, vo);
+        return vo;
+    }
+
+    // 商家确认签收退货（通常来讲是自动的）
+    // RETURNING -> RETURN_RECEIVED
+    @Transactional
+    public RefundRequestVO receiveReturnedProduct(String refundNo, Long sellerId) {
+        RefundRequest refundRequest = refundRequestRepository.findByRefundNo(refundNo)
+                .orElseThrow(() -> new IllegalArgumentException("退款申请不存在"));
+
+        if (!refundRequest.getSellerId().equals(sellerId)) {
+            throw new OrderAccessDeniedException("无权操作此退款申请");
+        }
+
+        if(!RefundStatus.RETURNING.equals(refundRequest.getStatus())) {
+            throw new IllegalStateException("当前退款申请状态不允许签收退件");
+        }
+
+        refundRequest.setStatus(RefundStatus.RETURN_RECEIVED);
+        refundRequest.setReturnReceivedTime(LocalDateTime.now());
+        refundRequestRepository.save(refundRequest);
+
+        log.info("商家确认收到退货: refundNo={}", refundNo);
 
         RefundRequestVO vo = new RefundRequestVO();
         BeanUtils.copyProperties(refundRequest, vo);
