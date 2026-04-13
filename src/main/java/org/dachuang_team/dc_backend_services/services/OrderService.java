@@ -2,12 +2,14 @@ package org.dachuang_team.dc_backend_services.services;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
+import org.dachuang_team.dc_backend_services.common.ImageProcessUtils;
 import org.dachuang_team.dc_backend_services.common.OrderStateInterceptor;
 import org.dachuang_team.dc_backend_services.common.OrderStateListener;
 import org.dachuang_team.dc_backend_services.domain.DTO.RefundRequestDTO;
 import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.RefundImg;
 import org.dachuang_team.dc_backend_services.domain.PO.OrderPO.RefundRequest;
 import org.dachuang_team.dc_backend_services.domain.PO.ProductPO.Product;
+import org.dachuang_team.dc_backend_services.domain.VO.RefundImgVO;
 import org.dachuang_team.dc_backend_services.domain.VO.RefundRequestVO;
 import org.dachuang_team.dc_backend_services.enumeration.OrderEvent;
 import org.dachuang_team.dc_backend_services.enumeration.OrderStatus;
@@ -62,6 +64,9 @@ public class OrderService {
 
     @Autowired
     private RefundImgRepository refundImgRepository;
+
+    @Autowired
+    private ImageProcessUtils imageProcessUtils;
 
     public OrderService(StateMachine<OrderStatus, OrderEvent> stateMachine,
                         OrderStateInterceptor interceptor,
@@ -205,7 +210,7 @@ public class OrderService {
      // 商家确认订单：PAID - CONFIRMED
      // 只有商家本人才能操作，校验 sellerId。
     @Transactional
-    public String confirmOrder(String orderNumber, Long sellerId) {
+    public Order confirmOrder(String orderNumber, Long sellerId) {
         Order order = getOrderAndValidateSeller(orderNumber, sellerId);
         assertStatus(order, OrderStatus.PAID, "确认");
 
@@ -214,7 +219,7 @@ public class OrderService {
 
         Order saved = orderRepository.save(order);
         log.info("商家确认订单: 订单号：{}", orderNumber);
-        return saved.getOrderNumber();
+        return saved;
     }
 
     // 4.商家发货
@@ -308,6 +313,10 @@ public class OrderService {
         Order order = getOrderAndValidateBuyer(request.getOrderNumber(), buyerId);
         OrderStatus status = order.getStatus();
 
+        if(refundRequest.getImages().size() > 5) {
+            throw new IllegalArgumentException("最多只能上传5张退款凭证图片");
+        }
+
         // 终态订单不允许申请退款
         if (status == OrderStatus.COMPLETED
                 || status == OrderStatus.FULLY_REFUNDED
@@ -387,7 +396,9 @@ public class OrderService {
             refundRequest.setStatus(RefundStatus.PENDING);
         }
 
-        refundRequest.setRefundNo(generateRefundNo());
+        String generatedRefundNo = generateRefundNo();
+
+        refundRequest.setRefundNo(generatedRefundNo);
         refundRequest.setOrderNumber(order.getOrderNumber());
         refundRequest.setBuyerId(buyerId);
         refundRequest.setSellerId(order.getSellerId());
@@ -403,8 +414,10 @@ public class OrderService {
                     RefundImg img = refundImgRepository.findById(id)
                             .orElseThrow(() -> new IllegalArgumentException(
                                     "退款凭证图片不存在: " + id));
+                    imageProcessUtils.refundEvidenceImgProcess(img, generatedRefundNo); // 对原图进行压缩，更新url
                     img.setRefundRequest(refundRequest);
                     img.setLinked(true);
+                    img.setRefundNo(generatedRefundNo);
                     img.setOrderNumber(order.getOrderNumber());
                     return img;
                 })
@@ -413,9 +426,7 @@ public class OrderService {
         refundRequestRepository.save(refundRequest);
         orderRepository.save(order);
 
-        RefundRequestVO vo = new RefundRequestVO();
-        BeanUtils.copyProperties(refundRequest, vo);
-        return vo;
+        return convertToRefundRequestVO(refundRequest);
     }
 
     // 商家处理退款
@@ -443,7 +454,9 @@ public class OrderService {
                 // 部分退款：订单状态不变，更新累计退款金额和标记
                 order.addApprovedRefundAmount(refundRequest.getRefundAmount());
                 order.setHasRefund(true);
+                order.setHasPartialRefund(true);
                 paymentProvider.refund(order, refundRequest.getRefundAmount());
+                refundRequest.setStatus(RefundStatus.APPROVED);
                 log.info("商家同意部分退款: refundNo={}, amount={}, 订单状态维持: {}",
                         refundNo, refundRequest.getRefundAmount(), order.getStatus());
             } else if ("ALL_NO_RT".equals(refundRequest.getRefundType())) {
@@ -460,8 +473,6 @@ public class OrderService {
                 log.info("商家同意全额退款: refundNo={}, 订单进入终态 FULLY_REFUNDED", refundNo);
             } else if("ALL_RT".equals(refundRequest.getRefundType())) {
                 // 全额退款（退货退款），退款流程进从PENDING变更为PENDING_RETURN，等待买家提交退货物流单号
-                order.addApprovedRefundAmount(refundRequest.getRefundAmount());
-                order.setHasRefund(true);
                 refundRequest.setStatus(RefundStatus.PENDING_RETURN);
                 // PS：在自动化确认收货的功能实现时，需要检查当前订单下是否还有不为REJECTED / CANCELLED / APPROVED / AUTO_APPROVED / REFUNDED的退款申请
                 // 如果有则不自动确认收货，直到这些退款申请都处理完毕。
@@ -470,7 +481,6 @@ public class OrderService {
                 throw new IllegalArgumentException("未知的退款类型: " + refundRequest.getRefundType());
             }
 
-            refundRequest.setLastHandleTime(LocalDateTime.now());
 
         } else {
             if (reason == null || reason.isBlank()) {
@@ -479,7 +489,6 @@ public class OrderService {
             // 拒绝退款,订单状态不变
             refundRequest.setStatus(RefundStatus.REJECTED);
             refundRequest.setRejectReason(reason);
-            refundRequest.setLastHandleTime(LocalDateTime.now());
             log.info("商家拒绝退款: refundNo={}, orderNumber={}",
                     refundNo, refundRequest.getOrderNumber());
         }
@@ -492,9 +501,9 @@ public class OrderService {
         order.setHasPendingRefund(stillHasPending);
         orderRepository.save(order);
 
-        RefundRequestVO vo = new RefundRequestVO();
-        BeanUtils.copyProperties(refundRequest, vo);
-        return vo;
+        refundRequest.setLastHandleTime(LocalDateTime.now());
+
+        return convertToRefundRequestVO(refundRequest);
     }
 
 
@@ -530,9 +539,7 @@ public class OrderService {
 
         log.info("买家撤销退款: refundNo={}, buyerId={}", refundNo, buyerId);
 
-        RefundRequestVO vo = new RefundRequestVO();
-        BeanUtils.copyProperties(refundRequest, vo);
-        return vo;
+        return convertToRefundRequestVO(refundRequest);
     }
 
     // 9.取消订单
@@ -588,9 +595,7 @@ public class OrderService {
 
         log.info("买家填写退货物流: refundNo={}, trackingNo={}", refundNo, returnTrackingNo);
 
-        RefundRequestVO vo = new RefundRequestVO();
-        BeanUtils.copyProperties(refundRequest, vo);
-        return vo;
+        return convertToRefundRequestVO(refundRequest);
     }
 
     // 商家确认签收退货（通常来讲是自动的）
@@ -614,9 +619,9 @@ public class OrderService {
 
         log.info("商家确认收到退货: refundNo={}", refundNo);
 
-        RefundRequestVO vo = new RefundRequestVO();
-        BeanUtils.copyProperties(refundRequest, vo);
-        return vo;
+        log.info("商家确认收到退货: refundNo={}", refundNo);
+
+        return convertToRefundRequestVO(refundRequest);
     }
 
     // 商家已收到退货，决定是否执行退款
@@ -708,6 +713,7 @@ public class OrderService {
 
 
 
+
     // 将状态机恢复到订单当前状态，再发送事件
     private void sendEvent(Order order, OrderEvent event, String preStatus) throws OrderStateException {
         stateMachine.stopReactively().block();
@@ -746,6 +752,27 @@ public class OrderService {
         // 状态机迁移成功后，将新状态同步回订单实体
         order.setStatus(stateMachine.getState().getId());
     }
+
+    // 实体类转换辅助方法：将RefundRequest转换为前端需要的RefundRequestVO并手动映射图片列表
+    private RefundRequestVO convertToRefundRequestVO(RefundRequest refundRequest) {
+        RefundRequestVO vo = new RefundRequestVO();
+        BeanUtils.copyProperties(refundRequest, vo);
+
+        if (refundRequest.getImages() != null) {
+            List<RefundImgVO> imgVOs = refundRequest.getImages().stream()
+                    .map(img -> {
+                        RefundImgVO imgVO = new RefundImgVO();
+                        imgVO.setId(img.getId());
+                        imgVO.setRefundNo(img.getRefundNo());
+                        imgVO.setImageUrl(img.getImageUrl());
+                        return imgVO;
+                    })
+                    .toList();
+            vo.setImages(imgVOs);
+        }
+        return vo;
+    }
+
 
     // 查询订单并校验买家身份
     private Order getOrderAndValidateBuyer(String orderNumber, Long buyerId) {

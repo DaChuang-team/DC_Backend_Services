@@ -27,7 +27,7 @@ public class OrderVO {
     private Boolean hasPartialRefund;
     private Boolean hasPendingRefund = false;
     private Boolean hasRefund = false;
-    private BigDecimal approvedRefundAmount = BigDecimal.ZERO;
+    private BigDecimal approvedRefundAmount;
     private String address;
 
     public static OrderVO from(Order order) {
@@ -38,18 +38,21 @@ public class OrderVO {
         vo.sellerId = order.getSellerId();
         vo.status = order.getStatus().name();
         vo.totalAmount = order.getTotalAmount();
-        vo.shippingMethod = order.getShippingMethod();
         vo.trackingNo = order.getTrackingNo();
+        vo.shippingMethod = order.getShippingMethod();
         vo.createdAt = order.getCreatedAt();
+        vo.paidAt = order.getPaidAt();
         vo.confirmedAt = order.getConfirmedAt();
         vo.shippedAt = order.getShippedAt();
         vo.receivedAt = order.getReceivedAt();
-        vo.paidAt = order.getPaidAt();
         vo.completedAt = order.getCompletedAt();
         vo.items = order.getItems().stream()
                 .map(OrderItemVO::from)
                 .collect(Collectors.toList());
         vo.hasPartialRefund = order.getHasPartialRefund();
+        vo.hasPendingRefund = order.getHasPendingRefund();
+        vo.hasRefund = order.getHasRefund();
+        vo.approvedRefundAmount = order.getApprovedRefundAmount();
         vo.address = order.getReceiveAddress();
         return vo;
     }

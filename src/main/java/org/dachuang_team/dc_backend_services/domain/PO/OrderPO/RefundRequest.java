@@ -7,6 +7,7 @@ import org.dachuang_team.dc_backend_services.enumeration.RefundStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -66,8 +67,8 @@ public class RefundRequest {
     private LocalDateTime requestTime;  // 申请时间
     private LocalDateTime lastHandleTime;  // 商家或买家最后一次处理时间，审批或拒绝时更新
 
-    @OneToMany(mappedBy = "refundRequest", cascade = CascadeType.ALL)
-    private List<RefundImg> images;  // 退款凭证图片列表
+    @OneToMany(mappedBy = "refundRequest" , cascade = CascadeType.ALL)
+    private List<RefundImg> images = new ArrayList<>();  // 退款凭证图片列表
 
     public RefundStatus getStatus() {
         return status;
