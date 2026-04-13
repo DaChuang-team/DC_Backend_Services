@@ -1,16 +1,10 @@
 package org.dachuang_team.dc_backend_services.controller;
 
 import org.dachuang_team.dc_backend_services.common.Result;
+import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.*;
 import org.dachuang_team.dc_backend_services.enumeration.SysImagePurpose;
 import org.dachuang_team.dc_backend_services.domain.VO.FileUploadVO;
-import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.AIInteractionImg;
-import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.UserAvatar;
-import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.ProductImg;
-import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.SysImg;
-import org.dachuang_team.dc_backend_services.repository.AIInteractionImgRepository;
-import org.dachuang_team.dc_backend_services.repository.ProductImageRecordRepository;
-import org.dachuang_team.dc_backend_services.repository.SysImageRepository;
-import org.dachuang_team.dc_backend_services.repository.UserAvatarRecordRepository;
+import org.dachuang_team.dc_backend_services.repository.*;
 import org.dachuang_team.dc_backend_services.services.IStorageService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -37,6 +31,8 @@ public class ImageController {
     private SysImageRepository sysImageRepository;
     @Autowired
     private AIInteractionImgRepository aiInteractionImgRepository;
+    @Autowired
+    private RefundImgRepository refundImgRepository;
 
     @PutMapping("/productImgUpload")
     public Result<FileUploadVO> uploadImg(@RequestParam("file") MultipartFile file) {
@@ -87,6 +83,27 @@ public class ImageController {
         return Result.success("上传成功", response);
     }
 
+    @PutMapping("/refundEvidenceImgUpload")
+    public Result<FileUploadVO> uploadRefundEvidenceImg(@RequestParam("file") MultipartFile file) {
+        if (file.isEmpty()) return Result.error(406, "文件不能为空", null);
+        Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+        IStorageService.StorageResult result = storageService.uploadByFile(file);
+
+        RefundImg record = new RefundImg();
+        record.setImageUrl(result.getUrl());
+        record.setUploadTime(LocalDateTime.now());
+        record.setUploadUserId(currentUserId);
+        refundImgRepository.save(record);
+
+        FileUploadVO response = new FileUploadVO();
+        response.setId(record.getId());
+        response.setUrl(result.getUrl());
+        response.setFileName(result.getFileName());
+
+        return Result.success("上传成功", response);
+    }
+
     @PutMapping("/userAvatarUpload")
     public Result<FileUploadVO> uploadUserAvatar(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) return Result.error(406, "文件不能为空", null);
@@ -110,6 +127,7 @@ public class ImageController {
 
         return Result.success("上传成功", response);
     }
+
 
     //用户中途取消上传商品时，清理已上传但未绑定的图片记录和物理文件，不可用于修改商品时删除已绑定的图片
     //通过传入的URL找到对应记录，验证未绑定后删除记录和物理文件

@@ -63,20 +63,20 @@ public class Order {
 
     //创建时间，自动填充
     @CreatedDate
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
     //支付完成时间
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
-    @Column(name = "confirmed_at", updatable = false)
+    @Column(name = "confirmed_at")
     private LocalDateTime confirmedAt;
 
-    @Column(name = "shipped_at", updatable = false)
+    @Column(name = "shipped_at")
     private LocalDateTime shippedAt;
 
-    @Column(name = "received_at", updatable = false)
+    @Column(name = "received_at")
     private LocalDateTime receivedAt;
 
     //订单完成时间，买家确认收货填入
@@ -225,35 +225,27 @@ public class Order {
     public void addApprovedRefundAmount(BigDecimal amount) {
         this.approvedRefundAmount = this.approvedRefundAmount.add(amount);
     }
-
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
     }
-
     public LocalDateTime getConfirmedAt() {
         return confirmedAt;
     }
-
     public void setConfirmedAt(LocalDateTime confirmedAt) {
         this.confirmedAt = confirmedAt;
     }
-
     public LocalDateTime getShippedAt() {
         return shippedAt;
     }
-
     public void setShippedAt(LocalDateTime shippedAt) {
         this.shippedAt = shippedAt;
     }
-
     public LocalDateTime getReceivedAt() {
         return receivedAt;
     }
-
     public void setReceivedAt(LocalDateTime receivedAt) {
         this.receivedAt = receivedAt;
     }
-
     public BigDecimal remainingRefundable() {
         return this.totalAmount.subtract(this.approvedRefundAmount);
     }

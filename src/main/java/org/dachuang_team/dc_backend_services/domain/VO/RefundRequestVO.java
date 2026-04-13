@@ -24,7 +24,7 @@ public class RefundRequestVO {
     private LocalDateTime requestTime;  // 申请时间
     private LocalDateTime LastHandleTime;  // 商家处理时间
 
-    private List<RefundImg> images;  // 退款凭证图片列表
+    private List<RefundImgVO> images;  // 退款凭证图片列表
 
     public String getRejectReason() {
         return rejectReason;
@@ -92,10 +92,10 @@ public class RefundRequestVO {
     public void setLastHandleTime(LocalDateTime lastHandleTime) {
         this.LastHandleTime = lastHandleTime;
     }
-    public List<RefundImg> getImages() {
+    public List<RefundImgVO> getImages() {
         return images;
     }
-    public void setImages(List<RefundImg> images) {
+    public void setImages(List<RefundImgVO> images) {
         this.images = images;
     }
     public String getRefundNo() {

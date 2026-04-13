@@ -1,9 +1,12 @@
 package org.dachuang_team.dc_backend_services.common;
 
+import jakarta.transaction.Transactional;
 import net.coobird.thumbnailator.Thumbnails;
 import net.coobird.thumbnailator.geometry.Positions;
+import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.RefundImg;
 import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.UserAvatar;
 import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.ProductImg;
+import org.dachuang_team.dc_backend_services.repository.RefundImgRepository;
 import org.dachuang_team.dc_backend_services.services.OssStorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,7 +28,11 @@ public class ImageProcessUtils {
     @Autowired
     private OssStorageService ossService;
 
+    @Autowired
+    private RefundImgRepository refundImgRepository;
+
     //商品/民宿图片处理方法
+    @Transactional
     public void processAndCompressImage(ProductImg record, Long productId, int index, boolean isPrimary) {
         try {
             // 处理主图（只有未处理过的才裁剪+压缩+上传）
@@ -112,6 +119,7 @@ public class ImageProcessUtils {
     }
 
     // 用户头像处理方法
+    @Transactional
     public String userAvatarProcess(UserAvatar record, Long userId){
         try{
             // 用户头像只处理一次，后续如果用户再次上传新头像会覆盖原图并重新处理
@@ -171,4 +179,52 @@ public class ImageProcessUtils {
         // 无论是否处理过，最终都返回当前记录中的URL（如果之前处理过了，说明之前的URL已经是处理后的图了，可以直接复用）
         return record.getAvatarUrl();
     }
+
+    // 退款凭证图片处理方法（仅压缩）
+    @Transactional
+    public void refundEvidenceImgProcess(RefundImg img, String refundNo){
+        Long imgId = img.getId();
+        try{
+            RefundImg result = refundImgRepository.findById(imgId)
+                    .orElseThrow(() -> new RuntimeException("退款凭证图片记录不存在"));
+            if(!result.getProcessed()){
+                // 从OSS下载原始图
+                byte[] rawBytes = ossService.downloadByUrl(result.getImageUrl());
+                // 先读取原始图片
+                BufferedImage original = ImageIO.read(new ByteArrayInputStream(rawBytes));
+
+                // 动态压缩到300KB左右
+                float quality = 0.9f;
+                byte[] compressedBytes;
+                do {
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                    Thumbnails.of(original)
+                            .scale(1.0f)
+                            .outputFormat("jpg")
+                            .outputQuality(quality)
+                            .toOutputStream(baos);
+                    compressedBytes = baos.toByteArray();
+                    quality -= 0.05f;
+                } while (compressedBytes.length > 1080 * 720 && quality > 0.5f);
+
+                // 上传图片，更新图片记录信息
+                String fileName = String.format("refundEvidence/%s/ev_%s.jpg",
+                        refundNo, UUID.randomUUID().toString().substring(0, 8));
+
+                // 删除原图
+                ossService.delete(result.getImageUrl());
+
+                // 上传新图
+                String newUrl = ossService.uploadByByte(compressedBytes, fileName);
+
+                result.setImageUrl(newUrl);
+                result.setProcessed(true);
+                refundImgRepository.save(result);
+            }
+        } catch (IOException e) {
+            logger.error("退款凭证图片处理失败: {}", e.getMessage(), e);
+            throw new RuntimeException("退款凭证图片处理异常");
+        }
+    }
+
 }

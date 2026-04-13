@@ -17,7 +17,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.service.annotation.PostExchange;
 
 import java.util.Objects;
 
@@ -50,11 +49,11 @@ public class OrderController {
 
     // 商家确认
     @PostMapping("/confirm")
-    public ResponseEntity<Result<String>> confirmOrder(
+    public ResponseEntity<Result<OrderVO>> confirmOrder(
             @RequestParam String orderNumber) {
         Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        String orderNo = orderService.confirmOrder(orderNumber, currentMerchantId);
-        return ResponseEntity.ok(Result.success(200, "订单 " + orderNo + " 确认成功", null));
+        Order order = orderService.confirmOrder(orderNumber, currentMerchantId);
+        return ResponseEntity.ok(Result.success(200, "订单 " + order.getOrderNumber() + " 确认成功", OrderVO.from(order)));
     }
 
     // 买家申请退款
