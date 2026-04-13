@@ -17,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.service.annotation.PostExchange;
 
 import java.util.Objects;
 
@@ -100,7 +101,7 @@ public class OrderController {
     @PostMapping("/ship")
     public ResponseEntity<Result<OrderVO>> shipOrder(
             @RequestParam String orderNumber,
-            @RequestParam String trackingNo) throws OrderStateException {
+            @RequestParam (required = false) String trackingNo) throws OrderStateException {
         Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         Order order = orderService.shipOrder(orderNumber, currentMerchantId, trackingNo);
         String msg = "订单 " + orderNumber + " 已成功发货，发货方式：" + (Objects.equals(order.getShippingMethod(), "DELIVERY") ? "配送" + "，物流单号：" + trackingNo : "无须发货");
@@ -123,5 +124,37 @@ public class OrderController {
         Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         Order order = orderService.completeOrder(orderNumber, currentUserId);
         return ResponseEntity.ok(Result.success(200, "订单 " + orderNumber + " 已确认收货", OrderVO.from(order)));
+    }
+
+    // 买家退件发货
+    @PostMapping("/refund/ship-return")
+    public ResponseEntity<Result<RefundRequestVO>> refundReturnShipped(
+            @RequestParam String refundNo,
+            @RequestParam String returnTrackingNo) throws OrderStateException {
+        Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        RefundRequestVO vo = orderService.submitReturnTracking(refundNo, currentUserId, returnTrackingNo);
+        return ResponseEntity.ok(Result.success(200, "订单编号： " + vo.getOrderNumber() + " 下的退款请求 " + refundNo + " 已上传退件物流，单号：" + returnTrackingNo, vo));
+    }
+
+    // 商家签收退件
+    @PostMapping("/refund/return-receive")
+    public ResponseEntity<Result<RefundRequestVO>> refundReturnReceived(
+            @RequestParam String refundNo) throws OrderStateException {
+        Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        RefundRequestVO vo = orderService.receiveReturnedProduct(refundNo, currentMerchantId);
+        return ResponseEntity.ok(Result.success(200, "订单编号： " + vo.getOrderNumber() + " 下的退款请求 " + refundNo + " 已确认收到退件", vo));
+    }
+
+    // 商家处理退件
+    @PostMapping("/refund/handel-return")
+    public ResponseEntity<Result<RefundRequestVO>> refundHandleReturn(
+            @RequestParam String refundNo,
+            @RequestParam Boolean approve,
+            @RequestParam(required = false) String rejectReason) throws OrderStateException {
+        Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        RefundRequestVO vo = orderService.handleRefundAfterReturnReceived(refundNo, currentMerchantId, approve, rejectReason);
+        String message = vo.getStatus().equals(RefundStatus.APPROVED) ? "订单编号： " + vo.getOrderNumber() + " 下的退款请求 " + refundNo + " 已同意退件，正在等待系统自动退款" :
+                "订单编号： " + vo.getOrderNumber() + " 下的退款请求 " + refundNo + " 已拒绝，拒绝原因：" + rejectReason;
+        return ResponseEntity.ok(Result.success(200, message, vo));
     }
 }

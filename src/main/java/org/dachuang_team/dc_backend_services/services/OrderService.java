@@ -325,7 +325,7 @@ public class OrderService {
         // 发货前，申请全额仅退款直接通过
         if (status == OrderStatus.PAID || status == OrderStatus.CONFIRMED) {
             if(!Objects.equals(request.getRefundType(), "ALL_NO_RT")) {
-                throw new IllegalArgumentException("未发货订单只能申请全额仅退款");
+                throw new IllegalArgumentException("未发货订单请直接申请全额仅退款");
             }
             if (refundedTotal.compareTo(BigDecimal.ZERO) > 0) {
                 throw new IllegalArgumentException(
@@ -459,7 +459,7 @@ public class OrderService {
                 refundRequest.setStatus(RefundStatus.APPROVED);
                 log.info("商家同意全额退款: refundNo={}, 订单进入终态 FULLY_REFUNDED", refundNo);
             } else if("ALL_RT".equals(refundRequest.getRefundType())) {
-                // 全额退款（退货退款），退款流程进入PENDING_RETURN状态，等待买家提交退货物流单号
+                // 全额退款（退货退款），退款流程进从PENDING变更为PENDING_RETURN，等待买家提交退货物流单号
                 order.addApprovedRefundAmount(refundRequest.getRefundAmount());
                 order.setHasRefund(true);
                 refundRequest.setStatus(RefundStatus.PENDING_RETURN);
@@ -511,7 +511,9 @@ public class OrderService {
         if (RefundStatus.APPROVED.equals(refundRequest.getStatus()) ||
             RefundStatus.REJECTED.equals(refundRequest.getStatus()) ||
             RefundStatus.CANCELLED.equals(refundRequest.getStatus()) ||
-            RefundStatus.REFUNDED.equals(refundRequest.getStatus())) {
+            RefundStatus.REFUNDED.equals(refundRequest.getStatus()) ||
+            RefundStatus.AUTO_APPROVED.equals(refundRequest.getStatus())
+        ) {
             throw new IllegalStateException("退款申请已处理，无法撤销");
         }
 
@@ -571,6 +573,10 @@ public class OrderService {
             throw new OrderAccessDeniedException("无权操作此退款申请");
         }
 
+        if(!refundRequest.getRefundType().equals("ALL_RT")) {
+            throw new IllegalStateException("当前退款申请不支持退货流，如需退货请取消撤销当前退款并重新申请");
+        }
+
         if(!RefundStatus.PENDING_RETURN.equals(refundRequest.getStatus())) {
             throw new IllegalStateException("当前退款申请状态不允许提交退货物流单号");
         }
@@ -617,7 +623,7 @@ public class OrderService {
     // 同意：RETURN_RECEIVED -> APPROVED，执行退款。
     // 拒绝：RETURN_RECEIVED -> REJECTED，如商品损坏不符合退货条件。
     @Transactional
-    public RefundRequestVO confirmReturnReceived(String refundNo, Long sellerId,
+    public RefundRequestVO handleRefundAfterReturnReceived(String refundNo, Long sellerId,
                                                  boolean approve, String reason)
             throws OrderStateException {
 
@@ -627,8 +633,8 @@ public class OrderService {
         if (!refundRequest.getSellerId().equals(sellerId)) {
             throw new OrderAccessDeniedException("无权处理此退款申请");
         }
-        if (!RefundStatus.RETURNING.equals(refundRequest.getStatus())){
-            throw new IllegalStateException("买家尚未寄出商品，无法签收");
+        if (!RefundStatus.RETURN_RECEIVED.equals(refundRequest.getStatus())){
+            throw new IllegalStateException("退货尚未签收，请先签收退件后再处理退款");
         }
 
         Order order = getOrderAndValidateSeller(refundRequest.getOrderNumber(), sellerId);
@@ -654,7 +660,7 @@ public class OrderService {
             refundRequest.setStatus(RefundStatus.REJECTED);
             refundRequest.setRejectReason(reason);
             refundRequest.setLastHandleTime(LocalDateTime.now());
-            log.info("商家确认收货后拒绝退款: refundNo={}, reason={}", refundNo, reason);
+            log.info("商家签收后拒绝退款: refundNo={}, reason={}", refundNo, reason);
         }
 
         refundRequestRepository.save(refundRequest);

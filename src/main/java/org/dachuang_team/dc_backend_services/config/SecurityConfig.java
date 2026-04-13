@@ -48,8 +48,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/users/info", "/api/users/points/**").hasAnyRole("USER","ADMIN","SUPER_ADMIN")
                         .requestMatchers("/api/users/all", "/api/users/delete").hasAnyRole("ADMIN","SUPER_ADMIN")
 
-                        .requestMatchers("/api/orders/create","/api/orders/pay","/api/orders/refund/request","/api/orders/refund/cancel","/api/orders/cancel","/api/orders/receive","/api/orders/complete").hasRole("USER")
-                        .requestMatchers("/api/orders/confirm","/api/orders/refund/process","/api/orders/ship").hasRole("MERCHANT")
+                        .requestMatchers("/api/orders/create","/api/orders/pay","/api/orders/refund/request","/api/orders/refund/cancel",
+                                "/api/orders/cancel","/api/orders/receive","/api/orders/complete","/api/orders/refund/ship-return").hasRole("USER")
+                        .requestMatchers("/api/orders/confirm","/api/orders/refund/process","/api/orders/ship","/api/orders/refund/return-receive",
+                                "/api/orders/refund/handel-return").hasRole("MERCHANT")
 
                         .requestMatchers("/api/ai/**").hasRole("USER")
 
