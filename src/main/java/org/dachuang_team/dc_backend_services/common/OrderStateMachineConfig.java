@@ -4,6 +4,7 @@ import org.dachuang_team.dc_backend_services.enumeration.OrderEvent;
 import org.dachuang_team.dc_backend_services.enumeration.OrderStatus;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.statemachine.config.EnableStateMachine;
+import org.springframework.statemachine.config.EnableStateMachineFactory;
 import org.springframework.statemachine.config.StateMachineConfigurerAdapter;
 import org.springframework.statemachine.config.builders.StateMachineStateConfigurer;
 import org.springframework.statemachine.config.builders.StateMachineTransitionConfigurer;
@@ -11,7 +12,7 @@ import org.springframework.statemachine.config.builders.StateMachineTransitionCo
 import java.util.EnumSet;
 
 @Configuration
-@EnableStateMachine
+@EnableStateMachineFactory
 public class OrderStateMachineConfig
         extends StateMachineConfigurerAdapter<OrderStatus, OrderEvent> {
 

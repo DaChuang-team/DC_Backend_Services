@@ -5,6 +5,7 @@ import org.dachuang_team.dc_backend_services.enumeration.RefundStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -13,5 +14,7 @@ public interface RefundRequestRepository extends JpaRepository<RefundRequest, Lo
     Optional<RefundRequest> findByRefundNo(String refundNo);
 
     boolean existsByOrderNumberAndStatus(String orderNumber, RefundStatus status);
+
+    boolean existsByOrderNumberAndStatusNotIn(String orderNumber, Collection<RefundStatus> statuses);
 
 }

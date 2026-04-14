@@ -33,6 +33,7 @@ import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.statemachine.StateMachine;
 import org.springframework.statemachine.StateMachineEventResult;
+import org.springframework.statemachine.config.StateMachineFactory;
 import org.springframework.statemachine.support.DefaultStateMachineContext;
 import org.springframework.stereotype.Service;
 
@@ -50,7 +51,7 @@ public class OrderService {
 
     private static final Logger log = LoggerFactory.getLogger(OrderService.class);
 
-    private final StateMachine<OrderStatus, OrderEvent> stateMachine;
+    private final StateMachineFactory<OrderStatus, OrderEvent> stateMachineFactory;
     private final OrderStateInterceptor interceptor;
     private final OrderStateListener listener;
     private final OrderRepository orderRepository;
@@ -68,22 +69,16 @@ public class OrderService {
     @Autowired
     private ImageProcessUtils imageProcessUtils;
 
-    public OrderService(StateMachine<OrderStatus, OrderEvent> stateMachine,
+    public OrderService(StateMachineFactory<OrderStatus, OrderEvent> stateMachineFactory,
                         OrderStateInterceptor interceptor,
                         OrderStateListener listener,
                         OrderRepository orderRepository,
                         PaymentProvider paymentProvider) {
-        this.stateMachine = stateMachine;
+        this.stateMachineFactory = stateMachineFactory;
         this.interceptor = interceptor;
         this.listener = listener;
         this.orderRepository = orderRepository;
         this.paymentProvider = paymentProvider;
-
-        // 注册拦截器和监听器
-        this.stateMachine.getStateMachineAccessor().doWithAllRegions(a -> {
-            a.addStateMachineInterceptor(interceptor);
-            stateMachine.addStateListener(listener);
-        });
     }
 
     // 1.下单
@@ -301,10 +296,18 @@ public class OrderService {
     public RefundRequestVO requestRefund(RefundRequestDTO request, Long buyerId)
             throws OrderStateException {
 
-        if (refundRequestRepository.existsByOrderNumberAndStatus(
-                request.getOrderNumber(), RefundStatus.PENDING)){
-            throw new IllegalStateException("已有未处理的退款申请，请勿重复提交");
+        List<RefundStatus> terminalStatuses = List.of(
+                RefundStatus.APPROVED,
+                RefundStatus.REJECTED,
+                RefundStatus.AUTO_APPROVED,
+                RefundStatus.CANCELLED,
+                RefundStatus.REFUNDED
+        );
+
+        if (refundRequestRepository.existsByOrderNumberAndStatusNotIn(request.getOrderNumber(), terminalStatuses)) {
+            throw new IllegalStateException("已存在未完成的退款申请，请勿重复申请");
         }
+
         if(!request.getRefundType().equals("ALL_NO_RT") && !request.getRefundType().equals("ALL_RT") && !request.getRefundType().equals("PARTIAL")) {
             throw new IllegalArgumentException("未知的退款类型: " + request.getRefundType());
         }
@@ -714,17 +717,28 @@ public class OrderService {
 
 
 
-    // 将状态机恢复到订单当前状态，再发送事件
-    private void sendEvent(Order order, OrderEvent event, String preStatus) throws OrderStateException {
-        stateMachine.stopReactively().block();
+    private void sendEvent(Order order, OrderEvent event, String preStatus)
+            throws OrderStateException {
 
-        stateMachine.getStateMachineAccessor().doWithAllRegions(a ->
+        // 每次调用创建一个全新的状态机实例，无并发竞争
+        StateMachine<OrderStatus, OrderEvent> sm =
+                stateMachineFactory.getStateMachine(UUID.randomUUID().toString());
+
+        // 注册拦截器和监听器
+        sm.getStateMachineAccessor().doWithAllRegions(a -> {
+            a.addStateMachineInterceptor(interceptor);
+            sm.addStateListener(listener);
+        });
+
+        // 直接reset到当前订单状态
+        sm.getStateMachineAccessor().doWithAllRegions(a ->
                 a.resetStateMachineReactively(new DefaultStateMachineContext<>(
                         order.getStatus(), null, null, null)).block()
         );
 
-        stateMachine.startReactively().block();
+        sm.startReactively().block();
 
+        // 构造消息
         MessageBuilder<OrderEvent> builder = MessageBuilder
                 .withPayload(event)
                 .setHeader("orderId", order.getId())
@@ -737,10 +751,14 @@ public class OrderService {
         Message<OrderEvent> message = builder.build();
 
         boolean accepted = Boolean.TRUE.equals(
-                stateMachine.sendEvent(Mono.just(message))
-                        .map(result -> result.getResultType() == StateMachineEventResult.ResultType.ACCEPTED)
+                sm.sendEvent(Mono.just(message))
+                        .map(result -> result.getResultType()
+                                == StateMachineEventResult.ResultType.ACCEPTED)
                         .blockFirst()
         );
+
+        // 用完立即释放资源
+        sm.stopReactively().block();
 
         if (!accepted) {
             throw new OrderStateException(
@@ -749,8 +767,7 @@ public class OrderService {
             );
         }
 
-        // 状态机迁移成功后，将新状态同步回订单实体
-        order.setStatus(stateMachine.getState().getId());
+        order.setStatus(sm.getState().getId());
     }
 
     // 实体类转换辅助方法：将RefundRequest转换为前端需要的RefundRequestVO并手动映射图片列表
@@ -816,8 +833,4 @@ public class OrderService {
     }
 }
 
-/**
- * 有两点需要注意
- * 第一：sendEvent()每次都会stop-reset-start状态机，这是因为Spring StateMachine默认单例，多个订单共用同一实例，必须在每次操作前把它重置到当前订单的状态。
- * 第二：assertStatus()和状态机是双重保险：前者提前给出友好提示，后者作为最终兜底，二者不要删掉任何一个。
- */
+//// 注意：assertStatus()和状态机是双重保险：前者提前给出友好提示，后者作为最终兜底，二者不要删掉任何一个
