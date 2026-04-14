@@ -8,5 +8,14 @@ public enum OrderStatus {
     RECEIVED,          // 买家已签收
     COMPLETED,         // 已完成
     FULLY_REFUNDED,    // 全部退款完成，订单结束
-    CANCELLED          // 已取消
+    CANCELLED;         // 已取消
+
+    public static boolean isValidStatus(String status) {
+        for (OrderStatus s : OrderStatus.values()) {
+            if (s.name().equals(status)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

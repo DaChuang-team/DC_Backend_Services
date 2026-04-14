@@ -9,16 +9,25 @@ import org.dachuang_team.dc_backend_services.domain.DTO.RefundRequestDTO;
 import org.dachuang_team.dc_backend_services.domain.PO.OrderPO.Order;
 import org.dachuang_team.dc_backend_services.domain.VO.OrderVO;
 import org.dachuang_team.dc_backend_services.domain.VO.RefundRequestVO;
+import org.dachuang_team.dc_backend_services.enumeration.OrderStatus;
 import org.dachuang_team.dc_backend_services.enumeration.RefundStatus;
 import org.dachuang_team.dc_backend_services.services.OrderService;
 import org.dachuang_team.dc_backend_services.services.OrderServiceException.OrderStateException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.data.domain.Pageable;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -156,4 +165,30 @@ public class OrderController {
                 "订单编号： " + vo.getOrderNumber() + " 下的退款请求 " + refundNo + " 已拒绝，拒绝原因：" + rejectReason;
         return ResponseEntity.ok(Result.success(200, message, vo));
     }
+
+    @GetMapping("/seller/orders")
+    public ResponseEntity<Map<String, Object>> getSellerOrders(
+            @RequestParam Long sellerId,
+            @RequestParam(required = false) OrderStatus status,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        if(!OrderStatus.isValidStatus(String.valueOf(status)))
+            status = null;
+        Pageable pageable = PageRequest.of(page-1, size, Sort.by("createdAt").descending());
+        Page<Order> orderPage = orderService.getSellerOrders(sellerId, status, pageable);
+
+        List<OrderVO> orderVOList = orderPage.getContent().stream()
+                .map(OrderVO::from)
+                .collect(Collectors.toList());
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("orders", orderVOList);
+        response.put("totalItems", orderPage.getTotalElements());
+        response.put("totalPages", orderPage.getTotalPages());
+        response.put("currentPage", orderPage.getNumber()+1);
+
+        return ResponseEntity.ok(response);
+    }
+
 }

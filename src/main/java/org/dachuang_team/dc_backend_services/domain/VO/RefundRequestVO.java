@@ -22,7 +22,7 @@ public class RefundRequestVO {
     private RefundStatus status; // 退款申请状态
     private String rejectReason;  // 商家拒绝时的原因，只有在REJECTED状态时该字段有值
     private LocalDateTime requestTime;  // 申请时间
-    private LocalDateTime LastHandleTime;  // 商家处理时间
+    private LocalDateTime LastHandleTime;  // 上次操作的处理时间
 
     private List<RefundImgVO> images;  // 退款凭证图片列表
 

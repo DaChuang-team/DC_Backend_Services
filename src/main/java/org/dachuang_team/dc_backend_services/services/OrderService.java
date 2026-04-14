@@ -304,8 +304,18 @@ public class OrderService {
                 RefundStatus.REFUNDED
         );
 
+        List<RefundStatus> approvedStatuses = List.of(
+                RefundStatus.APPROVED,
+                RefundStatus.AUTO_APPROVED,
+                RefundStatus.REFUNDED
+        );
+
         if (refundRequestRepository.existsByOrderNumberAndStatusNotIn(request.getOrderNumber(), terminalStatuses)) {
             throw new IllegalStateException("已存在未完成的退款申请，请勿重复申请");
+        }
+
+        if(refundRequestRepository.countByOrderNumberAndStatusIn(request.getOrderNumber(), approvedStatuses) >= 3){
+            throw new IllegalStateException("每笔订单最多支持3次成功的退款，该订单已达到退款次数上限");
         }
 
         if(!request.getRefundType().equals("ALL_NO_RT") && !request.getRefundType().equals("ALL_RT") && !request.getRefundType().equals("PARTIAL")) {
@@ -686,12 +696,15 @@ public class OrderService {
 
     // 11.查询相关
 
-    // 查询单个订单（含订单项）
+    // 用户或商家查询订单详情，订单只能被订单相关的买家或卖家访问
     @Transactional
-    public Order getOrder(String orderNumber) {
+    public Order getOrder(String orderNumber, Long relatedUserId) {
         Order order = orderRepository.findByOrderNumber(orderNumber);
         if(order == null) {
             throw new OrderNotFoundException("订单不存在: " + orderNumber);
+        }
+        if(!order.getSellerId().equals(relatedUserId) || !order.getBuyerId().equals(relatedUserId)) {
+            throw new OrderAccessDeniedException("无权访问此订单");
         }
          return order;
     }
@@ -714,7 +727,29 @@ public class OrderService {
         return orderRepository.findBySellerId(sellerId, pageable);
     }
 
+    // 商家查询自己的退款申请列表，支持按状态筛选
+    @Transactional
+    public Page<RefundRequest> getSellerRefundRequests(Long sellerId, RefundStatus status, Pageable pageable) {
+        if (status != null) {
+            return refundRequestRepository.findBySellerIdAndStatus(sellerId, status, pageable);
+        }
+        return refundRequestRepository.findBySellerId(sellerId, pageable);
+    }
 
+    // 根据订单id查询该订单下的所有退款申请，根据创建时间排序
+    public List<RefundRequestVO> getRefundRequestsByOrderNumber(String orderNumber) {
+        List<RefundRequest> result = refundRequestRepository.findByOrderNumberOrderByRequestTimeDesc(orderNumber);
+        return result.stream()
+                .map(this::convertToRefundRequestVO)
+                .toList();
+    }
+
+    // 根据退款申请编号查询退款申请详情
+    public RefundRequestVO getRefundRequestsByRefundNo(String refundNo) {
+        RefundRequest refundRequest = refundRequestRepository.findByRefundNo(refundNo)
+                .orElseThrow(() -> new IllegalArgumentException("退款申请不存在"));
+        return convertToRefundRequestVO(refundRequest);
+    }
 
 
     private void sendEvent(Order order, OrderEvent event, String preStatus)
