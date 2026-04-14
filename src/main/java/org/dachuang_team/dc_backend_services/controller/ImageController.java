@@ -33,6 +33,8 @@ public class ImageController {
     private AIInteractionImgRepository aiInteractionImgRepository;
     @Autowired
     private RefundImgRepository refundImgRepository;
+    @Autowired
+    private ShopBannerImgRepository shopBannerImgRepository;
 
     @PutMapping("/productImgUpload")
     public Result<FileUploadVO> uploadImg(@RequestParam("file") MultipartFile file) {
@@ -52,7 +54,7 @@ public class ImageController {
 
         // 构造并返回要求的 DTO
         FileUploadVO response = new FileUploadVO();
-        response.setId(record.getId()); // 这个id是图片记录的id，前端后续绑定商品时需要传回这个id以便关联
+        response.setId(record.getId()); //回传id数组以关联
         response.setUrl(result.getUrl());
         response.setFileName(result.getFileName());
 
@@ -77,7 +79,8 @@ public class ImageController {
 
         // 构造并返回要求的DTO，前端通过传递url对AI发起图片交互请求
         FileUploadVO response = new FileUploadVO();
-        response.setUrl(result.getUrl());
+        response.setId(record.getImageId());
+        response.setUrl(result.getUrl()); //回传URL以关联
         response.setFileName(result.getFileName());
 
         return Result.success("上传成功", response);
@@ -97,10 +100,26 @@ public class ImageController {
         refundImgRepository.save(record);
 
         FileUploadVO response = new FileUploadVO();
-        response.setId(record.getId());
+        response.setId(record.getId()); //回传id数组以关联
         response.setUrl(result.getUrl());
         response.setFileName(result.getFileName());
 
+        return Result.success("上传成功", response);
+    }
+
+    @PutMapping("/shopBannerImgUpload")
+    public Result<FileUploadVO> uploadShopBannerImg(@RequestParam("file") MultipartFile file) {
+        if (file.isEmpty()) return Result.error(406, "文件不能为空", null);
+        IStorageService.StorageResult result = storageService.uploadByFile(file);
+        ShopBannerImg record = new ShopBannerImg();
+        record.setImgUrl(result.getUrl());
+        record.setUploadTime(LocalDateTime.now());
+        shopBannerImgRepository.save(record);
+
+        FileUploadVO response = new FileUploadVO();
+        response.setId(record.getId());
+        response.setUrl(result.getUrl()); //回传URL以关联
+        response.setFileName(result.getFileName());
         return Result.success("上传成功", response);
     }
 
@@ -122,7 +141,8 @@ public class ImageController {
 
         // 构造并返回要求的 DTO，前端后续调用修改用户信息接口时传回这个URL以便关联
         FileUploadVO response = new FileUploadVO();
-        response.setUrl(result.getUrl());
+        response.setId(record.getId());
+        response.setUrl(result.getUrl()); //回传URL以关联
         response.setFileName(result.getFileName());
 
         return Result.success("上传成功", response);
@@ -162,6 +182,7 @@ public class ImageController {
         sysImageRepository.save(record);
 
         FileUploadVO response = new FileUploadVO();
+        response.setId(record.getImageId());
         response.setUrl(result.getUrl());
         response.setFileName(result.getFileName());
 

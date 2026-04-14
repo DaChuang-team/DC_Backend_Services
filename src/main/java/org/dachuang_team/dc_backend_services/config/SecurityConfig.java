@@ -63,9 +63,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/products/all", "/api/products/unApproved", "/api/products/approve", "/api/products/disApprove").hasRole("ADMIN")
                         .requestMatchers("/api/products/delete", "/api/products/update","/api/products/add").hasRole("MERCHANT")
 
-                        .requestMatchers("/api/image/productImgUpload", "/api/image/uploadPurge").hasRole("MERCHANT")
+                        .requestMatchers("/api/image/productImgUpload").hasRole("MERCHANT")
                         .requestMatchers("/api/image/AIInteractionImgUpload", "/api/image/userAvatarUpload","/api/image/refundEvidenceImgUpload").hasRole("USER")
                         .requestMatchers("/api/image/sysImgUpload").hasAnyRole("ADMIN","SUPER_ADMIN")
+                        .requestMatchers("/api/image/uploadPurge","/api/image/shopBannerImgUpload").permitAll()
 
                         .requestMatchers("/api/admins/admindelete").hasRole("SUPER_ADMIN")
 

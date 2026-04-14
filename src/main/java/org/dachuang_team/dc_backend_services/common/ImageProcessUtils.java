@@ -4,6 +4,7 @@ import jakarta.transaction.Transactional;
 import net.coobird.thumbnailator.Thumbnails;
 import net.coobird.thumbnailator.geometry.Positions;
 import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.RefundImg;
+import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.ShopBannerImg;
 import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.UserAvatar;
 import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.ProductImg;
 import org.dachuang_team.dc_backend_services.repository.RefundImgRepository;
@@ -225,6 +226,72 @@ public class ImageProcessUtils {
             logger.error("退款凭证图片处理失败: {}", e.getMessage(), e);
             throw new RuntimeException("退款凭证图片处理异常");
         }
+    }
+
+    @Transactional
+    public String shopBannerImgProcess(ShopBannerImg img, Long merchantId){
+        try{
+            if(!img.getProcessed()){
+                // 从OSS下载原始图
+                byte[] rawBytes = ossService.downloadByUrl(img.getImgUrl());
+
+                BufferedImage original = ImageIO.read(new ByteArrayInputStream(rawBytes));
+
+                int originalWidth = original.getWidth();
+                int originalHeight = original.getHeight();
+
+                float targetRatio = 2.5f;
+                int cropWidth = originalWidth;
+                int cropHeight = (int) (cropWidth / targetRatio);
+
+                if (cropHeight > originalHeight) {
+                    cropHeight = originalHeight;
+                    cropWidth = (int) (cropHeight * targetRatio);
+                }
+
+                BufferedImage cropped = Thumbnails.of(original)
+                        .sourceRegion(Positions.CENTER, cropWidth, cropHeight)
+                        .size(cropWidth, cropHeight)
+                        .asBufferedImage();
+
+                BufferedImage finalBanner = Thumbnails.of(cropped)
+                        .size(1500, 600)
+                        .asBufferedImage();
+
+                float quality = 0.9f;
+                byte[] compressedBytes;
+
+                do {
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                    Thumbnails.of(finalBanner)
+                            .scale(1.0f)
+                            .outputFormat("jpg")
+                            .outputQuality(quality)
+                            .toOutputStream(baos);
+
+                    compressedBytes = baos.toByteArray();
+                    quality -= 0.05f;
+
+                } while (compressedBytes.length > 500 * 1024 && quality > 0.5f);
+
+                String fileName = String.format("shopBanner/%d/banner_%s.jpg",
+                        merchantId, UUID.randomUUID().toString().substring(0, 8));
+
+                // 删除原图
+                ossService.delete(img.getImgUrl());
+
+                // 上传新图
+                String newUrl = ossService.uploadByByte(compressedBytes, fileName);
+
+                img.setImgUrl(newUrl);
+                img.setProcessed(true);
+            }
+
+        } catch (IOException e) {
+            logger.error("商户顶横幅图处理失败: {}", e.getMessage(), e);
+            throw new RuntimeException("商户顶横幅图处理异常");
+        }
+        return img.getImgUrl();
     }
 
 }
