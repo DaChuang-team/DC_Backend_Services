@@ -327,12 +327,11 @@ public class UserService implements IUserService {
         if (addressDTO.isDefault() && !existingAddress.isDefault()) {
             // 将该用户下其他所有地址设为非默认
             addressRepository.resetDefaultByUserId(userId);
+            // 把当前地址设为默认
+            existingAddress.setDefault(true);
         }
 
-        BeanUtils.copyProperties(addressDTO, existingAddress);
-        // 补偿字段
-        existingAddress.setId(addressId);
-        existingAddress.setUserId(userId);
+        BeanUtils.copyProperties(addressDTO, existingAddress, "id", "userId", "createdAt", "updatedAt");
         existingAddress.setUpdatedAt(LocalDateTime.now());
 
         addressRepository.save(existingAddress);
