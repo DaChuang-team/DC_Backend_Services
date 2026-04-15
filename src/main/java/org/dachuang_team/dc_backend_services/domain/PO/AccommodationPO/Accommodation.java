@@ -2,6 +2,7 @@ package org.dachuang_team.dc_backend_services.domain.PO.AccommodationPO;
 import org.dachuang_team.dc_backend_services.domain.PO.MerchantPO.Merchant;
 import jakarta.persistence.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -30,7 +31,7 @@ public class Accommodation {
     @Column(name = "price_from")
     private Double priceFrom;
 
-    // 设施标签，JSON 数组存储，如 ["WiFi", "停车场", "早餐"]
+    // 设施标签，JSON 数组存储
     @Column(name = "amenities", columnDefinition = "JSON")
     private String amenities;
 
@@ -41,10 +42,11 @@ public class Accommodation {
     private String address;
 
     @Column(name = "latitude", precision = 10, scale = 7)
-    private Double latitude;
+    private BigDecimal latitude;
 
     @Column(name = "longitude", precision = 10, scale = 7)
-    private Double longitude;
+    private BigDecimal longitude;
+
 
     @Column(name = "check_in_time", length = 10)
     private String checkInTime; // 如 "14:00"
@@ -131,16 +133,16 @@ public class Accommodation {
     public void setAddress(String address) {
         this.address = address;
     }
-    public Double getLatitude() {
+    public BigDecimal getLatitude() {
         return latitude;
     }
-    public void setLatitude(Double latitude) {
+    public void setLatitude(BigDecimal latitude) {
         this.latitude = latitude;
     }
-    public Double getLongitude() {
+    public BigDecimal getLongitude() {
         return longitude;
     }
-    public void setLongitude(Double longitude) {
+    public void setLongitude(BigDecimal longitude) {
         this.longitude = longitude;
     }
     public String getCheckOutTime() {

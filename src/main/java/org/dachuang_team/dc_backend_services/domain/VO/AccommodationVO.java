@@ -1,5 +1,6 @@
 package org.dachuang_team.dc_backend_services.domain.VO;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 public class AccommodationVO {
@@ -11,8 +12,8 @@ public class AccommodationVO {
     private String amenities;
     private Integer starRating; // 星级，1~5
     private String address;
-    private Double latitude;
-    private Double longitude;
+    private BigDecimal latitude;
+    private BigDecimal longitude;
     private String checkInTime; // 如 "14:00"
     private String checkOutTime; // 如 "12:00"
     private String policyNote; // 入住须知、取消政策等
@@ -67,16 +68,16 @@ public class AccommodationVO {
     public void setAddress(String address) {
         this.address = address;
     }
-    public Double getLatitude() {
+    public BigDecimal getLatitude() {
         return latitude;
     }
-    public void setLatitude(Double latitude) {
+    public void setLatitude(BigDecimal latitude) {
         this.latitude = latitude;
     }
-    public Double getLongitude() {
+    public BigDecimal getLongitude() {
         return longitude;
     }
-    public void setLongitude(Double longitude) {
+    public void setLongitude(BigDecimal longitude) {
         this.longitude = longitude;
     }
     public String getCheckOutTime() {

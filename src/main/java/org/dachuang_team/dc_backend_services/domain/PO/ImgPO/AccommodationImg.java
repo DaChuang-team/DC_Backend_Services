@@ -42,6 +42,9 @@ public class AccommodationImg {
     @Column(name = "accommodation_id")
     private Long accommodationId;
 
+    @Column(name = "upload_merchant_id")
+    private Long uploadMerchantId;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -104,5 +107,11 @@ public class AccommodationImg {
     }
     public void setId(Long id) {
         this.id = id;
+    }
+    public Long getUploadMerchantId() {
+        return uploadMerchantId;
+    }
+    public void setUploadMerchantId(Long uploadMerchantId) {
+        this.uploadMerchantId = uploadMerchantId;
     }
 }

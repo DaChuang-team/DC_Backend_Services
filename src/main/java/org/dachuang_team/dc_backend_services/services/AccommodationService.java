@@ -34,12 +34,11 @@ public class AccommodationService implements IAccommodationService {
     private ImageProcessUtils imageProcessUtils;
 
     @Override
-    @Transactional
+    @Transactional(rollbackOn = Exception.class)
     public AccommodationVO addAccommodation(AccommodationDTO accommodationDTO, Long merchantId) {
         Merchant seller = merchantRepository.findById(merchantId)
                 .orElseThrow(() -> new IllegalArgumentException("商家不存在"));
 
-        // 与 ProductService 逻辑保持一致：状态为 0 时不允许发布
         if (seller.getStatus() != 1){
             throw new IllegalStateException("商家未审核通过或被封禁，无法发布酒店");
         }
@@ -81,6 +80,12 @@ public class AccommodationService implements IAccommodationService {
         vo.setImages(imageVOList);
         return vo;
     }
+
+//    @Override
+//    @Transactional(rollbackOn = Exception.class)
+//    public AccommodationVO updateAccommodation(Long accommodationId, AccommodationDTO accommodationDTO) {
+//        return null;
+//    }
 
     // 绑定 + 处理图片（压缩、裁剪、首图缩略图）
     private List<AccommodationImgVO> bindAndProcessImages(Long accommodationId, List<Long> imageIds) {

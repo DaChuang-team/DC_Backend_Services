@@ -5,4 +5,6 @@ import org.dachuang_team.dc_backend_services.domain.VO.AccommodationVO;
 
 public interface IAccommodationService {
     AccommodationVO addAccommodation(AccommodationDTO accommodationDTO,Long merchantId);
+
+//    AccommodationVO updateAccommodation(Long accommodationId, AccommodationDTO accommodationDTO, Long merchantId);
 }

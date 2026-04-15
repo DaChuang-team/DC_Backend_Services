@@ -35,6 +35,8 @@ public class ImageController {
     private RefundImgRepository refundImgRepository;
     @Autowired
     private ShopBannerImgRepository shopBannerImgRepository;
+    @Autowired
+    private AccommodationImgRepository accommodationImgRepository;
 
     @PutMapping("/productImgUpload")
     public Result<FileUploadVO> uploadImg(@RequestParam("file") MultipartFile file) {
@@ -122,6 +124,27 @@ public class ImageController {
         response.setFileName(result.getFileName());
         return Result.success("上传成功", response);
     }
+
+    @PutMapping("/accommodationImgUpload")
+    public Result<FileUploadVO> uploadAccommodationImg(@RequestParam("file") MultipartFile file) {
+        if (file.isEmpty()) return Result.error(406, "文件不能为空", null);
+        Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        IStorageService.StorageResult result = storageService.uploadByFile(file);
+
+        AccommodationImg record = new AccommodationImg();
+        record.setUrl(result.getUrl());
+        record.setPhysicalPath(result.getPhysicalPath());
+        record.setCreatedAt(LocalDateTime.now());
+        record.setUploadMerchantId(currentMerchantId);
+
+        accommodationImgRepository.save(record);
+        FileUploadVO response = new FileUploadVO();
+        response.setId(record.getId());
+        response.setUrl(result.getUrl());
+        response.setFileName(result.getFileName());
+        return Result.success("上传成功", response);
+    }
+
 
     @PutMapping("/userAvatarUpload")
     public Result<FileUploadVO> uploadUserAvatar(@RequestParam("file") MultipartFile file) {

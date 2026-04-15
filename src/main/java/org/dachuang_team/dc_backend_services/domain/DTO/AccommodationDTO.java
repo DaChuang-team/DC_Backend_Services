@@ -2,6 +2,7 @@ package org.dachuang_team.dc_backend_services.domain.DTO;
 
 import jakarta.validation.constraints.NotBlank;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 public class AccommodationDTO {
@@ -17,12 +18,11 @@ public class AccommodationDTO {
     private Integer starRating; // 星级，1~5
     @NotBlank(message = "酒店地址不能为空")
     private String address;
-    private Double latitude;
-    private Double longitude;
+    private BigDecimal latitude;
+    private BigDecimal longitude;
     private String checkInTime; // 如 "14:00"
     private String checkOutTime; // 如 "12:00"
     private String policyNote; // 入住须知、取消政策等
-    private String tbImageUrl; // 首图缩略图 URL
     private List<Long> imageIds;
 
     public String getPolicyNote() {
@@ -73,16 +73,16 @@ public class AccommodationDTO {
     public void setAddress(String address) {
         this.address = address;
     }
-    public Double getLatitude() {
+    public BigDecimal getLatitude() {
         return latitude;
     }
-    public void setLatitude(Double latitude) {
+    public void setLatitude(BigDecimal latitude) {
         this.latitude = latitude;
     }
-    public Double getLongitude() {
+    public BigDecimal getLongitude() {
         return longitude;
     }
-    public void setLongitude(Double longitude) {
+    public void setLongitude(BigDecimal longitude) {
         this.longitude = longitude;
     }
     public String getCheckInTime() {
@@ -96,12 +96,6 @@ public class AccommodationDTO {
     }
     public void setCheckOutTime(String checkOutTime) {
         this.checkOutTime = checkOutTime;
-    }
-    public String getTbImageUrl() {
-        return tbImageUrl;
-    }
-    public void setTbImageUrl(String tbImageUrl) {
-        this.tbImageUrl = tbImageUrl;
     }
     public String getPhone() {
         return phone;
