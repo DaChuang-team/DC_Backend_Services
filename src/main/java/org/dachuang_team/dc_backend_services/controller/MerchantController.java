@@ -3,10 +3,14 @@ package org.dachuang_team.dc_backend_services.controller;
 import org.dachuang_team.dc_backend_services.common.Result;
 import org.dachuang_team.dc_backend_services.domain.DTO.MerchantLoginDTO;
 import org.dachuang_team.dc_backend_services.domain.DTO.MerchantRegisterDTO;
+import org.dachuang_team.dc_backend_services.domain.DTO.MerchantUpdateDTO;
 import org.dachuang_team.dc_backend_services.domain.VO.MerchantVO;
 import org.dachuang_team.dc_backend_services.services.MerchantService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/merchants")
@@ -39,4 +43,18 @@ public class MerchantController {
             return Result.error(500, "登录失败，这可能不是你的问题: " + e.getMessage());
         }
     }
+
+    @PutMapping("/update")
+    public Result<Map<String, Object>> updateMerchant(@RequestBody MerchantUpdateDTO merchantUpdateDTO) {
+        try {
+            Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            Map<String, Object> resp = merchantService.updateMerchant(merchantUpdateDTO, currentMerchantId);
+            return Result.success("商户信息更新成功", resp);
+        }  catch (IllegalArgumentException e) {
+        return Result.error(402, "参数错误" + e.getMessage(), null);
+        } catch (Exception e) {
+            return Result.error(500, "商户信息更新失败，这可能不是你的问题: " + e.getMessage(), null);
+        }
+    }
+
 }

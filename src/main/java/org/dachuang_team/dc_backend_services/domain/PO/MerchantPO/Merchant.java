@@ -14,6 +14,9 @@ public class Merchant {
     @Column(name = "merchant_name", nullable = false, length = 20)
     private String merchantName;
 
+    @Column(name = "shop_name", nullable = false, length = 20)
+    private String shopName = "未命名店铺";
+
     @Column(name = "merchant_phone", nullable = false, length = 15)
     private String merchantPhone;
 
@@ -138,5 +141,13 @@ public class Merchant {
 
     public void setLastLoginAt(LocalDateTime lastLoginAt) {
         this.lastLoginAt = lastLoginAt;
+    }
+
+    public String getShopName() {
+        return shopName;
+    }
+
+    public void setShopName(String shopName) {
+        this.shopName = shopName;
     }
 }
