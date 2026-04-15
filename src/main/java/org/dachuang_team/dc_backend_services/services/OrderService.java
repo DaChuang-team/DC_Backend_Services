@@ -698,16 +698,10 @@ public class OrderService {
 
     // 用户或商家查询订单详情，订单只能被订单相关的买家或卖家访问
     @Transactional
-    public Order getOrder(String orderNumber, Long relatedUserId) {
-        Order order = orderRepository.findByOrderNumber(orderNumber);
-        if(order == null) {
-            throw new OrderNotFoundException("订单不存在: " + orderNumber);
-        }
-        if(!order.getSellerId().equals(relatedUserId) || !order.getBuyerId().equals(relatedUserId)) {
-            throw new OrderAccessDeniedException("无权访问此订单");
-        }
-         return order;
+    public Page<Order> getOrdersByOrderNumber(String orderNumber, Long relatedUserId, Pageable pageable) {
+        return orderRepository.findByOrderNumberLikeAndUser(orderNumber, relatedUserId, pageable);
     }
+
 
     // 买家查询自己的订单列表，支持按状态筛选
     @Transactional
@@ -727,17 +721,40 @@ public class OrderService {
         return orderRepository.findBySellerId(sellerId, pageable);
     }
 
-    // 商家查询自己的退款申请列表，支持按状态筛选
+    // 商家查询自己的退款列表，支持按状态筛选
     @Transactional
-    public Page<RefundRequest> getSellerRefundRequests(Long sellerId, RefundStatus status, Pageable pageable) {
+    public Page<RefundRequestVO> getSellerRefundRequests(Long sellerId, RefundStatus status, Pageable pageable) {
+        Page<RefundRequest> refundRequests;
         if (status != null) {
-            return refundRequestRepository.findBySellerIdAndStatus(sellerId, status, pageable);
+            refundRequests = refundRequestRepository.findBySellerIdAndStatus(sellerId, status, pageable);
+        } else {
+            refundRequests = refundRequestRepository.findBySellerId(sellerId, pageable);
         }
-        return refundRequestRepository.findBySellerId(sellerId, pageable);
+        return refundRequests.map(this::convertToRefundRequestVO);
+    }
+
+    // 买家查询自己的退款列表，支持按状态筛选
+    @Transactional
+    public Page<RefundRequestVO> getBuyerRefundRequests(Long buyerId, RefundStatus status, Pageable pageable) {
+        Page<RefundRequest> refundRequests;
+        if (status != null) {
+            refundRequests = refundRequestRepository.findByBuyerIdAndStatus(buyerId, status, pageable);
+        } else {
+            refundRequests = refundRequestRepository.findByBuyerId(buyerId, pageable);
+        }
+        return refundRequests.map(this::convertToRefundRequestVO);
     }
 
     // 根据订单id查询该订单下的所有退款申请，根据创建时间排序
-    public List<RefundRequestVO> getRefundRequestsByOrderNumber(String orderNumber) {
+    public List<RefundRequestVO> getRefundRequestsByOrderNumber(String orderNumber,Long relatedUserId) {
+        Order order = orderRepository.findByOrderNumber(orderNumber);
+        if(order == null) {
+            throw new OrderNotFoundException("订单不存在: " + orderNumber);
+        }
+        if(!order.getSellerId().equals(relatedUserId) && !order.getBuyerId().equals(relatedUserId)) {
+            throw new OrderAccessDeniedException("无权访问此订单");
+        }
+
         List<RefundRequest> result = refundRequestRepository.findByOrderNumberOrderByRequestTimeDesc(orderNumber);
         return result.stream()
                 .map(this::convertToRefundRequestVO)
@@ -745,10 +762,9 @@ public class OrderService {
     }
 
     // 根据退款申请编号查询退款申请详情
-    public RefundRequestVO getRefundRequestsByRefundNo(String refundNo) {
-        RefundRequest refundRequest = refundRequestRepository.findByRefundNo(refundNo)
-                .orElseThrow(() -> new IllegalArgumentException("退款申请不存在"));
-        return convertToRefundRequestVO(refundRequest);
+    public Page<RefundRequestVO> getRefundRequestsByRefundNo(String refundNo, Long relatedUserId, Pageable pageable) {
+        Page<RefundRequest> page = refundRequestRepository.findByRefundNoLikeAndUser(refundNo, relatedUserId, pageable);
+        return page.map(this::convertToRefundRequestVO);
     }
 
 

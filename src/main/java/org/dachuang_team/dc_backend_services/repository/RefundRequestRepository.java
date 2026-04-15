@@ -5,6 +5,8 @@ import org.dachuang_team.dc_backend_services.enumeration.RefundStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
@@ -23,7 +25,16 @@ public interface RefundRequestRepository extends JpaRepository<RefundRequest, Lo
 
     Page<RefundRequest> findBySellerIdAndStatus(Long sellerId, RefundStatus status, Pageable pageable);
 
+    List<RefundRequest> findByOrderNumberOrderByRequestTimeDesc(String orderNumber);
+
+    Page<RefundRequest> findByBuyerIdAndStatus(Long buyerId, RefundStatus status, Pageable pageable);
+
+    Page<RefundRequest> findByBuyerId(Long buyerId, Pageable pageable);
+
     Page<RefundRequest> findBySellerId(Long sellerId, Pageable pageable);
 
-    List<RefundRequest> findByOrderNumberOrderByRequestTimeDesc(String orderNumber);
+    @Query("SELECT r FROM RefundRequest r WHERE r.refundNo LIKE %:refundNo% AND (r.sellerId = :userId OR r.buyerId = :userId)")
+    Page<RefundRequest> findByRefundNoLikeAndUser(@Param("refundNo") String refundNo, @Param("userId") Long userId, Pageable pageable);
+
+
 }

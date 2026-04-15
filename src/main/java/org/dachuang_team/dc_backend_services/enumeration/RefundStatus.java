@@ -9,5 +9,14 @@ public enum RefundStatus {
     PENDING_RETURN, // 等待用户退回商品
     RETURNING, // 用户已发出退货，等待商家确认收货
     RETURN_RECEIVED, // 商家已收到退货，等待商家处理退款
-    REFUNDED // 退款已打款，流程结束
+    REFUNDED; // 退款已打款，流程结束
+
+    public static boolean isValidStatus(String status) {
+        for (RefundStatus s : RefundStatus.values()) {
+            if (s.name().equals(status)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

@@ -13,6 +13,7 @@ import org.dachuang_team.dc_backend_services.enumeration.OrderStatus;
 import org.dachuang_team.dc_backend_services.enumeration.RefundStatus;
 import org.dachuang_team.dc_backend_services.services.OrderService;
 import org.dachuang_team.dc_backend_services.services.OrderServiceException.OrderStateException;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -166,18 +167,138 @@ public class OrderController {
         return ResponseEntity.ok(Result.success(200, message, vo));
     }
 
-    @GetMapping("/seller/orders")
-    public ResponseEntity<Map<String, Object>> getSellerOrders(
-            @RequestParam Long sellerId,
+    // 买家查询订单列表
+    @GetMapping("/user/orders")
+    public ResponseEntity<Result<Map<String, Object>>> getUserOrders(
             @RequestParam(required = false) OrderStatus status,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
+        Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
         if(!OrderStatus.isValidStatus(String.valueOf(status)))
             status = null;
         Pageable pageable = PageRequest.of(page-1, size, Sort.by("createdAt").descending());
-        Page<Order> orderPage = orderService.getSellerOrders(sellerId, status, pageable);
+        Page<Order> orderPage = orderService.getBuyerOrders(currentUserId, status, pageable);
 
+        return getOrdersMapResponseEntity(orderPage);
+    }
+
+    // 商家查询订单列表
+    @GetMapping("/seller/orders")
+    public ResponseEntity<Result<Map<String, Object>>> getSellerOrders(
+            @RequestParam(required = false) OrderStatus status,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+        if(!OrderStatus.isValidStatus(String.valueOf(status)))
+            status = null;
+        Pageable pageable = PageRequest.of(page-1, size, Sort.by("createdAt").descending());
+        Page<Order> orderPage = orderService.getSellerOrders(currentMerchantId, status, pageable);
+
+        return getOrdersMapResponseEntity(orderPage);
+    }
+
+    // 买家查询退款列表
+    @GetMapping("/user/refund/list")
+    public ResponseEntity<Result<Map<String, Object>>> getUserRefundList(
+            @RequestParam(required = false) RefundStatus status,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+        if(!RefundStatus.isValidStatus(String.valueOf(status)))
+            status = null;
+        Pageable pageable = PageRequest.of(page-1, size, Sort.by("requestTime").descending());
+        Page<RefundRequestVO> refundPage = orderService.getBuyerRefundRequests(currentUserId, status, pageable);
+
+        return getRefundsMapResponseEntity(refundPage);
+    }
+
+    // 商家查询退款列表
+    @GetMapping("/seller/refund/list")
+    public ResponseEntity<Result<Map<String, Object>>> getSellerRefundList(
+            @RequestParam(required = false) RefundStatus status,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+        if (!RefundStatus.isValidStatus(String.valueOf(status)))
+            status = null;
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by("requestTime").descending());
+        Page<RefundRequestVO> refundPage = orderService.getSellerRefundRequests(currentMerchantId, status, pageable);
+
+        return getRefundsMapResponseEntity(refundPage);
+    }
+
+    // 买家查询某个订单下的退款记录
+    @GetMapping("/user/order/refund/list")
+    public ResponseEntity<Result<List<RefundRequestVO>>> getOrderRefundListForBuyer(
+            @RequestParam String orderNumber) {
+        Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        List<RefundRequestVO> refundList = orderService.getRefundRequestsByOrderNumber(orderNumber, currentUserId);
+        return ResponseEntity.ok(Result.success(200, "订单 " + orderNumber + " 下的退款记录查询成功", refundList));
+    }
+
+    // 商家查询某个订单下的退款记录
+    @GetMapping("/seller/order/refund/list")
+    public ResponseEntity<Result<List<RefundRequestVO>>> getOrderRefundListForSeller(
+            @RequestParam String orderNumber) {
+        Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        List<RefundRequestVO> refundList = orderService.getRefundRequestsByOrderNumber(orderNumber, currentMerchantId);
+        return ResponseEntity.ok(Result.success(200, "订单 " + orderNumber + " 下的退款记录查询成功", refundList));
+    }
+
+    // 买家根据退款号模糊查询退款记录
+    @GetMapping("/user/refund/search")
+    public ResponseEntity<Result<Map<String, Object>>> getUserRefundSearch(
+            @RequestParam String refundNo,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by("requestTime").descending());
+        Page<RefundRequestVO> refundPage = orderService.getRefundRequestsByRefundNo(refundNo, currentUserId, pageable);
+        return getRefundsMapResponseEntity(refundPage);
+    }
+
+    // 商家根据退款号模糊查询退款记录
+    @GetMapping("/seller/refund/search")
+    public ResponseEntity<Result<Map<String, Object>>> getSellerRefundSearch(
+            @RequestParam String refundNo,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by("requestTime").descending());
+        Page<RefundRequestVO> refundPage = orderService.getRefundRequestsByRefundNo(refundNo, currentMerchantId, pageable);
+        return getRefundsMapResponseEntity(refundPage);
+    }
+
+    // 买家根据订单号模糊查询订单记录
+    @GetMapping("/user/order/search")
+    public ResponseEntity<Result<Map<String, Object>>> searchUserOrders(
+            @RequestParam String orderNumber,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by("createdAt").descending());
+        Page<Order> orderPage = orderService.getOrdersByOrderNumber(orderNumber, currentUserId, pageable);
+        return getOrdersMapResponseEntity(orderPage);
+    }
+
+    // 商家根据订单号模糊查询订单记录
+    @GetMapping("/seller/order/search")
+    public ResponseEntity<Result<Map<String, Object>>> searchSellerOrders(
+            @RequestParam String orderNumber,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by("createdAt").descending());
+        Page<Order> orderPage = orderService.getOrdersByOrderNumber(orderNumber, currentMerchantId, pageable);
+        return getOrdersMapResponseEntity(orderPage);
+    }
+
+    @NotNull
+    private ResponseEntity<Result<Map<String, Object>>> getOrdersMapResponseEntity(Page<Order> orderPage) {
         List<OrderVO> orderVOList = orderPage.getContent().stream()
                 .map(OrderVO::from)
                 .collect(Collectors.toList());
@@ -186,9 +307,20 @@ public class OrderController {
         response.put("orders", orderVOList);
         response.put("totalItems", orderPage.getTotalElements());
         response.put("totalPages", orderPage.getTotalPages());
-        response.put("currentPage", orderPage.getNumber()+1);
+        response.put("currentPage", orderPage.getNumber() + 1);
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(Result.success(200, "订单列表查询成功", response));
+    }
+
+    @NotNull
+    private ResponseEntity<Result<Map<String, Object>>> getRefundsMapResponseEntity(Page<RefundRequestVO> refundPage) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("refunds", refundPage.getContent());
+        response.put("totalItems", refundPage.getTotalElements());
+        response.put("totalPages", refundPage.getTotalPages());
+        response.put("currentPage", refundPage.getNumber() + 1);
+
+        return ResponseEntity.ok(Result.success(200, "退款列表查询成功", response));
     }
 
 }

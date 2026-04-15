@@ -5,6 +5,8 @@ import org.dachuang_team.dc_backend_services.domain.PO.OrderPO.Order;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -19,4 +21,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Page<Order> findBySellerIdAndStatus(Long sellerId, OrderStatus status, Pageable pageable);
 
     Order findByOrderNumber(String orderNumber);
+
+    @Query("SELECT o FROM Order o WHERE o.orderNumber LIKE %:orderNumber% AND (o.sellerId = :userId OR o.buyerId = :userId)")
+    Page<Order> findByOrderNumberLikeAndUser(@Param("orderNumber") String orderNumber, @Param("userId") Long userId, Pageable pageable);
+
 }
