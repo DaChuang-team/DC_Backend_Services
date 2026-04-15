@@ -41,8 +41,8 @@ public class ProductService implements IProductService {
             if(seller == null) {
                 throw new IllegalArgumentException("商家不存在");
             }
-            if(seller.getStatus() == 0) {
-                throw new IllegalStateException("商家未审核通过，无法发布商品");
+            if(seller.getStatus() != 1) {
+                throw new IllegalStateException("商家未审核通过或被封禁，无法发布商品");
             }
 
             // 创建商品对象
@@ -183,7 +183,7 @@ public class ProductService implements IProductService {
             boolean isPrimary = (i == 0);
 
             if (!Boolean.TRUE.equals(record.getLinked())) {
-                imageProcessUtils.processAndCompressImage(record, productId, i, isPrimary);
+                imageProcessUtils.productImgProcessAndCompress(record, productId, i, isPrimary);
             }
 
             // 更新绑定状态

@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 @Component
+@Deprecated
 public class DataConsistencyRunner implements ApplicationRunner {
 
     @Autowired

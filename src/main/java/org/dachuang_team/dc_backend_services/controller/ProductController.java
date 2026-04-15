@@ -225,7 +225,6 @@ public class ProductController {
     @GetMapping("/products/details")
     public Result<Map<String, Object>> getProductDetailsById(@RequestParam Long Pid) {
         try {
-            Long currentUserId = getCurrentUserId();
             Optional<Product> existing = productRepository.findByproductId(Pid);
             return existing.map(product -> {
                 Map<String, Object> productDetails = getProductDetails(product);

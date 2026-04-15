@@ -16,6 +16,7 @@ import java.util.List;
 
 @Component
 @Order(3)
+@Deprecated
 public class HotelAndProductSeeder implements ApplicationRunner {
     private final HotelHomestayRepository hotelHomestayRepository;
     private final ProductRepository productRepository;

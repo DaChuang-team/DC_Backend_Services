@@ -3,10 +3,7 @@ package org.dachuang_team.dc_backend_services.common;
 import jakarta.transaction.Transactional;
 import net.coobird.thumbnailator.Thumbnails;
 import net.coobird.thumbnailator.geometry.Positions;
-import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.RefundImg;
-import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.ShopBannerImg;
-import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.UserAvatar;
-import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.ProductImg;
+import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.*;
 import org.dachuang_team.dc_backend_services.repository.RefundImgRepository;
 import org.dachuang_team.dc_backend_services.services.OssStorageService;
 import org.slf4j.Logger;
@@ -32,9 +29,9 @@ public class ImageProcessUtils {
     @Autowired
     private RefundImgRepository refundImgRepository;
 
-    //商品/民宿图片处理方法
+    //商品图片处理方法
     @Transactional
-    public void processAndCompressImage(ProductImg record, Long productId, int index, boolean isPrimary) {
+    public void productImgProcessAndCompress(ProductImg record, Long productId, int index, boolean isPrimary) {
         try {
             // 处理主图（只有未处理过的才裁剪+压缩+上传）
             if (!Boolean.TRUE.equals(record.getProcessed())) {
@@ -91,7 +88,7 @@ public class ImageProcessUtils {
 
             // 处理缩略图（如果是首图且当前没有缩略图才生成，如果有缩略图可以直接复用，不再重复生成）
             if (isPrimary && record.getThumbnailUrl() == null) {
-                // 用当前正式大图生成缩略图（不会拉伸）
+                // 用当前正式大图生成缩略图
                 byte[] mainBytes = ossService.downloadByUrl(record.getUrl());
                 BufferedImage mainImage = ImageIO.read(new ByteArrayInputStream(mainBytes));
 
@@ -292,6 +289,116 @@ public class ImageProcessUtils {
             throw new RuntimeException("商户顶横幅图处理异常");
         }
         return img.getImgUrl();
+    }
+
+    @Transactional
+    public void accommodationImgProcessAndCompress(AccommodationImg record, Long accommodationId, int index, boolean isPrimary) {
+        try {
+            // 处理主图（只有未处理过的才裁剪+压缩+上传）
+            if (!Boolean.TRUE.equals(record.getProcessed())) {
+                // 从OSS下载原始图
+                byte[] rawBytes = ossService.downloadByUrl(record.getUrl());
+                BufferedImage original = ImageIO.read(new ByteArrayInputStream(rawBytes));
+
+                // 计算16:9裁剪区域（居中裁剪）
+                int width = original.getWidth();
+                int height = original.getHeight();
+                int targetWidth = width;
+                int targetHeight = (int) (width / 16.0 * 9.0);
+                if (targetHeight > height) {
+                    targetHeight = height;
+                    targetWidth = (int) (height * 16.0 / 9.0);
+                }
+
+                BufferedImage cropped = Thumbnails.of(original)
+                        .sourceRegion(Positions.CENTER, targetWidth, targetHeight)
+                        .size(targetWidth, targetHeight)
+                        .asBufferedImage();
+
+                // 缩放到1280x720
+                BufferedImage finalImage = Thumbnails.of(cropped)
+                        .size(1280, 720)
+                        .asBufferedImage();
+
+                // 动态压缩到200~500KB
+                float quality = 0.9f;
+                byte[] compressedBytes;
+                do {
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                    Thumbnails.of(finalImage)
+                            .scale(1.0f)
+                            .outputFormat("jpg")
+                            .outputQuality(quality)
+                            .toOutputStream(baos);
+                    compressedBytes = baos.toByteArray();
+                    quality -= 0.05f;
+                } while ((compressedBytes.length > 500 * 1024 || compressedBytes.length < 200 * 1024) && quality > 0.1f);
+
+                // 上传正式大图
+                String fileName = String.format("accommodation/%d/image_%d_%s.jpg",
+                        accommodationId, index, UUID.randomUUID().toString().substring(0, 8));
+
+                // 删除原图
+                ossService.delete(record.getUrl());
+
+                // 上传新图
+                String newUrl = ossService.uploadByByte(compressedBytes, fileName);
+
+                record.setUrl(newUrl);
+                record.setPhysicalPath(fileName);
+
+                // 标记为已处理
+                record.setProcessed(true);
+                logger.info("压缩裁剪了一张新图片");
+            }
+
+            // 处理缩略图（如果是首图且当前没有缩略图才生成，如果有缩略图可以直接复用，不再重复生成）
+            if (isPrimary && record.getThumbnailUrl() == null) {
+                // 用当前正式大图生成缩略图
+                byte[] mainBytes = ossService.downloadByUrl(record.getUrl());
+                BufferedImage mainImage = ImageIO.read(new ByteArrayInputStream(mainBytes));
+
+                // 居中裁剪为正方形
+                int cropSize = Math.min(mainImage.getWidth(), mainImage.getHeight());
+                BufferedImage squareImage = Thumbnails.of(mainImage)
+                        .sourceRegion(Positions.CENTER, cropSize, cropSize)
+                        .size(cropSize, cropSize)
+                        .asBufferedImage();
+
+                // 缩放到400x400
+                BufferedImage thumbImage = Thumbnails.of(squareImage)
+                        .size(400, 400)
+                        .asBufferedImage();
+
+                // 动态压缩到50~120KB
+                float quality = 0.9f;
+                byte[] thumbBytes;
+                do {
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                    Thumbnails.of(thumbImage)
+                            .scale(1.0f)
+                            .outputFormat("jpg")
+                            .outputQuality(quality)
+                            .toOutputStream(baos);
+                    thumbBytes = baos.toByteArray();
+                    quality -= 0.05f;
+                } while ((thumbBytes.length > 120 * 1024 || thumbBytes.length < 50 * 1024) && quality > 0.1f);
+
+                String thumbName = String.format("accommodation/%d/thumbnail_%s.jpg",
+                        accommodationId, UUID.randomUUID().toString().substring(0, 8));
+                String thumbUrl = ossService.uploadByByte(thumbBytes, thumbName);
+
+                record.setThumbnailUrl(thumbUrl);
+                logger.info("生成了一张新缩略图");
+            }
+
+            // 统一设置 accommodationId（无论是否处理过主图）
+            record.setAccommodationId(accommodationId);
+
+        } catch (IOException e) {
+            logger.error("图片压缩处理失败: {}", e.getMessage(), e);
+            throw new RuntimeException("图片处理流水线异常");
+        }
     }
 
 }

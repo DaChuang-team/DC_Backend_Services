@@ -29,9 +29,7 @@ public class AuthService {
 
     private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
 
-    /**
-     * 校验Token是否存在且未过期
-     */
+    // 校验Token是否存在且未过期
     public Optional<TokenSession> validateToken(String token) {
         String redisKey = TOKEN_SESSION_PREFIX + token;
 
@@ -88,9 +86,7 @@ public class AuthService {
     }
 
 
-    /**
-     * 主动使 Token 失效
-     */
+    // 主动失效Token
     @Transactional
     public void invalidateToken(Long userId, String role) {
         // 由于没有直接存储userId和role到Redis中，我们需要先查询数据库获取对应的token
