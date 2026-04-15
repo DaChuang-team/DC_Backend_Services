@@ -42,6 +42,24 @@ public class AccommodationService implements IAccommodationService {
         if (seller.getStatus() != 1){
             throw new IllegalStateException("商家未审核通过或被封禁，无法发布酒店");
         }
+        if(accommodationDTO.getAccommodationName() == null || accommodationDTO.getAccommodationName().isEmpty()) {
+            throw new IllegalArgumentException("酒店名称不能为空");
+        }
+        if(accommodationDTO.getPriceFrom() == null || accommodationDTO.getPriceFrom() <= 0) {
+            throw new IllegalArgumentException("酒店起价必须大于0");
+        }
+        if(accommodationDTO.getType() == null || accommodationDTO.getType().isEmpty()) {
+            throw new IllegalArgumentException("酒店类型不能为空");
+        }
+        if(accommodationDTO.getPhone() == null || accommodationDTO.getPhone().isEmpty()) {
+            throw new IllegalArgumentException("酒店联系电话不能为空");
+        }
+        if(accommodationDTO.getAddress() == null || accommodationDTO.getAddress().isEmpty()) {
+            throw new IllegalArgumentException("酒店地址不能为空");
+        }
+        if(!accommodationDTO.getType().equals("HOTEL") && !accommodationDTO.getType().equals("HOSTEL") && !accommodationDTO.getType().equals("RESORT")) {
+            throw new IllegalArgumentException("酒店类型只能是 HOTEL、HOSTEL 或 RESORT");
+        }
 
         Accommodation accommodation = new Accommodation();
         accommodation.setAccommodationName(accommodationDTO.getAccommodationName());
@@ -81,11 +99,99 @@ public class AccommodationService implements IAccommodationService {
         return vo;
     }
 
-//    @Override
-//    @Transactional(rollbackOn = Exception.class)
-//    public AccommodationVO updateAccommodation(Long accommodationId, AccommodationDTO accommodationDTO) {
-//        return null;
-//    }
+    @Override
+    @Transactional(rollbackOn = Exception.class)
+    public AccommodationVO updateAccommodation(Long accommodationId, AccommodationDTO accommodationDTO, Long merchantId) {
+        Accommodation accommodation = accommodationRepository.findById(accommodationId)
+                .orElseThrow(() -> new IllegalArgumentException("酒店不存在"));
+
+        // 只能修改自己的酒店
+        if (!accommodation.getSellerId().equals(merchantId)) {
+            throw new SecurityException("权限不足：只能修改自己的酒店");
+        }
+
+        // 基本字段更新（仅更新前端传入值）
+        if (accommodationDTO.getAccommodationName() != null && !accommodationDTO.getAccommodationName().isEmpty()) {
+            accommodation.setAccommodationName(accommodationDTO.getAccommodationName());
+        }
+        if (accommodationDTO.getPhone() != null && !accommodationDTO.getPhone().isEmpty()) {
+            accommodation.setPhone(accommodationDTO.getPhone());
+        }
+        if (accommodationDTO.getType() != null && !accommodationDTO.getType().isEmpty()) {
+            if(!accommodationDTO.getType().equals("HOTEL") && !accommodationDTO.getType().equals("HOSTEL") && !accommodationDTO.getType().equals("RESORT")) {
+                throw new IllegalArgumentException("酒店类型只能是 HOTEL、HOSTEL 或 RESORT");
+            }
+            accommodation.setType(accommodationDTO.getType());
+        }
+        if (accommodationDTO.getDescription() != null && !accommodationDTO.getDescription().isEmpty()) {
+            accommodation.setDescription(accommodationDTO.getDescription());
+        }
+        if (accommodationDTO.getPriceFrom() != null && accommodationDTO.getPriceFrom() > 0) {
+            accommodation.setPriceFrom(accommodationDTO.getPriceFrom());
+        }
+        if (accommodationDTO.getAmenities() != null && !accommodationDTO.getAmenities().isEmpty()) {
+            accommodation.setAmenities(accommodationDTO.getAmenities());
+        }
+        if (accommodationDTO.getStarRating() != null && accommodationDTO.getStarRating() >= 0 && accommodationDTO.getStarRating() <= 5) {
+            accommodation.setStarRating(accommodationDTO.getStarRating());
+        }
+        if (accommodationDTO.getAddress() != null && !accommodationDTO.getAddress().isEmpty()) {
+            accommodation.setAddress(accommodationDTO.getAddress());
+        }
+        if (accommodationDTO.getLatitude() != null) {
+            accommodation.setLatitude(accommodationDTO.getLatitude());
+        }
+        if (accommodationDTO.getLongitude() != null) {
+            accommodation.setLongitude(accommodationDTO.getLongitude());
+        }
+        if (accommodationDTO.getCheckInTime() != null && !accommodationDTO.getCheckInTime().isEmpty()) {
+            accommodation.setCheckInTime(accommodationDTO.getCheckInTime());
+        }
+        if (accommodationDTO.getCheckOutTime() != null && !accommodationDTO.getCheckOutTime().isEmpty()) {
+            accommodation.setCheckOutTime(accommodationDTO.getCheckOutTime());
+        }
+        if (accommodationDTO.getPolicyNote() != null && !accommodationDTO.getPolicyNote().isEmpty()) {
+            accommodation.setPolicyNote(accommodationDTO.getPolicyNote());
+        }
+
+        List<AccommodationImgVO> imageVOList = new ArrayList<>();
+
+        // 只有前端传了 imageIds 才认为要更新图片
+        if (accommodationDTO.getImageIds() != null) {
+            // 先解绑旧图
+            List<AccommodationImg> oldRecords = accommodationImgRepository.findByAccommodationId(accommodationId);
+            for (AccommodationImg rec : oldRecords) {
+                rec.setLinked(false);
+                rec.setAccommodationId(null);
+                rec.setPrimary(false);
+                rec.setSortOrder(null);
+                accommodationImgRepository.save(rec);
+            }
+
+            // 再按新列表绑定
+            if (!accommodationDTO.getImageIds().isEmpty()) {
+                imageVOList = bindAndProcessImages(accommodationId, accommodationDTO.getImageIds());
+                accommodation.setTbImageUrl(imageVOList.isEmpty() ? null : imageVOList.get(0).getThumbnailUrl());
+            } else {
+                // 明确传空列表 => 清空图片
+                accommodation.setTbImageUrl(null);
+            }
+        } else {
+            // 不更新图片时，返回当前图片列表
+            List<AccommodationImg> current = accommodationImgRepository.findByAccommodationId(accommodationId);
+            for (AccommodationImg img : current) {
+                imageVOList.add(toImgVO(img));
+            }
+        }
+
+        accommodation.setLastModifiedAt(LocalDateTime.now());
+        accommodation = accommodationRepository.save(accommodation);
+
+        AccommodationVO vo = toVO(accommodation);
+        vo.setImages(imageVOList);
+        return vo;
+    }
+
 
     // 绑定 + 处理图片（压缩、裁剪、首图缩略图）
     private List<AccommodationImgVO> bindAndProcessImages(Long accommodationId, List<Long> imageIds) {

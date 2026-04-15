@@ -6,17 +6,13 @@ import java.math.BigDecimal;
 import java.util.List;
 
 public class AccommodationDTO {
-    @NotBlank(message = "酒店名称不能为空")
     private String accommodationName;
-    @NotBlank(message = "酒店联系电话不能为空")
     private String phone;
-    @NotBlank(message = "酒店类型不能为空")
     private String type; //HOTEL（酒店）/ HOSTEL（民宿）/ RESORT（度假村）
     private String description;
     private Double priceFrom;
     private String amenities;
     private Integer starRating; // 星级，1~5
-    @NotBlank(message = "酒店地址不能为空")
     private String address;
     private BigDecimal latitude;
     private BigDecimal longitude;

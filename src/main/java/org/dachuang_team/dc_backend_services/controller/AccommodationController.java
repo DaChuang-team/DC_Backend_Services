@@ -24,4 +24,13 @@ public class AccommodationController {
         AccommodationVO accommodationVO = accommodationService.addAccommodation(accommodationDTO, currentMerchantId);
         return ResponseEntity.ok(Result.success(200, "酒店发布成功", accommodationVO));
     }
+
+    @PutMapping("/updateAccommodation")
+    public ResponseEntity<Result<AccommodationVO>> updateAccommodation(
+            @RequestParam Long accommodationId,
+            @RequestBody AccommodationDTO accommodationDTO) {
+        Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        AccommodationVO accommodationVO = accommodationService.updateAccommodation(accommodationId, accommodationDTO, currentMerchantId);
+        return ResponseEntity.ok(Result.success(200, "酒店更新成功", accommodationVO));
+    }
 }

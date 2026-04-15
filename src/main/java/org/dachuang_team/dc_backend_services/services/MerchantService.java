@@ -143,9 +143,9 @@ public class MerchantService implements IMerchantService{
     public Map<String, Object> updateMerchant(MerchantUpdateDTO dto, Long merchantId){
         Merchant merchant = merchantRepository.findById(merchantId)
                 .orElseThrow(() -> new IllegalArgumentException("商户不存在"));
-//        if(merchant.getUpdatedAt() != null && merchant.getUpdatedAt().plusDays(7).isAfter(LocalDateTime.now())){
-//            throw new IllegalArgumentException("7天内只能修改一次商户信息");
-//        }
+        if(merchant.getUpdatedAt() != null && merchant.getUpdatedAt().plusDays(7).isAfter(LocalDateTime.now())){
+            throw new IllegalArgumentException("7天内只能修改一次商户信息");
+        }
         if(merchant.getStatus() == 3){
             throw new IllegalArgumentException("账号已被封禁，无法修改信息");
         }
