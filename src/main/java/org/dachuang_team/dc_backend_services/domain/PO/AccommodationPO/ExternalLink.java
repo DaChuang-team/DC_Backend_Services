@@ -13,7 +13,7 @@ public class ExternalLink {
     @Column(name = "id", nullable = false)
     private Long id;
 
-    // 平台标识：CTRIP / FLIGGY / AIRBNB / BOOKING / MEITUAN / CUSTOM 等
+    // 平台标识：CTRIP / FLIGGY / MEITUAN / CUSTOM 等
     @Column(name = "platform", nullable = false, length = 30)
     private String platform;
 
@@ -34,6 +34,14 @@ public class ExternalLink {
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+    // 是否审核通过，默认 false
+    @Column(name = "approved")
+    private Boolean approved = false;
+
+    // 是否置顶，默认 false。置顶链接在展示时优先于非置顶链接显示
+    @Column(name = "topped")
+    private Boolean topped = false;
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
@@ -76,5 +84,11 @@ public class ExternalLink {
     }
     public void setId(Long id) {
         this.id = id;
+    }
+    public Boolean getApproved() {
+        return approved;
+    }
+    public void setApproved(Boolean approved) {
+        this.approved = approved;
     }
 }

@@ -70,7 +70,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/image/sysImgUpload").hasAnyRole("ADMIN","SUPER_ADMIN")
                         .requestMatchers("/api/image/uploadPurge","/api/image/shopBannerImgUpload").permitAll()
 
-                        .requestMatchers("/api/accommodations/**").hasRole("MERCHANT")
+                        .requestMatchers("/api/accommodations/merchant/**").hasRole("MERCHANT")
+                        .requestMatchers("/api/accommodations/user/**").hasRole("USER")
+                        .requestMatchers("/api/accommodations/get").authenticated()
 
                         .requestMatchers("/api/admins/admindelete").hasRole("SUPER_ADMIN")
 

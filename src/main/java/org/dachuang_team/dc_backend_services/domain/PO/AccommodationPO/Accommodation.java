@@ -41,9 +41,11 @@ public class Accommodation {
     @Column(name = "address", length = 255)
     private String address;
 
+    // 纬度
     @Column(name = "latitude", precision = 10, scale = 7)
     private BigDecimal latitude;
 
+    // 经度
     @Column(name = "longitude", precision = 10, scale = 7)
     private BigDecimal longitude;
 
