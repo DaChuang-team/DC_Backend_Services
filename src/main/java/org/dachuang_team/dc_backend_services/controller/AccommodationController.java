@@ -2,13 +2,16 @@ package org.dachuang_team.dc_backend_services.controller;
 
 import org.dachuang_team.dc_backend_services.common.Result;
 import org.dachuang_team.dc_backend_services.domain.DTO.AccommodationDTO;
+import org.dachuang_team.dc_backend_services.domain.DTO.ExternalLinkDTO;
 import org.dachuang_team.dc_backend_services.domain.VO.AccommodationVO;
+import org.dachuang_team.dc_backend_services.domain.VO.ExternalLinkVO;
 import org.dachuang_team.dc_backend_services.services.AccommodationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -24,7 +27,7 @@ public class AccommodationController {
             @RequestBody AccommodationDTO accommodationDTO) {
         Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         AccommodationVO accommodationVO = accommodationService.addAccommodation(accommodationDTO, currentMerchantId);
-        return ResponseEntity.ok(Result.success(200, "酒店发布成功", accommodationVO));
+        return ResponseEntity.ok(Result.success(200, "酒店发布成功，等待平台审核", accommodationVO));
     }
 
     @PutMapping("/merchant/updateAccommodation")
@@ -33,7 +36,7 @@ public class AccommodationController {
             @RequestBody AccommodationDTO accommodationDTO) {
         Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         AccommodationVO accommodationVO = accommodationService.updateAccommodation(accommodationId, accommodationDTO, currentMerchantId);
-        return ResponseEntity.ok(Result.success(200, "酒店更新成功", accommodationVO));
+        return ResponseEntity.ok(Result.success(200, "酒店更新成功，等待平台审核", accommodationVO));
     }
 
     @DeleteMapping("/merchant/deleteAccommodation")
@@ -79,5 +82,57 @@ public class AccommodationController {
         Map<String, Object> data = accommodationService.searchAccommodationsByUser(
                 keyword, minPrice, latitude, longitude, type, page, size);
         return ResponseEntity.ok(Result.success(200, "酒店搜索成功", data));
+    }
+
+    @PutMapping("/merchant/addExternalLink")
+    public ResponseEntity<Result<ExternalLinkVO>> addExternalLink(
+            @RequestParam Long accommodationId,
+            @RequestBody ExternalLinkDTO request) {
+        Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        ExternalLinkVO vo = accommodationService.addExternalLink(request, accommodationId, currentMerchantId);
+        return ResponseEntity.ok(Result.success(200, "外部链接添加成功，等待平台审核", vo));
+    }
+
+    @PutMapping("/merchant/updateExternalLink")
+    public ResponseEntity<Result<ExternalLinkVO>> updateExternalLink(
+            @RequestParam Long externalLinkId,
+            @RequestBody ExternalLinkDTO request) {
+        Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        ExternalLinkVO vo = accommodationService.updateExternalLink(externalLinkId, request, currentMerchantId);
+        return ResponseEntity.ok(Result.success(200, "外部链接更新成功，等待平台审核", vo));
+    }
+
+    @DeleteMapping("/merchant/deleteExternalLink")
+    public ResponseEntity<Result<String>> deleteExternalLink(@RequestParam Long externalLinkId) {
+        Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        accommodationService.deleteExternalLink(externalLinkId, currentMerchantId);
+        return ResponseEntity.ok(Result.success(200, "外部链接删除成功", null));
+    }
+
+    @GetMapping("/user/getExternalLinks")
+    public ResponseEntity<Result<List<ExternalLinkVO>>> showExternalLinksByUser(@RequestParam Long accommodationId) {
+        List<ExternalLinkVO> data = accommodationService.showExternalLinksByUser(accommodationId);
+        return ResponseEntity.ok(Result.success(200, "用户端外部链接获取成功", data));
+    }
+
+    @GetMapping("/merchant/getExternalLinks")
+    public ResponseEntity<Result<List<ExternalLinkVO>>> showExternalLinksByMerchant(@RequestParam Long accommodationId) {
+        Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        List<ExternalLinkVO> data = accommodationService.showExternalLinksByMerchant(accommodationId, currentMerchantId);
+        return ResponseEntity.ok(Result.success(200, "商家端外部链接获取成功", data));
+    }
+
+    @PostMapping("/merchant/topLink")
+    public ResponseEntity<Result<String>> topALink(@RequestParam Long externalLinkId) {
+        Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        String message = accommodationService.topALink(externalLinkId, currentMerchantId);
+        return ResponseEntity.ok(Result.success(200, message, null));
+    }
+
+    @PostMapping("/merchant/unTopLink")
+    public ResponseEntity<Result<String>> unTopALink(@RequestParam Long externalLinkId) {
+        Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        String message = accommodationService.unTopALink(externalLinkId, currentMerchantId);
+        return ResponseEntity.ok(Result.success(200, message, null));
     }
 }

@@ -1,6 +1,7 @@
 package org.dachuang_team.dc_backend_services.repository;
 
 import org.dachuang_team.dc_backend_services.domain.PO.AccommodationPO.Accommodation;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -66,4 +67,7 @@ public interface AccommodationRepository extends JpaRepository<Accommodation, Lo
     Page<Accommodation> findBySellerIdAndAccommodationNameContainingIgnoreCaseOrderByPublishedAtDesc(
             Long sellerId, String keyword, Pageable pageable);
 
+    boolean existsById(@NotNull Long accommodationId);
+
+    boolean countByAccommodationId(Long accommodationId);
 }

@@ -3,13 +3,17 @@ package org.dachuang_team.dc_backend_services.services;
 import jakarta.transaction.Transactional;
 import org.dachuang_team.dc_backend_services.common.ImageProcessUtils;
 import org.dachuang_team.dc_backend_services.domain.DTO.AccommodationDTO;
+import org.dachuang_team.dc_backend_services.domain.DTO.ExternalLinkDTO;
 import org.dachuang_team.dc_backend_services.domain.PO.AccommodationPO.Accommodation;
+import org.dachuang_team.dc_backend_services.domain.PO.AccommodationPO.ExternalLink;
 import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.AccommodationImg;
 import org.dachuang_team.dc_backend_services.domain.PO.MerchantPO.Merchant;
 import org.dachuang_team.dc_backend_services.domain.VO.AccommodationImgVO;
 import org.dachuang_team.dc_backend_services.domain.VO.AccommodationVO;
+import org.dachuang_team.dc_backend_services.domain.VO.ExternalLinkVO;
 import org.dachuang_team.dc_backend_services.repository.AccommodationImgRepository;
 import org.dachuang_team.dc_backend_services.repository.AccommodationRepository;
+import org.dachuang_team.dc_backend_services.repository.ExternalLinkRepository;
 import org.dachuang_team.dc_backend_services.repository.MerchantRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -19,10 +23,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -39,6 +40,9 @@ public class AccommodationService implements IAccommodationService {
 
     @Autowired
     private ImageProcessUtils imageProcessUtils;
+
+    @Autowired
+    private ExternalLinkRepository externalLinkRepository;
 
     @Override
     @Transactional(rollbackOn = Exception.class)
@@ -227,6 +231,7 @@ public class AccommodationService implements IAccommodationService {
             if (!accommodationDTO.getImageIds().isEmpty()) {
                 imageVOList = bindAndProcessImages(accommodationId, accommodationDTO.getImageIds());
                 accommodation.setTbImageUrl(imageVOList.isEmpty() ? null : imageVOList.get(0).getThumbnailUrl());
+                accommodation.setApproved(false); // 更新图片后需要重新审核
             } else {
                 // 明确传空列表 => 清空图片
                 accommodation.setTbImageUrl(null);
@@ -365,6 +370,173 @@ public class AccommodationService implements IAccommodationService {
         return resp;
     }
 
+    @Override
+    @Transactional(rollbackOn = Exception.class)
+    public ExternalLinkVO addExternalLink(ExternalLinkDTO externalLinkDTO, Long accommodationId, Long merchantId) {
+        // 验证酒店存在且属于商家
+        Accommodation accommodation = accommodationRepository.findById(accommodationId)
+                .orElseThrow(() -> new IllegalArgumentException("酒店不存在"));
+
+        if(externalLinkRepository.countByAccommodationId(accommodationId) >= 5) {
+            throw new IllegalStateException("每个酒店最多只能添加5个外部链接");
+        }
+        if (!accommodation.getSellerId().equals(merchantId)) {
+            throw new SecurityException("权限不足：只能为自己的酒店添加外部链接");
+        }
+        if(externalLinkDTO.getPlatform() == null || externalLinkDTO.getPlatform().isEmpty()) {
+            throw new IllegalArgumentException("平台名称不能为空");
+        }
+        if(externalLinkDTO.getUrl() == null || externalLinkDTO.getUrl().isEmpty()) {
+            throw new IllegalArgumentException("链接URL不能为空");
+        }
+
+        ExternalLink externalLink = new ExternalLink();
+        externalLink.setAccommodationId(accommodationId);
+        externalLink.setPlatform(externalLinkDTO.getPlatform());
+        externalLink.setUrl(externalLinkDTO.getUrl());
+        externalLink.setCreatedAt(LocalDateTime.now());
+        externalLink.setUpdatedAt(LocalDateTime.now());
+        externalLink.setCreatedBy(merchantId);
+
+        externalLink = externalLinkRepository.save(externalLink);
+
+        ExternalLinkVO vo = new ExternalLinkVO();
+        vo.setId(externalLink.getId());
+        vo.setPlatform(externalLink.getPlatform());
+        vo.setUrl(externalLink.getUrl());
+        vo.setTopped(externalLink.getTopped());
+        vo.setApproved(externalLink.getApproved());
+
+        return vo;
+    }
+
+    // 商家查看酒店的外部链接，可以看到所有链接，并且置顶链接排在前面
+    @Override
+    public List<ExternalLinkVO> showExternalLinksByMerchant(Long accommodationId, Long merchantId) {
+        Accommodation accommodation = accommodationRepository.findById(accommodationId)
+                .orElseThrow(() -> new IllegalArgumentException("酒店不存在"));
+
+        if (!accommodation.getSellerId().equals(merchantId)) {
+            throw new SecurityException("权限不足：只能查看自己的酒店的外部链接");
+        }
+
+        List<ExternalLink> links = externalLinkRepository.findByAccommodationIdOrderByToppedDesc(accommodationId);
+        return links.stream().map(link -> {
+            ExternalLinkVO vo = new ExternalLinkVO();
+            vo.setId(link.getId());
+            vo.setPlatform(link.getPlatform());
+            vo.setUrl(link.getUrl());
+            vo.setTopped(link.getTopped());
+            vo.setApproved(link.getApproved());
+            return vo;
+        }).collect(Collectors.toList());
+    }
+
+    // 用户查看酒店的外部链接，只能看到审核通过的链接
+    @Override
+    public List<ExternalLinkVO> showExternalLinksByUser(Long accommodationId) {
+        Accommodation accommodation = accommodationRepository.findById(accommodationId)
+                .orElseThrow(() -> new IllegalArgumentException("酒店不存在"));
+        if(accommodation.getApproved() == null || !accommodation.getApproved()) {
+            throw new IllegalStateException("酒店信息正在审核中，外部链接暂不可见");
+        }
+
+        List<ExternalLink> links = externalLinkRepository.findByAccommodationIdAndApprovedTrueOrderByToppedDesc(accommodationId);
+        return links.stream().map(link -> {
+            ExternalLinkVO vo = new ExternalLinkVO();
+            vo.setId(link.getId());
+            vo.setPlatform(link.getPlatform());
+            vo.setUrl(link.getUrl());
+            vo.setTopped(link.getTopped());
+            vo.setApproved(link.getApproved());
+            return vo;
+        }).collect(Collectors.toList());
+    }
+
+    // 商家修改外部链接，只能修改自己创建的链接，修改后需要重新审核
+    @Override
+    @Transactional(rollbackOn = Exception.class)
+    public ExternalLinkVO updateExternalLink(Long externalLinkId, ExternalLinkDTO dto, Long merchantId) {
+        if (!externalLinkRepository.existsById(externalLinkId)) {
+            throw new IllegalArgumentException("外部链接不存在");
+        }
+        ExternalLink externalLink = externalLinkRepository.findById(externalLinkId).orElseThrow(() -> new IllegalArgumentException("外部链接不存在"));
+        if (!Objects.equals(externalLink.getCreatedBy(), merchantId)) {
+            throw new SecurityException("权限不足：只能修改自己创建的外部链接");
+        }
+        if (dto.getPlatform() != null && !dto.getPlatform().isEmpty()) {
+            externalLink.setPlatform(dto.getPlatform());
+        }
+        if (dto.getUrl() != null && !dto.getUrl().isEmpty()) {
+            externalLink.setUrl(dto.getUrl());
+            externalLink.setApproved(false);
+        }
+
+        externalLink.setUpdatedAt(LocalDateTime.now());
+        externalLink = externalLinkRepository.save(externalLink);
+        ExternalLinkVO vo = new ExternalLinkVO();
+        vo.setId(externalLink.getId());
+        vo.setPlatform(externalLink.getPlatform());
+        vo.setUrl(externalLink.getUrl());
+        vo.setTopped(externalLink.getTopped());
+        vo.setApproved(externalLink.getApproved());
+        return vo;
+    }
+
+    // 商家删除外部链接，只能删除自己创建的链接
+    @Override
+    @Transactional(rollbackOn = Exception.class)
+    public Void deleteExternalLink(Long externalLinkId, Long merchantId) {
+        Optional<ExternalLink> externalLink = externalLinkRepository.findById(externalLinkId);
+        if (externalLink.isEmpty()) {
+            throw new IllegalArgumentException("外部链接不存在");
+        }
+        if(externalLink.get().getCreatedBy() == null || !Objects.equals(externalLink.get().getCreatedBy(), merchantId)) {
+            throw new SecurityException("权限不足：只能删除自己创建的外部链接");
+        }
+        externalLinkRepository.deleteById(externalLinkId);
+        return null;
+    }
+
+    //置顶一个链接
+    @Override
+    @Transactional(rollbackOn = Exception.class)
+    public String topALink(Long externalLinkId, Long merchantId) {
+        ExternalLink link = externalLinkRepository.findById(externalLinkId)
+                .orElseThrow(() -> new IllegalArgumentException("外部链接不存在"));
+        if(link.getCreatedBy() == null || !Objects.equals(link.getCreatedBy(), merchantId)) {
+            throw new SecurityException("权限不足：只能置顶自己创建的外部链接");
+        }
+        if(link.getTopped() != null && link.getTopped()) {
+            return "链接已置顶，无需重复操作";
+        }
+        // 每个酒店只能有一个置顶链接，如果当前已有置顶链接，则先取消其置顶状态
+        if(externalLinkRepository.existsByToppedTrue()){
+            externalLinkRepository.resetToppedFalseByAccommodationId(link.getAccommodationId());
+        }
+        link.setTopped(true);
+        externalLinkRepository.save(link);
+        if(link.getApproved() == null || !link.getApproved()) {
+            return "链接置顶成功，但该链接尚未审核通过，用户端暂不可见";
+        }
+        return "链接置顶成功";
+    }
+
+    @Override
+    @Transactional(rollbackOn = Exception.class)
+    public String unTopALink(Long externalLinkId, Long merchantId) {
+        ExternalLink link = externalLinkRepository.findById(externalLinkId)
+                .orElseThrow(() -> new IllegalArgumentException("外部链接不存在"));
+        if (link.getCreatedBy() == null || !Objects.equals(link.getCreatedBy(), merchantId)) {
+            throw new SecurityException("权限不足：只能取消置顶自己创建的外部链接");
+        }
+        if (link.getTopped() == null || !link.getTopped()) {
+            throw new IllegalStateException("链接未置顶");
+        }
+        link.setTopped(false);
+        externalLinkRepository.save(link);
+        return "取消置顶成功";
+    }
 
 
     // 绑定 + 处理图片（压缩、裁剪、首图缩略图）
