@@ -35,14 +35,14 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         // 公开接口
-                        .requestMatchers("/api/users/register", "/api/users/login").permitAll()
+                        .requestMatchers("/api/users/register/**", "/api/users/login/**","/api/users/info/check").permitAll()
                         .requestMatchers("/api/merchants/register", "/api/merchants/login").permitAll()
                         .requestMatchers("/api/admins/register", "/api/admins/login").permitAll()
                         .requestMatchers("/api/products/approved", "/api/products/search").permitAll()
                         .requestMatchers("/api/image/sysImgGet").permitAll()
 
                         // 受保护接口
-                        .requestMatchers("/api/users/updateInfo", "/api/users/checkIn", "/api/users/logout","/api/users/address",
+                        .requestMatchers("/api/users/update/**", "/api/users/checkIn", "/api/users/logout","/api/users/address",
                                 "/api/users/deleteAddress","/api/users/updateAddress","/api/users/setDefaultAddress",
                                 "/api/users/unsetDefaultAddress","/api/users/getDefaultAddress").hasRole("USER")
                         .requestMatchers("/api/users/info", "/api/users/points/**").hasAnyRole("USER","ADMIN","SUPER_ADMIN")
@@ -80,7 +80,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admins/all", "/api/admins/updateUserStatus").permitAll()
                         .requestMatchers("/api/attractions/**", "/api/hotels/**", "/api/images/**").permitAll()
 
-                        // 默认
+                        // 其他任何请求都需要认证
                         .anyRequest().authenticated()
                 )
                 // 异常处理

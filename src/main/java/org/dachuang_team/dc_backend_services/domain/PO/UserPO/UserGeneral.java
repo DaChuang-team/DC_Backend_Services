@@ -12,8 +12,10 @@ public class UserGeneral {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    // 用户自定义昵称，唯一且非空，长度限制45
     @Column(name = "user_name", nullable = false, length = 45 , unique = true)
     private String userName;
+    // 用户手机号，用户登录
     @Column(name = "user_phone", nullable = false, length = 13, unique = true)
     private String userPhone;
     @Column(name = "user_password", nullable = false, length = 62)

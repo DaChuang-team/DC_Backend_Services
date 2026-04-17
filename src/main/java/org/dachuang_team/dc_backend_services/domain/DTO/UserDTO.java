@@ -1,12 +1,15 @@
 package org.dachuang_team.dc_backend_services.domain.DTO;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.constraints.NotBlank;
 
 public class UserDTO {
     @JsonProperty("userName")
     private String userName;
     @JsonProperty("userPhone")
+    @NotBlank(message = "手机号不能为空")
     private String userPhone;
     @JsonProperty("userPassword")
+    @NotBlank(message = "密码不能为空")
     private String userPassword;
     @JsonProperty("userGender")
     private Character userGender;

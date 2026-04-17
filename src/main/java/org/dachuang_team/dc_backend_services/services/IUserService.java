@@ -1,17 +1,23 @@
 package org.dachuang_team.dc_backend_services.services;
-import org.dachuang_team.dc_backend_services.domain.DTO.UserAddressDTO;
-import org.dachuang_team.dc_backend_services.domain.DTO.UserDTO;
-import org.dachuang_team.dc_backend_services.domain.DTO.UserUpdateDTO;
+import org.dachuang_team.dc_backend_services.domain.DTO.*;
 import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserAddress;
 import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserGeneral;
+import org.dachuang_team.dc_backend_services.domain.VO.UserVO;
+import org.dachuang_team.dc_backend_services.enumeration.SmsScene;
 
 import java.util.List;
 
 public interface IUserService {
-    void registerUser(UserDTO user);
-    String authenticateUser(String userName, String rawPassword);
-    UserGeneral getUserByUserName(String userName);
-    boolean updateInfo(Long userId, UserUpdateDTO dto);
+    void registerUser(UserDTO user, String code);
+    String authenticateUserByPassword(String userPhone, String rawPassword);
+    void sendVerificationCode(String userPhone, SmsScene scene);
+    String authenticateUserBySms(String userPhone, String smsCode);
+    String registerChecker(String userPhone, String userName);
+    boolean updateNormalInfo(Long userId, UserUpdateDTO dto);
+    UserVO updateUserPwd(UserPwUpdateDTO dto, Long userId);
+    UserVO updateUserPhone(UserPhoneUpdateDTO dto, Long userId);
+
+
     /**
      * 管理员修改用户状态
      * @param userName 用户名
