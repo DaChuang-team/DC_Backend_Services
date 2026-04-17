@@ -38,15 +38,42 @@ public class UserController {
     private UserRepository userRepository;
 
     // 用户注册
-    @PostMapping("/register")
-    public Result<String> register(@RequestBody UserDTO userDTO) {
+    @PostMapping("/register/smsSend")
+    public Result<String> sendRegistrationCode(@RequestParam String userPhone) {
         try {
-            userService.registerUser(userDTO);
+            userService.sendVerificationCode(userPhone, SmsScene.REGISTER);
+            return Result.success("验证码发送成功", null);
+        } catch (IllegalArgumentException e) {
+            return Result.error(400, e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "服务器开小差了: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/register/confirm")
+    public Result<String> register(
+            @RequestBody UserDTO userDTO,
+            @RequestParam String code) {
+        try {
+
+            userService.registerUser(userDTO, code);
             // 返回 JSON 格式的成功信息
             return Result.success("注册成功: " + userDTO.getUserName(), null);
         } catch (Exception e) {
             // 返回 JSON 格式的错误信息
             return Result.error(400, "注册失败: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/register/check")
+    public Result<String> check(
+            @RequestParam(required = false) String userPhone,
+            @RequestParam(required = false) String userName) {
+        try {
+            String resp = userService.registerChecker(userPhone, userName);
+            return Result.success(resp, null);
+        } catch (Exception e) {
+            return Result.error(500, "服务器开小差了: " + e.getMessage());
         }
     }
 

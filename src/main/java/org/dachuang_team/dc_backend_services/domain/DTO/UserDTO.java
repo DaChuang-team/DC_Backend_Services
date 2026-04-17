@@ -6,6 +6,7 @@ public class UserDTO {
     @JsonProperty("userName")
     private String userName;
     @JsonProperty("userPhone")
+    @NotBlank(message = "手机号不能为空")
     private String userPhone;
     @JsonProperty("userPassword")
     @NotBlank(message = "密码不能为空")

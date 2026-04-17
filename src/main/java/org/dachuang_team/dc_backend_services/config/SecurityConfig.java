@@ -35,7 +35,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         // 公开接口
-                        .requestMatchers("/api/users/register", "/api/users/login/**").permitAll()
+                        .requestMatchers("/api/users/register/**", "/api/users/login/**").permitAll()
                         .requestMatchers("/api/merchants/register", "/api/merchants/login").permitAll()
                         .requestMatchers("/api/admins/register", "/api/admins/login").permitAll()
                         .requestMatchers("/api/products/approved", "/api/products/search").permitAll()

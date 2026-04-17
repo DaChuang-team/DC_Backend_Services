@@ -5,26 +5,26 @@ public enum SmsScene {
     LOGIN(
             "登录验证码方案",
             "100001",
-            "{\"code\":\"##code##\",\"min\":\"5\"}",
-            300L, 60L, 6L, 1L, 1L
+            "{\"code\":\"##code##\",\"min\":\"10\"}",
+            600L, 60L, 6L, 1L, 1L
     ),
     REGISTER(
             "注册验证码方案",
             "100001",
-            "{\"code\":\"##code##\",\"min\":\"5\"}",
-            300L, 60L, 6L, 1L, 1L
+            "{\"code\":\"##code##\",\"min\":\"10\"}",
+            600L, 60L, 6L, 1L, 1L
     ),
     RESET_PWD(
             "找回密码方案",
             "100003",
-            "{\"code\":\"##code##\",\"min\":\"5\"}",
-            300L, 60L, 6L, 1L, 1L
+            "{\"code\":\"##code##\",\"min\":\"10\"}",
+            600L, 60L, 6L, 1L, 1L
     ),
     BIND_PHONE(
             "改绑手机方案",
             "100002",
-            "{\"code\":\"##code##\",\"min\":\"5\"}",
-            300L, 120L, 6L, 1L, 1L
+            "{\"code\":\"##code##\",\"min\":\"10\"}",
+            600L, 120L, 6L, 1L, 1L
     );
 
     private final String schemeName;    // 方案名称（如登录、注册等）

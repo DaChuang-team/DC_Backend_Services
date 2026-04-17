@@ -59,9 +59,29 @@ public class UserService implements IUserService {
 
     // 注册用户
     @Override
-    public void registerUser(UserDTO user) {
+    public void registerUser(UserDTO user, String code) {
+
+        boolean isCodeValid = smsCodeService.verifyCode(user.getUserPhone(), code, SmsScene.REGISTER);
+        if (!isCodeValid) {
+            throw new IllegalArgumentException("验证码错误");
+        }
+        if(user.getUserName() == null || user.getUserName().trim().isEmpty()) {
+            user.setUserName("用户" + user.getUserPhone());
+        }
+        if(user.getUserPassword() == null || user.getUserPassword().trim().isEmpty()) {
+            throw new IllegalArgumentException("密码不能为空");
+        }
+        if(user.getUserPhone() == null || user.getUserPhone().trim().isEmpty()) {
+            throw new IllegalArgumentException("手机号不能为空");
+        }
+        if(code == null || code.trim().isEmpty()) {
+            throw new IllegalArgumentException("验证码不能为空");
+        }
         if (userRepository.findByUserName(user.getUserName()) != null) {
             throw new IllegalArgumentException("用户名: " + user.getUserName() + " 已存在");
+        }
+        if (userRepository.findByUserPhone(user.getUserPhone()) != null) {
+            throw new IllegalArgumentException("手机号: " + user.getUserPhone() + " 已被注册");
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -72,10 +92,24 @@ public class UserService implements IUserService {
         newUser.setCreateTime(now);
         newUser.setUserStatus("正常");
         newUser.setPoints(0);
-        //处理userGender：若DTO中为null，则设为'U'，否则设为JSON传入值
         newUser.setUserGender(user.getUserGender() != null ? user.getUserGender() : 'U');
         userRepository.save(newUser);
     }
+
+    @Override
+    public String registerChecker(String userPhone, String userName) {
+        if (userPhone != null && !userPhone.isBlank() && userName != null && !userName.isBlank()) {
+            return "一次最多检验一个字段，请分开验证";
+        }
+        if (userPhone != null && !userPhone.isBlank()) {
+            return userRepository.existsByUserPhone(userPhone.trim()) ? "手机号已被注册" : "OK";
+        }
+        if (userName != null && !userName.isBlank()) {
+            return userRepository.existsByUserName(userName.trim()) ? "用户名已存在" : "OK";
+        }
+        return "OK";
+    }
+
 
     @Override
     public void sendVerificationCode(String userPhone, SmsScene scene){
