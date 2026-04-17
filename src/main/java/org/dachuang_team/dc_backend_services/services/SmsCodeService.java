@@ -97,7 +97,7 @@ public class SmsCodeService implements ISmsCodeService {
                 log.warn("[SMS] 验证失败 phone={} scene={} verifyResult={}",
                         maskPhone(phone), scene,
                         body.model != null ? body.model.verifyResult : "null");
-                throw new SmsVerifyException("验证码错误或已过期，请重新获取");
+                throw new IllegalArgumentException("验证码错误或已过期，请重新获取");
             }
 
             log.info("[SMS] 验证通过 phone={} scene={}", maskPhone(phone), scene);
