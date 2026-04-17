@@ -9,6 +9,7 @@ import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.UserAvatar;
 import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserAddress;
 import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserCheckIn;
 import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserGeneral;
+import org.dachuang_team.dc_backend_services.enumeration.SmsScene;
 import org.dachuang_team.dc_backend_services.repository.UserAddressRepository;
 import org.dachuang_team.dc_backend_services.repository.UserAvatarRecordRepository;
 import org.dachuang_team.dc_backend_services.repository.UserCheckInRepository;
@@ -49,6 +50,9 @@ public class UserService implements IUserService {
     @Autowired
     private ImageProcessUtils imageProcessUtils;
 
+    @Autowired
+    private SmsCodeService smsCodeService;
+
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     private static final Logger logger = LoggerFactory.getLogger(RedisConfig.class);
@@ -73,25 +77,43 @@ public class UserService implements IUserService {
         userRepository.save(newUser);
     }
 
-    // 用户登录验证
+    @Override
+    public void sendVerificationCode(String userPhone, SmsScene scene){
+        // 如果是注册场景，批准未注册的是手机号发送验证码，否则必须要注册
+        if (scene == SmsScene.REGISTER) {
+            if (userRepository.existsByUserPhone(userPhone)) {
+                throw new IllegalArgumentException("手机号已被注册");
+            }
+        } else {
+            if (!userRepository.existsByUserPhone(userPhone)) {
+                throw new IllegalArgumentException("手机号未注册");
+            }
+        }
+        smsCodeService.sendCode(userPhone, scene);
+    }
+
     @Override
     @Transactional(rollbackOn = Exception.class)
-    public String authenticateUser(String userName, String rawPassword) {
+    public String authenticateUserBySms(String userPhone, String code) {
         try {
-            logger.info("开始验证用户登录，用户名: {}", userName);
+            logger.info("开始验证用户登录（短信方式），手机号: {}", userPhone);
 
-            UserGeneral user = userRepository.findByUserName(userName);
-
-            // 基础校验
-            if (user == null || !passwordEncoder.matches(rawPassword, user.getUserPassword())) {
-                logger.warn("用户名或密码错误: {}", userName);
-                throw new IllegalArgumentException("用户名或密码错误");
+            UserGeneral user = userRepository.findByUserPhone(userPhone);
+            if (user == null) {
+                logger.warn("用户登录失败，手机号: {}，原因: 用户不存在", userPhone);
+                throw new IllegalArgumentException("用户手机号错误");
             }
 
-            // 状态校验
             if ("异常".equals(user.getUserStatus())) {
-                logger.warn("用户状态异常，禁止登录: {}", userName);
+                logger.warn("用户状态异常，禁止登录，手机号: {}", userPhone);
                 throw new IllegalArgumentException("该用户状态异常，禁止登录");
+            }
+
+            // 验证验证码
+            boolean isCodeValid = smsCodeService.verifyCode(userPhone, code, SmsScene.LOGIN);
+            if (!isCodeValid) {
+                logger.warn("用户登录失败，手机号: {}，原因: 验证码错误", userPhone);
+                throw new IllegalArgumentException("验证码错误");
             }
 
             // 更新最后登录时间
@@ -114,9 +136,45 @@ public class UserService implements IUserService {
         }
     }
 
+    // 用户登录验证
     @Override
-    public UserGeneral getUserByUserName(String userName) {
-        return userRepository.findByUserName(userName);
+    @Transactional(rollbackOn = Exception.class)
+    public String authenticateUserByPassword(String userPhone, String rawPassword) {
+        try {
+            logger.info("开始验证用户登录，手机号: {}", userPhone);
+
+            UserGeneral user = userRepository.findByUserPhone(userPhone);
+
+            // 基础校验
+            if (user == null || !passwordEncoder.matches(rawPassword, user.getUserPassword())) {
+                logger.warn("用户登录失败，手机号: {}，原因: 用户不存在或密码错误", userPhone);
+                throw new IllegalArgumentException("用户手机号或密码错误");
+            }
+
+            // 状态校验
+            if ("异常".equals(user.getUserStatus())) {
+                logger.warn("用户状态异常，禁止登录，手机号: {}", userPhone);
+                throw new IllegalArgumentException("该用户状态异常，禁止登录");
+            }
+
+            // 更新最后登录时间
+            LocalDateTime now = LocalDateTime.now();
+            user.setLastLoginAt(now);
+            userRepository.save(user);
+            logger.info("用户最后登录时间已更新: {}", now);
+
+            // 生成并存储Token
+            String token = authService.generateToken(user.getUserId(), "USER");
+            logger.info("Token 生成成功: {}", token);
+
+            return token;
+        } catch (IllegalArgumentException e) {
+            logger.error("登录失败: {}", e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            logger.error("服务器错误: {}", e.getMessage(), e);
+            throw new RuntimeException("登录时发生服务器错误");
+        }
     }
 
     @Override

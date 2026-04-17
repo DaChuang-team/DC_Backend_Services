@@ -6,8 +6,11 @@ import org.dachuang_team.dc_backend_services.domain.DTO.UserUpdateDTO;
 import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserAddress;
 import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserPointsRecord;
 import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserGeneral;
+import org.dachuang_team.dc_backend_services.enumeration.SmsScene;
+import org.dachuang_team.dc_backend_services.repository.UserRepository;
 import org.dachuang_team.dc_backend_services.services.PointsRecordService;
 import org.dachuang_team.dc_backend_services.services.UserService;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -31,6 +34,9 @@ public class UserController {
     @Autowired
     private PointsRecordService pointsRecordService;
 
+    @Autowired
+    private UserRepository userRepository;
+
     // 用户注册
     @PostMapping("/register")
     public Result<String> register(@RequestBody UserDTO userDTO) {
@@ -44,26 +50,14 @@ public class UserController {
         }
     }
 
-    // 用户登录
-    @PostMapping("/login")
+    // 用户使用手机号和密码登录
+    @PostMapping("/login/pw")
     public Result<Map<String, Object>> login(@RequestBody UserDTO userDTO) {
         try {
-            String token = userService.authenticateUser(userDTO.getUserName(), userDTO.getUserPassword());
+            String token = userService.authenticateUserByPassword(userDTO.getUserPhone(), userDTO.getUserPassword());
             if (token != null) { //如果身份验证成功，返回用户信息和 token
-                UserGeneral user = userService.getUserByUserName(userDTO.getUserName());
-                Map<String, Object> responseBody = new HashMap<>();
-                responseBody.put("token", token);
-                responseBody.put("userName", user.getUserName());
-                responseBody.put("userPhone", user.getUserPhone());
-                responseBody.put("userAvatarURL", user.getUserAvatarURL());
-                responseBody.put("userGender", user.getUserGender());
-                responseBody.put("userBirthday", user.getUserBirthday());
-                responseBody.put("userStatus", user.getUserStatus());
-                responseBody.put("userPoints", user.getPoints());
-                responseBody.put("userPreference", user.getUserPreference());
-
-                // 直接返回 Result 对象，Spring 会自动转为 JSON
-                return Result.success("登录成功", responseBody);
+                UserGeneral user = userRepository.findByUserPhone(userDTO.getUserPhone());
+                return getUserLoginMapResult(token, user);
             } else {
                 return Result.error(401, "用户名或密码错误");
             }
@@ -73,6 +67,54 @@ public class UserController {
         } catch (Exception e) {
             return Result.error(500, "登录时发生服务器错误");
         }
+    }
+
+    @PostMapping("/login/smsSend")
+    public Result<String> sendLoginCode(@RequestParam String userPhone) {
+        try {
+            userService.sendVerificationCode(userPhone, SmsScene.LOGIN);
+            return Result.success("验证码发送成功", null);
+        } catch (IllegalArgumentException e) {
+            return Result.error(400, e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "服务器开小差了: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/login/smsVerify")
+    public Result<Map<String, Object>> loginByCode(
+            @RequestParam String userPhone,
+            @RequestParam String code){
+        try {
+            String token = userService.authenticateUserBySms(userPhone, code);
+            if (token != null) { //如果身份验证成功，返回用户信息和 token
+                UserGeneral user = userRepository.findByUserPhone(userPhone);
+                return getUserLoginMapResult(token, user);
+            } else {
+                return Result.error(401, "用户名或密码错误");
+            }
+        } catch (IllegalArgumentException e) {
+            // 捕获状态异常导致的登录失败
+            return Result.error(403, e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "登录时发生服务器错误");
+        }
+    }
+
+    @NotNull
+    private Result<Map<String, Object>> getUserLoginMapResult(String token, UserGeneral user) {
+        Map<String, Object> responseBody = new HashMap<>();
+        responseBody.put("token", token);
+        responseBody.put("userName", user.getUserName());
+        responseBody.put("userPhone", user.getUserPhone());
+        responseBody.put("userAvatarURL", user.getUserAvatarURL());
+        responseBody.put("userGender", user.getUserGender());
+        responseBody.put("userBirthday", user.getUserBirthday());
+        responseBody.put("userStatus", user.getUserStatus());
+        responseBody.put("userPoints", user.getPoints());
+        responseBody.put("userPreference", user.getUserPreference());
+
+        return Result.success("登录成功", responseBody);
     }
 
     @PutMapping("/updateInfo")

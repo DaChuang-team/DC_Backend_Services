@@ -4,13 +4,15 @@ import org.dachuang_team.dc_backend_services.domain.DTO.UserDTO;
 import org.dachuang_team.dc_backend_services.domain.DTO.UserUpdateDTO;
 import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserAddress;
 import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserGeneral;
+import org.dachuang_team.dc_backend_services.enumeration.SmsScene;
 
 import java.util.List;
 
 public interface IUserService {
     void registerUser(UserDTO user);
-    String authenticateUser(String userName, String rawPassword);
-    UserGeneral getUserByUserName(String userName);
+    String authenticateUserByPassword(String userPhone, String rawPassword);
+    void sendVerificationCode(String userPhone, SmsScene scene);
+    String authenticateUserBySms(String userPhone, String smsCode);
     boolean updateInfo(Long userId, UserUpdateDTO dto);
     /**
      * 管理员修改用户状态
