@@ -20,12 +20,19 @@ public enum SmsScene {
             "{\"code\":\"##code##\",\"min\":\"10\"}",
             600L, 60L, 6L, 1L, 1L
     ),
-    BIND_PHONE(
-            "改绑手机方案",
-            "100002",
-            "{\"code\":\"##code##\",\"min\":\"10\"}",
-            600L, 120L, 6L, 1L, 1L
-    );
+    CHECK_OLD_PHONE(
+            "验证绑定手机号方案",
+            "100005",
+            "{\"code\":\"##code##\",\"min\":\"15\"}",
+            900L, 120L, 6L, 1L, 1L
+    ),
+    CHECK_NEW_PHONE(
+            "验证新手机号方案",
+            "100004",
+            "{\"code\":\"##code##\",\"min\":\"15\"}",
+            900L, 120L, 6L, 1L, 1L
+    )
+    ;
 
     private final String schemeName;    // 方案名称（如登录、注册等）
     private final String templateCode;  // 短信模板 CODE

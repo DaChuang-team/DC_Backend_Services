@@ -1,11 +1,11 @@
 package org.dachuang_team.dc_backend_services.controller;
 
 import org.dachuang_team.dc_backend_services.common.Result;
-import org.dachuang_team.dc_backend_services.domain.DTO.UserAddressDTO;
-import org.dachuang_team.dc_backend_services.domain.DTO.UserUpdateDTO;
+import org.dachuang_team.dc_backend_services.domain.DTO.*;
 import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserAddress;
 import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserPointsRecord;
 import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserGeneral;
+import org.dachuang_team.dc_backend_services.domain.VO.UserVO;
 import org.dachuang_team.dc_backend_services.enumeration.SmsScene;
 import org.dachuang_team.dc_backend_services.repository.UserRepository;
 import org.dachuang_team.dc_backend_services.services.PointsRecordService;
@@ -14,7 +14,6 @@ import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-import org.dachuang_team.dc_backend_services.domain.DTO.UserDTO;
 
 
 import java.util.ArrayList;
@@ -65,7 +64,7 @@ public class UserController {
         }
     }
 
-    @PostMapping("/register/check")
+    @PostMapping("/info/check")
     public Result<String> check(
             @RequestParam(required = false) String userPhone,
             @RequestParam(required = false) String userName) {
@@ -128,32 +127,98 @@ public class UserController {
         }
     }
 
-    @NotNull
-    private Result<Map<String, Object>> getUserLoginMapResult(String token, UserGeneral user) {
-        Map<String, Object> responseBody = new HashMap<>();
-        responseBody.put("token", token);
-        responseBody.put("userName", user.getUserName());
-        responseBody.put("userPhone", user.getUserPhone());
-        responseBody.put("userAvatarURL", user.getUserAvatarURL());
-        responseBody.put("userGender", user.getUserGender());
-        responseBody.put("userBirthday", user.getUserBirthday());
-        responseBody.put("userStatus", user.getUserStatus());
-        responseBody.put("userPoints", user.getPoints());
-        responseBody.put("userPreference", user.getUserPreference());
-
-        return Result.success("登录成功", responseBody);
+    @PostMapping("/update/resetPwSmsSend")
+    public Result<String> ResetPwSmsSend(){
+        Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        try {
+            UserGeneral user = userService.getUserById(currentUserId);
+            if(user == null) {
+                return Result.error(401, "未认证，无法发送验证码");
+            }
+            userService.sendVerificationCode(user.getUserPhone(), SmsScene.RESET_PWD);
+            return Result.success("验证码发送成功", null);
+        } catch (IllegalArgumentException e) {
+            return Result.error(400, e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "服务器开小差了: " + e.getMessage());
+        }
     }
 
-    @PutMapping("/updateInfo")
+    @PostMapping("/update/resetPwConfirm")
+    public Result<UserVO> updatePassword(@RequestBody UserPwUpdateDTO dto) {
+        try {
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            if(currentUserId == null) {
+                return Result.error(401, "未认证，无法修改密码");
+            }
+            UserVO updatedUser = userService.updateUserPwd(dto, currentUserId);
+            return Result.success("密码更新成功", updatedUser);
+        } catch (IllegalArgumentException e) {
+            return Result.error(400, e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "服务器开小差了: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/update/oldPhoneSmsSend")
+    public Result<String> updatePhoneOldSmsSend(){
+        Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        try {
+            UserGeneral user = userService.getUserById(currentUserId);
+            if(user == null) {
+                return Result.error(401, "未认证，无法发送验证码");
+            }
+            userService.sendVerificationCode(user.getUserPhone(), SmsScene.CHECK_OLD_PHONE);
+            return Result.success("验证码发送成功", null);
+        } catch (IllegalArgumentException e) {
+            return Result.error(400, e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "服务器开小差了: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/update/newPhoneSmsSend")
+    public Result<String> updatePhoneNewSmsSend(@RequestParam String newPhone){
+        Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        try {
+            UserGeneral user = userService.getUserById(currentUserId);
+            if(user == null) {
+                return Result.error(401, "未认证，无法发送验证码");
+            }
+            userService.sendVerificationCode(newPhone, SmsScene.CHECK_NEW_PHONE);
+            return Result.success("验证码发送成功", null);
+        } catch (IllegalArgumentException e) {
+            return Result.error(400, e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "服务器开小差了: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/update/resetPhoneConfirm")
+    public Result<UserVO> updatePhone(@RequestBody UserPhoneUpdateDTO dto) {
+        try {
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            if(currentUserId == null) {
+                return Result.error(401, "未认证，无法修改电话号码");
+            }
+            UserVO updatedUser = userService.updateUserPhone(dto, currentUserId);
+            return Result.success("电话号码更新成功", updatedUser);
+        } catch (IllegalArgumentException e) {
+            return Result.error(400, e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "服务器开小差了: " + e.getMessage());
+        }
+    }
+
+
+    // 用户更新非敏感信息接口（直接修改无须密码或电话号码认证）
+    @PutMapping("/update/normal")
     public Result<Map<String, Object>> updateUserInfo(@RequestBody UserUpdateDTO userUpdateDTO) {
         try {
-            // 1. 从安全上下文中获取 Filter 存入的 userId
             Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
-            // 2. 调用业务层更新信息
-            userService.updateInfo(currentUserId, userUpdateDTO);
+            userService.updateNormalInfo(currentUserId, userUpdateDTO);
 
-            // 3. 获取更新后的用户信息
             UserGeneral updatedUser = userService.getUserById(currentUserId);
             Map<String, Object> responseBody = buildUserResponse(updatedUser);
 
@@ -472,7 +537,6 @@ public class UserController {
         }
     }
 
-    // 辅助方法：构建用户信息的响应数据
     private Map<String, Object> buildUserResponse(UserGeneral user) {
         Map<String, Object> map = new HashMap<>();
         map.put("userName", user.getUserName());
@@ -484,5 +548,21 @@ public class UserController {
         map.put("userStatus", user.getUserStatus());
         map.put("points", user.getPoints());
         return map;
+    }
+
+    @NotNull
+    private Result<Map<String, Object>> getUserLoginMapResult(String token, UserGeneral user) {
+        Map<String, Object> responseBody = new HashMap<>();
+        responseBody.put("token", token);
+        responseBody.put("userName", user.getUserName());
+        responseBody.put("userPhone", user.getUserPhone());
+        responseBody.put("userAvatarURL", user.getUserAvatarURL());
+        responseBody.put("userGender", user.getUserGender());
+        responseBody.put("userBirthday", user.getUserBirthday());
+        responseBody.put("userStatus", user.getUserStatus());
+        responseBody.put("userPoints", user.getPoints());
+        responseBody.put("userPreference", user.getUserPreference());
+
+        return Result.success("登录成功", responseBody);
     }
 }
