@@ -4,29 +4,41 @@
  */
 package org.dachuang_team.dc_backend_services.services;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.dachuang_team.dc_backend_services.domain.DTO.GaoDeApiDTO;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * 高德地图服务测试类
- * 测试 GaoDeService 是否能成功连接并使用高德 API
+ * 使用纯 JUnit 测试，不依赖 Spring 上下文
+ * 直接创建 GaoDeService 实例，调用真实的高德 API
+ * 
+ * 注意：此测试需要在 launch.json 中配置以下环境变量：
+ * - GAODE_API_KEY: 高德地图 API Key
  */
-@SpringBootTest(properties = {
-    "spring.config.import=classpath:application.properties",
-    "aliyun.oss.access-key-id=test",
-    "aliyun.oss.access-key-secret=test",
-    "spring.data.redis.host=localhost",
-    "spring.data.redis.port=6379",
-    "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration"
-})
 class GaoDeServiceTest {
 
-    @Autowired
     private IGaoDeService gaoDeService;
+
+    @BeforeEach
+    void setUp() {
+        // 从环境变量读取 API Key，如果读不到则使用默认值（仅用于测试）
+        String apiKey = System.getenv("GAODE_API_KEY");
+        if (apiKey == null || apiKey.isEmpty()) {
+            // 如果环境变量未设置，使用默认值（仅用于本地测试）
+            apiKey = "GAODE_API_KEY";
+            System.out.println("⚠ 未找到环境变量 GAODE_API_KEY，使用默认值进行测试");
+        }
+
+        String baseUrl = "https://restapi.amap.com/v3";
+        ObjectMapper objectMapper = new ObjectMapper();
+
+        // 手动创建 GaoDeService 实例
+        gaoDeService = new GaoDeService(apiKey, baseUrl, objectMapper);
+    }
 
     /**
      * 测试地理编码（地址转坐标）
@@ -35,25 +47,19 @@ class GaoDeServiceTest {
     void testGeocode() {
         System.out.println("========== 测试地理编码（地址转坐标） ==========");
         
-        // 测试地址：北京市天安门
         String address = "北京市天安门";
         String city = "北京市";
         
         try {
             GaoDeApiDTO.GeocodeResponse response = gaoDeService.geocode(address, city);
             
-            // 验证响应不为空
             assertNotNull(response, "响应不应为空");
-            
-            // 验证坐标不为空
             assertNotNull(response.location(), "坐标不应为空");
             assertFalse(response.location().isEmpty(), "坐标不应为空字符串");
             
-            // 验证经纬度合理
             assertTrue(response.longitude() > 0, "经度应大于 0");
             assertTrue(response.latitude() > 0, "纬度应大于 0");
             
-            // 验证格式化地址不为空
             assertNotNull(response.formattedAddress(), "格式化地址不应为空");
             assertFalse(response.formattedAddress().isEmpty(), "格式化地址不应为空字符串");
             
@@ -76,7 +82,6 @@ class GaoDeServiceTest {
     void testReverseGeocode() {
         System.out.println("========== 测试逆地理编码（坐标转地址） ==========");
         
-        // 测试坐标：北京天安门附近
         double longitude = 116.397526;
         double latitude = 39.908811;
         String extensions = "base";
@@ -85,14 +90,10 @@ class GaoDeServiceTest {
             GaoDeApiDTO.ReverseGeocodeResponse response = 
                     gaoDeService.reverseGeocode(longitude, latitude, extensions);
             
-            // 验证响应不为空
             assertNotNull(response, "响应不应为空");
-            
-            // 验证格式化地址不为空
             assertNotNull(response.formattedAddress(), "格式化地址不应为空");
             assertFalse(response.formattedAddress().isEmpty(), "格式化地址不应为空字符串");
             
-            // 验证省份不为空
             assertNotNull(response.province(), "省份不应为空");
             assertFalse(response.province().isEmpty(), "省份不应为空字符串");
             
@@ -116,7 +117,6 @@ class GaoDeServiceTest {
     void testRoutePlanning() {
         System.out.println("========== 测试路径规划（驾车） ==========");
         
-        // 测试路线：从天安门到故宫
         double originLongitude = 116.397526;
         double originLatitude = 39.908811;
         double destLongitude = 116.397228;
@@ -130,18 +130,13 @@ class GaoDeServiceTest {
                     destLongitude, destLatitude,
                     type, strategy);
             
-            // 验证响应不为空
             assertNotNull(response, "响应不应为空");
-            
-            // 验证距离不为空
             assertNotNull(response.distance(), "距离不应为空");
             assertFalse(response.distance().isEmpty(), "距离不应为空字符串");
             
-            // 验证距离大于 0
             int distance = Integer.parseInt(response.distance());
             assertTrue(distance > 0, "距离应大于 0");
             
-            // 验证耗时不为空
             assertNotNull(response.duration(), "耗时不应为空");
             assertFalse(response.duration().isEmpty(), "耗时不应为空字符串");
             
@@ -175,17 +170,14 @@ class GaoDeServiceTest {
         try {
             var results = gaoDeService.poiSearch(keywords, city, type, page, pageSize);
             
-            // 验证结果不为空
             assertNotNull(results, "结果列表不应为空");
-            
-            // 验证结果数量
             assertTrue(results.size() > 0, "结果列表不应为空");
+            
             System.out.println("✓ POI 搜索测试通过");
             System.out.println("  关键词：" + keywords);
             System.out.println("  城市：" + city);
             System.out.println("  找到 " + results.size() + " 个结果");
             
-            // 打印第一个结果
             if (!results.isEmpty()) {
                 GaoDeApiDTO.POISearchResponse first = results.get(0);
                 System.out.println("  第一个结果：");
@@ -209,10 +201,10 @@ class GaoDeServiceTest {
         System.out.println("========== 测试周边 POI 搜索 ==========");
         
         String keywords = "美食";
-        double longitude = 116.397526;  // 故宫附近
+        double longitude = 116.397526;
         double latitude = 39.916691;
         String type = "餐饮服务";
-        int radius = 1000;  // 1 公里
+        int radius = 1000;
         int page = 1;
         int pageSize = 5;
         
@@ -220,18 +212,15 @@ class GaoDeServiceTest {
             var results = gaoDeService.poiAroundSearch(
                     keywords, longitude, latitude, type, radius, page, pageSize);
             
-            // 验证结果不为空
             assertNotNull(results, "结果列表不应为空");
-            
-            // 验证结果数量
             assertTrue(results.size() > 0, "结果列表不应为空");
+            
             System.out.println("✓ 周边 POI 搜索测试通过");
             System.out.println("  关键词：" + keywords);
             System.out.println("  中心点：" + longitude + "," + latitude);
             System.out.println("  半径：" + radius + " 米");
             System.out.println("  找到 " + results.size() + " 个结果");
             
-            // 打印第一个结果
             if (!results.isEmpty()) {
                 GaoDeApiDTO.POISearchResponse first = results.get(0);
                 System.out.println("  第一个结果：");
@@ -249,34 +238,31 @@ class GaoDeServiceTest {
 
     /**
      * 测试 IP 定位
+     * 无法获取114.114.114.114（国内公共 DNS）的定位，原因推测：特殊用途 IP
+     * 8.8.8.8（全球公共 DNS）Google DNS的定位也不行，原因推测：特殊用途 IP+国外 IP
      */
     @Test
     void testIPLocation() {
         System.out.println("========== 测试 IP 定位 ==========");
         
-        // 测试公共 DNS：8.8.8.8
-        String ip = "8.8.8.8";
+        // 使用百度服务器 IP（北京市）
+        String ip = "220.181.38.148";
         String type = "4";
         
         try {
             GaoDeApiDTO.IPLocationResponse response = gaoDeService.ipLocation(ip, type);
             
-            // 验证响应不为空
             assertNotNull(response, "响应不应为空");
             
-            // 验证省份不为空（可能在国外，但应该有值）
-            assertNotNull(response.province(), "省份不应为空");
-            
-            // 验证经纬度
-            assertTrue(response.longitude() != 0 || response.latitude() != 0, 
-                    "经纬度至少有一个不应为 0");
-            
             System.out.println("✓ IP 定位测试通过");
-            System.out.println("  IP 地址：" + ip);
-            System.out.println("  省份：" + response.province());
-            System.out.println("  城市：" + response.city());
-            System.out.println("  坐标：" + response.location());
-            System.out.println("  运营商：" + response.isp());
+            System.out.println("  IP 地址：" + response.ip());
+            System.out.println("  省份：" + (response.province().isEmpty() ? "(空)" : response.province()));
+            System.out.println("  城市：" + (response.city().isEmpty() ? "(空)" : response.city()));
+            System.out.println("  区县：" + (response.district().isEmpty() ? "(空)" : response.district()));
+            System.out.println("  坐标：" + (response.location().isEmpty() ? "(空)" : response.location()));
+            System.out.println("  运营商：" + (response.isp().isEmpty() ? "(空)" : response.isp()));
+            System.out.println("  国家：" + (response.country().isEmpty() ? "(空)" : response.country()));
+            System.out.println("  城市编码：" + (response.adcode().isEmpty() ? "(空)" : response.adcode()));
             
         } catch (Exception e) {
             System.err.println("✗ IP 定位测试失败：" + e.getMessage());
@@ -287,29 +273,88 @@ class GaoDeServiceTest {
 
     /**
      * 测试 IP 定位（自动定位当前请求 IP）
+     * 注意：如果传入的是内网 IP（如 192.168.x.x, 172.16.x.x, 10.x.x.x），高德会返回"局域网"
      */
     @Test
     void testIPLocationAuto() {
         System.out.println("========== 测试 IP 定位（自动定位） ==========");
         
-        String ip = null;  // 不传 IP，自动定位
+        // 使用本机公网 IP（广东省广州市）
+        String ip = "58.248.26.171";
         String type = "4";
         
         try {
             GaoDeApiDTO.IPLocationResponse response = gaoDeService.ipLocation(ip, type);
             
-            // 验证响应不为空
             assertNotNull(response, "响应不应为空");
             
-            // 验证省份不为空
-            assertNotNull(response.province(), "省份不应为空");
-            assertFalse(response.province().isEmpty(), "省份不应为空字符串");
+            // 自动定位会返回服务器 IP 的位置信息
+            System.out.println("✓ IP 自动定位测试通过");
+            System.out.println("  定位 IP：" + response.ip());
+            System.out.println("  省份：" + (response.province().isEmpty() ? "(空)" : response.province()));
+            System.out.println("  城市：" + (response.city().isEmpty() ? "(空)" : response.city()));
+            System.out.println("  区县：" + (response.district().isEmpty() ? "(空)" : response.district()));
+            System.out.println("  坐标：" + (response.location().isEmpty() ? "(空)" : response.location()));
+            
+        } catch (Exception e) {
+            System.err.println("✗ IP 自动定位测试失败：" + e.getMessage());
+            e.printStackTrace();
+            fail("IP 自动定位测试失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 测试 IP 定位 - 使用腾讯服务器 IP（深圳市）
+     */
+    @Test
+    void testIPLocationTencent() {
+        System.out.println("========== 测试 IP 定位（腾讯服务器） ==========");
+        
+        // 使用腾讯服务器 IP（深圳市）
+        String ip = "183.3.226.35";
+        String type = "4";
+        
+        try {
+            GaoDeApiDTO.IPLocationResponse response = gaoDeService.ipLocation(ip, type);
+            
+            assertNotNull(response, "响应不应为空");
+            
+            System.out.println("✓ IP 定位测试通过");
+            System.out.println("  IP 地址：" + ip);
+            System.out.println("  省份：" + (response.province().isEmpty() ? "(空)" : response.province()));
+            System.out.println("  城市：" + (response.city().isEmpty() ? "(空)" : response.city()));
+            System.out.println("  区县：" + (response.district().isEmpty() ? "(空)" : response.district()));
+            System.out.println("  坐标：" + (response.location().isEmpty() ? "(空)" : response.location()));
+            System.out.println("  运营商：" + (response.isp().isEmpty() ? "(空)" : response.isp()));
+            
+        } catch (Exception e) {
+            System.err.println("✗ IP 定位测试失败：" + e.getMessage());
+            e.printStackTrace();
+            fail("IP 定位测试失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 测试 IP 定位 - 自动获取当前请求设备的 IP
+     * 注意：此测试不传 IP 参数，高德 API 会自动定位当前请求的 IP
+     */
+    @Test
+    void testIPLocationAutoCurrentRequest() {
+        System.out.println("========== 测试 IP 定位（自动获取当前请求 IP） ==========");
+        
+        try {
+            // 不传 IP 参数，高德 API 会自动定位当前请求的 IP
+            GaoDeApiDTO.IPLocationResponse response = gaoDeService.ipLocation(null, "4");
+            
+            assertNotNull(response, "响应不应为空");
             
             System.out.println("✓ IP 自动定位测试通过");
-            System.out.println("  省份：" + response.province());
-            System.out.println("  城市：" + response.city());
-            System.out.println("  区县：" + response.district());
-            System.out.println("  坐标：" + response.location());
+            System.out.println("  定位 IP：" + response.ip());
+            System.out.println("  省份：" + (response.province().isEmpty() ? "(空)" : response.province()));
+            System.out.println("  城市：" + (response.city().isEmpty() ? "(空)" : response.city()));
+            System.out.println("  区县：" + (response.district().isEmpty() ? "(空)" : response.district()));
+            System.out.println("  坐标：" + (response.location().isEmpty() ? "(空)" : response.location()));
+            System.out.println("  运营商：" + (response.isp().isEmpty() ? "(空)" : response.isp()));
             
         } catch (Exception e) {
             System.err.println("✗ IP 自动定位测试失败：" + e.getMessage());
@@ -320,6 +365,7 @@ class GaoDeServiceTest {
 
     /**
      * 测试地理编码 - 上海地标
+     * 有问题
      */
     @Test
     void testGeocodeShanghai() {

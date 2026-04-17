@@ -349,14 +349,19 @@ public class GaoDeService implements IGaoDeService {
     public GaoDeApiDTO.IPLocationResponse ipLocation(String ip, String type) {
         try {
             // 构建请求 URL
-            String url = String.format("%s/ip?ip=%s&key=%s",
-                    baseUrl,
-                    ip != null && !ip.isEmpty() ? URLEncoder.encode(ip, StandardCharsets.UTF_8) : "",
-                    apiKey);
-
-            if (type != null && !type.isEmpty()) {
-                url += "&type=" + type;
+            StringBuilder urlBuilder = new StringBuilder(baseUrl + "/ip?key=" + apiKey);
+            
+            // 如果传入了 IP 参数，才添加到 URL 中（没传一定不要加，否则会返回空结果数组）
+            if (ip != null && !ip.isEmpty()) {
+                urlBuilder.append("&ip=").append(URLEncoder.encode(ip, StandardCharsets.UTF_8));
             }
+            
+            if (type != null && !type.isEmpty()) {
+                urlBuilder.append("&type=").append(type);
+            }
+            
+            String url = urlBuilder.toString();
+            logger.debug("IP 定位请求 URL：{}", url);
 
             // 发起请求
             Request request = new Request.Builder()
@@ -370,22 +375,81 @@ public class GaoDeService implements IGaoDeService {
                 }
 
                 String responseBody = response.body().string();
+                System.out.println("========== IP 定位 API 原始响应 ==========");
+                System.out.println(responseBody);
+                System.out.println("==========================================");
                 JsonNode rootNode = objectMapper.readTree(responseBody);
 
-                // 解析响应
-                if (rootNode.has("province") || rootNode.has("city")) {
-                    String location = rootNode.has("location") ? rootNode.get("location").asText() : "";
-                    String[] parts = location.split(",");
-                    double longitude = parts.length > 0 && !parts[0].isEmpty() ? Double.parseDouble(parts[0]) : 0.0;
-                    double latitude = parts.length > 1 && !parts[1].isEmpty() ? Double.parseDouble(parts[1]) : 0.0;
+                // 检查 API 返回状态
+                String status = rootNode.has("status") ? rootNode.get("status").asText() : "0";
+                String info = rootNode.has("info") ? rootNode.get("info").asText() : "";
+                
+                if (!"1".equals(status)) {
+                    throw new RuntimeException("IP 定位失败：" + info);
+                }
+
+                // 解析响应 - 注意：高德 IP 定位返回的可能是空数组 [] 或字符串
+                JsonNode provinceNode = rootNode.get("province");
+                JsonNode cityNode = rootNode.get("city");
+                
+                // 如果是数组且为空，说明 API Key 没有 IP 定位权限或该 IP 无法定位
+                if ((provinceNode.isArray() && provinceNode.isEmpty()) || 
+                    (cityNode.isArray() && cityNode.isEmpty())) {
+                    // 检查是否是局域网 IP
+                    String provinceText = provinceNode.isTextual() ? provinceNode.asText() : "";
+                    if ("局域网".equals(provinceText)) {
+                        logger.warn("IP 定位返回局域网，该 IP 为内网地址，无法定位");
+                    } else {
+                        logger.warn("IP 定位返回空结果，可能 API Key 未开通 IP 定位服务或该 IP 无法定位");
+                    }
+                    return new GaoDeApiDTO.IPLocationResponse(
+                            ip != null && !ip.isEmpty() ? ip : "当前请求 IP",
+                            "",
+                            0.0,
+                            0.0,
+                            provinceText,
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            ""
+                    );
+                }
+
+                // 正常解析
+                String province = provinceNode.isTextual() ? provinceNode.asText() : "";
+                String city = cityNode.isTextual() ? cityNode.asText() : "";
+                
+                if (!province.isEmpty() || !city.isEmpty()) {
+                    // 高德 IP 定位返回的是 rectangle（矩形区域），格式为 "左下角坐标;右上角坐标"
+                    JsonNode rectangleNode = rootNode.get("rectangle");
+                    String rectangle = rectangleNode.isTextual() ? rectangleNode.asText() : "";
+                    double longitude = 0.0;
+                    double latitude = 0.0;
+                    String location = "";
+                    
+                    if (!rectangle.isEmpty() && rectangle.contains(";")) {
+                        // 取左下角坐标作为中心点
+                        String[] rectParts = rectangle.split(";");
+                        if (rectParts.length > 0) {
+                            String[] coords = rectParts[0].split(",");
+                            if (coords.length >= 2) {
+                                longitude = Double.parseDouble(coords[0]);
+                                latitude = Double.parseDouble(coords[1]);
+                                location = longitude + "," + latitude;
+                            }
+                        }
+                    }
 
                     return new GaoDeApiDTO.IPLocationResponse(
                             ip != null && !ip.isEmpty() ? ip : "当前请求 IP",
                             location,
                             longitude,
                             latitude,
-                            rootNode.has("province") ? rootNode.get("province").asText() : "",
-                            rootNode.has("city") ? rootNode.get("city").asText() : "",
+                            province,
+                            city,
                             rootNode.has("adcode") ? rootNode.get("adcode").asText() : "",
                             rootNode.has("district") ? rootNode.get("district").asText() : "",
                             rootNode.has("isp") ? rootNode.get("isp").asText() : "",
@@ -395,7 +459,7 @@ public class GaoDeService implements IGaoDeService {
                     );
                 }
 
-                throw new RuntimeException("IP 定位失败");
+                throw new RuntimeException("IP 定位失败：返回数据格式异常");
             }
         } catch (Exception e) {
             logger.error("IP 定位失败：{}", e.getMessage(), e);
