@@ -70,8 +70,8 @@ public interface IGaoDeService {
     
     /**
      * IP 定位
-     * @param ip IP 地址（可选，不传则定位当前请求 IP）
-     * @param type 定位类型：4（IPv4）/ 11（IPv6）
+     * @param ip IP 地址（可选，不传则定位当前请求 IP（高德的API会自己完成这一步））
+     * @param type 定位类型：4（IPv4）
      * @return IP 定位结果
      */
     GaoDeApiDTO.IPLocationResponse ipLocation(String ip, String type);
