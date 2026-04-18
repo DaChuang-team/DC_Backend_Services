@@ -54,12 +54,9 @@ public class UserController {
             @RequestBody UserDTO userDTO,
             @RequestParam String code) {
         try {
-
             userService.registerUser(userDTO, code);
-            // 返回 JSON 格式的成功信息
             return Result.success("注册成功: " + userDTO.getUserName(), null);
         } catch (Exception e) {
-            // 返回 JSON 格式的错误信息
             return Result.error(400, "注册失败: " + e.getMessage());
         }
     }

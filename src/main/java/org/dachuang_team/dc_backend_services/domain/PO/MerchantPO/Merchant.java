@@ -14,10 +14,10 @@ public class Merchant {
     @Column(name = "merchant_name", nullable = false, length = 20)
     private String merchantName;
 
-    @Column(name = "shop_name", nullable = false, length = 20)
-    private String shopName = "未命名店铺";
+    @Column(name = "shop_name", nullable = false, length = 20, unique = true)
+    private String shopName;
 
-    @Column(name = "merchant_phone", nullable = false, length = 15)
+    @Column(name = "merchant_phone", nullable = false, length = 15, unique = true)
     private String merchantPhone;
 
     @Column(name = "login_id", nullable = false, length = 20, unique = true)
