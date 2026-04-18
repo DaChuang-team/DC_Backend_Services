@@ -10,6 +10,8 @@ import java.util.List;
 public interface MerchantRepository extends JpaRepository<Merchant, Long> {
     Merchant findByLoginID(String loginID);
 
+    Merchant findMerchantById(Long id);
+
     List<Merchant> findByShopName(String shopName);
 
     boolean existsByShopName(String shopName);

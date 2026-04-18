@@ -18,6 +18,7 @@ import org.dachuang_team.dc_backend_services.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.security.SecurityProperties;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -112,7 +113,7 @@ public class UserService implements IUserService {
 
 
     @Override
-    public void sendVerificationCode(String userPhone, SmsScene scene){
+    public String sendVerificationCode(String userPhone, SmsScene scene){
         // 如果是注册或者换绑手机号场景，校验手机号必须未被注册过；如果是登录、忘记密码或验证绑定手机号场景，校验手机号必须已经注册过
         if (scene == SmsScene.REGISTER || scene == SmsScene.CHECK_NEW_PHONE) {
             if (userRepository.existsByUserPhone(userPhone)) {
@@ -124,6 +125,7 @@ public class UserService implements IUserService {
             }
         }
         smsCodeService.sendCode(userPhone, scene);
+        return "验证码已发送至 " + maskPhone(userPhone);
     }
 
     @Override
@@ -214,61 +216,79 @@ public class UserService implements IUserService {
     @Override
     @Transactional(rollbackOn = Exception.class)
     public UserVO updateUserPwd(UserPwUpdateDTO dto, Long userId){
-        UserGeneral user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+        try {
+            UserGeneral user = userRepository.findById(userId)
+                    .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
 
-        // 优先旧密码+新密码
-        if (dto.getOldPassword() != null && !dto.getOldPassword().isBlank()
-                && dto.getNewPassword() != null && !dto.getNewPassword().isBlank()) {
-            if (!passwordEncoder.matches(dto.getOldPassword(), user.getUserPassword())) {
-                throw new IllegalArgumentException("旧密码错误");
+            // 优先旧密码+新密码
+            if (dto.getOldPassword() != null && !dto.getOldPassword().isBlank()
+                    && dto.getNewPassword() != null && !dto.getNewPassword().isBlank()) {
+                if (!passwordEncoder.matches(dto.getOldPassword(), user.getUserPassword())) {
+                    throw new IllegalArgumentException("旧密码错误");
+                }
+                String encodedPassword = passwordEncoder.encode(dto.getNewPassword());
+                user.setUserPassword(encodedPassword);
+                user.setUpdatedAt(LocalDateTime.now());
+                userRepository.save(user);
             }
-            String encodedPassword = passwordEncoder.encode(dto.getNewPassword());
-            user.setUserPassword(encodedPassword);
-            user.setUpdatedAt(LocalDateTime.now());
-            userRepository.save(user);
-        }
-        // 新密码+验证码
-        else if (dto.getCode() != null && !dto.getCode().isBlank()
-                && dto.getNewPassword() != null && !dto.getNewPassword().isBlank()) {
-            boolean isCodeValid = smsCodeService.verifyCode(user.getUserPhone(), dto.getCode(), SmsScene.RESET_PWD);
-            if (!isCodeValid) {
-                throw new IllegalArgumentException("验证码错误");
+            // 新密码+验证码
+            else if (dto.getCode() != null && !dto.getCode().isBlank()
+                    && dto.getNewPassword() != null && !dto.getNewPassword().isBlank()) {
+                boolean isCodeValid = smsCodeService.verifyCode(user.getUserPhone(), dto.getCode(), SmsScene.RESET_PWD);
+                if (!isCodeValid) {
+                    throw new IllegalArgumentException("验证码错误");
+                }
+                String encodedPassword = passwordEncoder.encode(dto.getNewPassword());
+                user.setUserPassword(encodedPassword);
+                user.setUpdatedAt(LocalDateTime.now());
+                userRepository.save(user);
             }
-            String encodedPassword = passwordEncoder.encode(dto.getNewPassword());
-            user.setUserPassword(encodedPassword);
-            user.setUpdatedAt(LocalDateTime.now());
-            userRepository.save(user);
+            else {
+                throw new IllegalArgumentException("参数错误");
+            }
+            UserVO userVO = new UserVO();
+            BeanUtils.copyProperties(user, userVO);
+            return userVO;
+        } catch (IllegalArgumentException e){
+            throw new IllegalArgumentException("密码更新失败: " + e.getMessage());
+        } catch (Exception e){
+            throw new RuntimeException("密码更新时发生服务器错误");
         }
-        else {
-            throw new IllegalArgumentException("参数错误");
-        }
-        UserVO userVO = new UserVO();
-        BeanUtils.copyProperties(user, userVO);
-        return userVO;
     }
 
     @Override
     @Transactional(rollbackOn = Exception.class)
     public UserVO updateUserPhone(UserPhoneUpdateDTO dto, Long userId) {
-        UserGeneral user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
-        boolean isOldPhoneCodeValid = smsCodeService.verifyCode(user.getUserPhone(), dto.getOldPhoneVerifyCode(), SmsScene.CHECK_OLD_PHONE);
-        if (!isOldPhoneCodeValid) {
-            throw new IllegalArgumentException("旧手机号验证码错误");
-        }
-        boolean isNewPhoneCodeValid = smsCodeService.verifyCode(dto.getNewPhone(), dto.getNewPhoneVerifyCode(), SmsScene.CHECK_NEW_PHONE);
-        if (!isNewPhoneCodeValid) {
-            throw new IllegalArgumentException("新手机号验证码错误");
-        }
+        try {
+            UserGeneral user = userRepository.findById(userId)
+                    .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+            if(user.getUserStatus().equals("异常")){
+                throw new IllegalArgumentException("该用户状态异常，禁止修改手机号");
+            }
+            if (dto.getNewPhone().equals(user.getUserPhone())) {
+                throw new IllegalArgumentException("新手机号不能与原手机号相同");
+            }
+            boolean isOldPhoneCodeValid = smsCodeService.verifyCode(user.getUserPhone(), dto.getOldPhoneVerifyCode(), SmsScene.CHECK_OLD_PHONE);
+            if (!isOldPhoneCodeValid) {
+                throw new IllegalArgumentException("旧手机号验证码错误");
+            }
+            boolean isNewPhoneCodeValid = smsCodeService.verifyCode(dto.getNewPhone(), dto.getNewPhoneVerifyCode(), SmsScene.CHECK_NEW_PHONE);
+            if (!isNewPhoneCodeValid) {
+                throw new IllegalArgumentException("新手机号验证码错误");
+            }
 
-        user.setUserPhone(dto.getNewPhone());
-        user.setUpdatedAt(LocalDateTime.now());
-        userRepository.save(user);
+            user.setUserPhone(dto.getNewPhone());
+            user.setUpdatedAt(LocalDateTime.now());
+            userRepository.save(user);
 
-        UserVO userVO = new UserVO();
-        BeanUtils.copyProperties(user, userVO);
-        return userVO;
+            UserVO userVO = new UserVO();
+            BeanUtils.copyProperties(user, userVO);
+            return userVO;
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("手机号更新失败: " + e.getMessage());
+        } catch (Exception e) {
+            throw new RuntimeException("手机号更新时发生服务器错误");
+        }
     }
 
 
@@ -575,8 +595,13 @@ public class UserService implements IUserService {
 
     @Override
     public UserGeneral getUserById(Long userId) {
-        // 使用 findById(id)，如果找不到则抛出异常，这能保证后续业务拿到的一定是有效对象
+        // 使用 findById(id)，如果找不到则抛出异常
         return userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("未找到 ID 为 " + userId + " 的用户"));
+    }
+
+    private String maskPhone(String phone) {
+        if (phone == null || phone.length() < 7) return "***";
+        return phone.substring(0, 3) + "****" + phone.substring(7);
     }
 }

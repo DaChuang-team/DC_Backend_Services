@@ -48,7 +48,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/users/info", "/api/users/points/**").hasAnyRole("USER","ADMIN","SUPER_ADMIN")
                         .requestMatchers("/api/users/all", "/api/users/delete").hasAnyRole("ADMIN","SUPER_ADMIN")
 
-                        .requestMatchers("/api/merchants/update").hasRole("MERCHANT")
+                        .requestMatchers("/api/merchants/update/**").hasRole("MERCHANT")
 
                         .requestMatchers("/api/orders/create","/api/orders/pay","/api/orders/refund/request","/api/orders/refund/cancel",
                                 "/api/orders/cancel","/api/orders/receive","/api/orders/complete","/api/orders/refund/ship-return","/api/orders/user/**").hasRole("USER")

@@ -10,7 +10,7 @@ import java.util.List;
 public interface IUserService {
     void registerUser(UserDTO user, String code);
     String authenticateUserByPassword(String userPhone, String rawPassword);
-    void sendVerificationCode(String userPhone, SmsScene scene);
+    String sendVerificationCode(String userPhone, SmsScene scene);
     String authenticateUserBySms(String userPhone, String smsCode);
     String registerChecker(String userPhone, String userName);
     boolean updateNormalInfo(Long userId, UserUpdateDTO dto);

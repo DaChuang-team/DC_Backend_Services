@@ -2,15 +2,14 @@ package org.dachuang_team.dc_backend_services.services;
 
 import jakarta.transaction.Transactional;
 import org.dachuang_team.dc_backend_services.common.ImageProcessUtils;
-import org.dachuang_team.dc_backend_services.domain.DTO.MerchantLoginDTO;
-import org.dachuang_team.dc_backend_services.domain.DTO.MerchantRegisterDTO;
-import org.dachuang_team.dc_backend_services.domain.DTO.MerchantUpdateDTO;
+import org.dachuang_team.dc_backend_services.domain.DTO.*;
 import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.ShopBannerImg;
 import org.dachuang_team.dc_backend_services.domain.VO.MerchantVO;
 import org.dachuang_team.dc_backend_services.domain.PO.MerchantPO.Merchant;
 import org.dachuang_team.dc_backend_services.enumeration.SmsScene;
 import org.dachuang_team.dc_backend_services.repository.MerchantRepository;
 import org.dachuang_team.dc_backend_services.repository.ShopBannerImgRepository;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -150,7 +149,7 @@ public class MerchantService implements IMerchantService{
 
 
     @Override
-    public void sendVerificationCode(String merchantPhone, SmsScene scene) {
+    public String sendVerificationCode(String merchantPhone, SmsScene scene) {
         // 如果是注册或者换绑手机号场景，校验手机号必须未被注册过；如果是登录、忘记密码或验证绑定手机号场景，校验手机号必须已经注册过
         if (scene == SmsScene.REGISTER || scene == SmsScene.CHECK_NEW_PHONE) {
             if (merchantRepository.existsByMerchantPhone(merchantPhone)) {
@@ -162,6 +161,7 @@ public class MerchantService implements IMerchantService{
             }
         }
         smsService.sendCode(merchantPhone, scene);
+        return "验证码已发送至" + maskPhone(merchantPhone);
     }
 
     @Override
@@ -256,9 +256,85 @@ public class MerchantService implements IMerchantService{
     }
 
 
+
     @Override
     @Transactional(rollbackOn = Exception.class)
-    public Map<String, Object> updateMerchant(MerchantUpdateDTO dto, Long merchantId){
+    public Map<String, Object> updateMerchantPwd(MerchantPwUpdateDTO dto, Long merchantId) {
+        try {
+            Merchant merchant = merchantRepository.findById(merchantId)
+                    .orElseThrow(() -> new IllegalArgumentException("商户不存在"));
+            if (merchant.getStatus() == 3) {
+                throw new IllegalArgumentException("账号已被封禁，无法修改信息");
+            }
+
+            // 必须提供旧密码或验证码
+            if ((dto.getOldPassword() == null || dto.getOldPassword().isEmpty()) &&
+                    (dto.getCode() == null || dto.getCode().isEmpty())) {
+                throw new IllegalArgumentException("必须提供旧密码或验证码");
+            }
+
+            if (dto.getOldPassword() != null && !dto.getOldPassword().isEmpty()) {
+                if (!passwordEncoder.matches(dto.getOldPassword(), merchant.getPassword())) {
+                    throw new IllegalArgumentException("旧密码错误");
+                }
+            } else {
+                // 校验验证码
+                boolean isValidCode = smsCodeService.verifyCode(merchant.getMerchantPhone(), dto.getCode(), SmsScene.RESET_PWD);
+                if (!isValidCode) {
+                    throw new IllegalArgumentException("验证码错误或已过期");
+                }
+            }
+            merchant.setPassword(passwordEncoder.encode(dto.getNewPassword()));
+            merchant.setUpdatedAt(LocalDateTime.now());
+            merchantRepository.save(merchant);
+
+            return getMerchantNormalMapResult(merchant);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("密码更新失败: " + e.getMessage());
+        }
+    }
+
+    @Override
+    @Transactional(rollbackOn = Exception.class)
+    public Map<String, Object> updateMerchantPhone(MerchantPhoneUpdateDTO dto, Long merchantId){
+        try {
+            Merchant merchant = merchantRepository.findById(merchantId)
+                    .orElseThrow(() -> new IllegalArgumentException("商户不存在"));
+            if (merchant.getStatus() == 3) {
+                throw new IllegalArgumentException("账号已被封禁，无法修改信息");
+            }
+            // 校验新手机号是否已被注册
+            if (merchantRepository.existsByMerchantPhone(dto.getNewPhone())) {
+                throw new IllegalArgumentException("手机号" + dto.getNewPhone() + "已被注册");
+            }
+            // 新手机号与原手机号不能相同
+            if (dto.getNewPhone().equals(merchant.getMerchantPhone())) {
+                throw new IllegalArgumentException("新手机号不能与原手机号相同");
+            }
+            // 校验验证码
+            boolean isOldCodeValid = smsCodeService.verifyCode(merchant.getMerchantPhone(), dto.getOldPhoneVerifyCode(), SmsScene.CHECK_OLD_PHONE);
+            if (!isOldCodeValid) {
+                throw new IllegalArgumentException("旧手机号验证码错误或已过期");
+            }
+            boolean isNewCodeValid = smsCodeService.verifyCode(dto.getNewPhone(), dto.getNewPhoneVerifyCode(), SmsScene.CHECK_NEW_PHONE);
+            if (!isNewCodeValid) {
+                throw new IllegalArgumentException("新手机号验证码错误或已过期");
+            }
+
+            merchant.setMerchantPhone(dto.getNewPhone());
+            merchant.setUpdatedAt(LocalDateTime.now());
+            merchantRepository.save(merchant);
+
+            return getMerchantNormalMapResult(merchant);
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("手机号更新失败: " + e.getMessage());
+        }
+    }
+
+
+    @Override
+    @Transactional(rollbackOn = Exception.class)
+    public Map<String, Object> updateMerchantNormalFields(MerchantUpdateDTO dto, Long merchantId){
         Merchant merchant = merchantRepository.findById(merchantId)
                 .orElseThrow(() -> new IllegalArgumentException("商户不存在"));
         if(merchant.getStatus() == 3){
@@ -317,18 +393,6 @@ public class MerchantService implements IMerchantService{
         if(dto.getMerchantName() != null&& !dto.getMerchantName().isEmpty()){
             merchant.setMerchantName(dto.getMerchantName());
         }
-        if(dto.getMerchantPhone() != null&& !dto.getMerchantPhone().isEmpty()){
-            merchant.setMerchantPhone(dto.getMerchantPhone());
-        }
-        if (dto.getOldPassword() != null && !dto.getOldPassword().isEmpty()) {
-            if (dto.getPassword() == null || dto.getPassword().isEmpty()) {
-                throw new IllegalArgumentException("新密码不能为空");
-            }
-            if (!passwordEncoder.matches(dto.getOldPassword(), merchant.getPassword())) {
-                throw new IllegalArgumentException("旧密码错误");
-            }
-            merchant.setPassword(passwordEncoder.encode(dto.getPassword()));
-        }
         if(dto.getLoginID() != null && !dto.getLoginID().isEmpty()){
             if (merchantRepository.existsByLoginID(dto.getLoginID())) {
                 throw new IllegalArgumentException("账号" + dto.getLoginID() + "已存在");
@@ -337,6 +401,12 @@ public class MerchantService implements IMerchantService{
         }
         merchant.setUpdatedAt(LocalDateTime.now());
         merchantRepository.save(merchant);
+
+        return getMerchantNormalMapResult(merchant);
+    }
+
+    @NotNull
+    private Map<String, Object> getMerchantNormalMapResult(Merchant merchant) {
 
         Map<String, Object> result = new HashMap<>();
         result.put("merchantName", merchant.getMerchantName());
@@ -347,5 +417,10 @@ public class MerchantService implements IMerchantService{
         result.put("description", merchant.getDescription());
         result.put("bannerUrl", merchant.getBannerUrl());
         return result;
+    }
+
+    private String maskPhone(String phone) {
+        if (phone == null || phone.length() < 7) return "***";
+        return phone.substring(0, 3) + "****" + phone.substring(7);
     }
 }

@@ -40,10 +40,10 @@ public class UserController {
     @PostMapping("/register/smsSend")
     public Result<String> sendRegistrationCode(@RequestParam String userPhone) {
         try {
-            userService.sendVerificationCode(userPhone, SmsScene.REGISTER);
-            return Result.success("验证码发送成功", null);
+            String resp =  userService.sendVerificationCode(userPhone, SmsScene.REGISTER);
+            return Result.success("验证码发送成功", resp);
         } catch (IllegalArgumentException e) {
-            return Result.error(400, e.getMessage());
+            return Result.error(400, "参数错误" + e.getMessage());
         } catch (Exception e) {
             return Result.error(500, "服务器开小差了: " + e.getMessage());
         }
@@ -86,7 +86,7 @@ public class UserController {
             }
         } catch (IllegalArgumentException e) {
             // 捕获状态异常导致的登录失败
-            return Result.error(403, e.getMessage());
+            return Result.error(403, "参数错误" + e.getMessage());
         } catch (Exception e) {
             return Result.error(500, "登录时发生服务器错误");
         }
@@ -95,10 +95,10 @@ public class UserController {
     @PostMapping("/login/smsSend")
     public Result<String> sendLoginCode(@RequestParam String userPhone) {
         try {
-            userService.sendVerificationCode(userPhone, SmsScene.LOGIN);
-            return Result.success("验证码发送成功", null);
+            String resp =  userService.sendVerificationCode(userPhone, SmsScene.LOGIN);
+            return Result.success("验证码发送成功", resp);
         } catch (IllegalArgumentException e) {
-            return Result.error(400, e.getMessage());
+            return Result.error(400, "参数错误" + e.getMessage());
         } catch (Exception e) {
             return Result.error(500, "服务器开小差了: " + e.getMessage());
         }
@@ -117,8 +117,7 @@ public class UserController {
                 return Result.error(401, "用户名或密码错误");
             }
         } catch (IllegalArgumentException e) {
-            // 捕获状态异常导致的登录失败
-            return Result.error(403, e.getMessage());
+            return Result.error(403, "参数错误" + e.getMessage());
         } catch (Exception e) {
             return Result.error(500, "登录时发生服务器错误");
         }
@@ -132,10 +131,10 @@ public class UserController {
             if(user == null) {
                 return Result.error(401, "未认证，无法发送验证码");
             }
-            userService.sendVerificationCode(user.getUserPhone(), SmsScene.RESET_PWD);
-            return Result.success("验证码发送成功", null);
+            String resp = userService.sendVerificationCode(user.getUserPhone(), SmsScene.RESET_PWD);
+            return Result.success("验证码发送成功", resp);
         } catch (IllegalArgumentException e) {
-            return Result.error(400, e.getMessage());
+            return Result.error(400, "参数错误" + e.getMessage());
         } catch (Exception e) {
             return Result.error(500, "服务器开小差了: " + e.getMessage());
         }
@@ -151,7 +150,7 @@ public class UserController {
             UserVO updatedUser = userService.updateUserPwd(dto, currentUserId);
             return Result.success("密码更新成功", updatedUser);
         } catch (IllegalArgumentException e) {
-            return Result.error(400, e.getMessage());
+            return Result.error(400, "参数错误" + e.getMessage());
         } catch (Exception e) {
             return Result.error(500, "服务器开小差了: " + e.getMessage());
         }
@@ -165,10 +164,10 @@ public class UserController {
             if(user == null) {
                 return Result.error(401, "未认证，无法发送验证码");
             }
-            userService.sendVerificationCode(user.getUserPhone(), SmsScene.CHECK_OLD_PHONE);
-            return Result.success("验证码发送成功", null);
+            String resp = userService.sendVerificationCode(user.getUserPhone(), SmsScene.CHECK_OLD_PHONE);
+            return Result.success("验证码发送成功", resp);
         } catch (IllegalArgumentException e) {
-            return Result.error(400, e.getMessage());
+            return Result.error(400, "参数错误" + e.getMessage());
         } catch (Exception e) {
             return Result.error(500, "服务器开小差了: " + e.getMessage());
         }
@@ -182,10 +181,13 @@ public class UserController {
             if(user == null) {
                 return Result.error(401, "未认证，无法发送验证码");
             }
-            userService.sendVerificationCode(newPhone, SmsScene.CHECK_NEW_PHONE);
-            return Result.success("验证码发送成功", null);
+            if(user.getUserPhone().equals(newPhone)) {
+                return Result.error(400, "新电话号码不能与当前号码相同");
+            }
+            String resp = userService.sendVerificationCode(newPhone, SmsScene.CHECK_NEW_PHONE);
+            return Result.success("验证码发送成功", resp);
         } catch (IllegalArgumentException e) {
-            return Result.error(400, e.getMessage());
+            return Result.error(400, "参数错误" + e.getMessage());
         } catch (Exception e) {
             return Result.error(500, "服务器开小差了: " + e.getMessage());
         }
@@ -201,7 +203,7 @@ public class UserController {
             UserVO updatedUser = userService.updateUserPhone(dto, currentUserId);
             return Result.success("电话号码更新成功", updatedUser);
         } catch (IllegalArgumentException e) {
-            return Result.error(400, e.getMessage());
+            return Result.error(400, "参数错误" + e.getMessage());
         } catch (Exception e) {
             return Result.error(500, "服务器开小差了: " + e.getMessage());
         }
@@ -221,7 +223,7 @@ public class UserController {
 
             return Result.success("更新成功", responseBody);
         } catch (IllegalArgumentException e) {
-            return Result.error(402, "用户信息更新失败: " + e.getMessage());
+            return Result.error(402, "参数错误: " + e.getMessage());
         } catch (Exception e) {
             return Result.error(500, "服务器错误: " + e.getMessage());
         }

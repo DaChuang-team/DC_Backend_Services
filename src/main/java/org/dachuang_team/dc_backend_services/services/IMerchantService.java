@@ -1,8 +1,6 @@
 package org.dachuang_team.dc_backend_services.services;
 
-import org.dachuang_team.dc_backend_services.domain.DTO.MerchantLoginDTO;
-import org.dachuang_team.dc_backend_services.domain.DTO.MerchantRegisterDTO;
-import org.dachuang_team.dc_backend_services.domain.DTO.MerchantUpdateDTO;
+import org.dachuang_team.dc_backend_services.domain.DTO.*;
 import org.dachuang_team.dc_backend_services.domain.VO.MerchantVO;
 import org.dachuang_team.dc_backend_services.enumeration.SmsScene;
 
@@ -18,7 +16,11 @@ public interface IMerchantService {
 
         String infoCheck(String merchantPhone, String loginID, String shopName);
 
-        Map<String, Object> updateMerchant(MerchantUpdateDTO merchantUpdateDTO, Long id);
+        Map<String, Object> updateMerchantNormalFields(MerchantUpdateDTO merchantUpdateDTO, Long id);
 
-        void sendVerificationCode(String merchantPhone, SmsScene scene);
+        Map<String, Object> updateMerchantPwd(MerchantPwUpdateDTO dto, Long merchantId);
+
+        Map<String, Object> updateMerchantPhone(MerchantPhoneUpdateDTO dto, Long merchantId);
+
+        String sendVerificationCode(String merchantPhone, SmsScene scene);
 }
