@@ -18,7 +18,7 @@ public interface IMerchantService {
 
         Map<String, Object> updateMerchantNormalFields(MerchantUpdateDTO merchantUpdateDTO, Long id);
 
-        Map<String, Object> updateMerchantPwd(MerchantPwUpdateDTO dto, Long merchantId);
+        Map<String, Object> updateMerchantPwd(MerchantPwUpdateDTO dto, Long merchantId, String merchantPhone);
 
         Map<String, Object> updateMerchantPhone(MerchantPhoneUpdateDTO dto, Long merchantId);
 

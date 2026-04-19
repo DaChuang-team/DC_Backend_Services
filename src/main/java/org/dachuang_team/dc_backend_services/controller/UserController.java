@@ -123,15 +123,10 @@ public class UserController {
         }
     }
 
-    @PostMapping("/update/resetPwSmsSend")
-    public Result<String> ResetPwSmsSend(){
-        Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+    @PostMapping("/resetPwSmsSend")
+    public Result<String> ResetPwSmsSend(@RequestParam String userPhone){
         try {
-            UserGeneral user = userService.getUserById(currentUserId);
-            if(user == null) {
-                return Result.error(401, "未认证，无法发送验证码");
-            }
-            String resp = userService.sendVerificationCode(user.getUserPhone(), SmsScene.RESET_PWD);
+            String resp = userService.sendVerificationCode(userPhone, SmsScene.RESET_PWD);
             return Result.success("验证码发送成功", resp);
         } catch (IllegalArgumentException e) {
             return Result.error(400, "参数错误" + e.getMessage());
@@ -140,21 +135,37 @@ public class UserController {
         }
     }
 
-    @PostMapping("/update/resetPwConfirm")
-    public Result<UserVO> updatePassword(@RequestBody UserPwUpdateDTO dto) {
+    @PostMapping("/resetPwBySms")
+    public Result<UserVO> updatePasswordBySms(
+            @RequestParam String userPhone,
+            @RequestBody UserPwUpdateDTO dto) {
         try {
-            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-            if(currentUserId == null) {
-                return Result.error(401, "未认证，无法修改密码");
-            }
-            UserVO updatedUser = userService.updateUserPwd(dto, currentUserId);
+            UserVO updatedUser = userService.updateUserPwd(dto, null, userPhone);
             return Result.success("密码更新成功", updatedUser);
         } catch (IllegalArgumentException e) {
-            return Result.error(400, "参数错误" + e.getMessage());
+            return Result.error(400, "参数错误: " + e.getMessage());
         } catch (Exception e) {
             return Result.error(500, "服务器开小差了: " + e.getMessage());
         }
     }
+
+
+    @PostMapping("/update/resetPwByOldPw")
+    public Result<UserVO> updatePasswordByOldPw(@RequestBody UserPwUpdateDTO dto) {
+        try {
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            if (currentUserId == null) {
+                return Result.error(401, "未认证，无法修改密码");
+            }
+            UserVO updatedUser = userService.updateUserPwd(dto, currentUserId, null);
+            return Result.success("密码更新成功", updatedUser);
+        } catch (IllegalArgumentException e) {
+            return Result.error(400, "参数错误: " + e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "服务器开小差了: " + e.getMessage());
+        }
+    }
+
 
     @PostMapping("/update/oldPhoneSmsSend")
     public Result<String> updatePhoneOldSmsSend(){

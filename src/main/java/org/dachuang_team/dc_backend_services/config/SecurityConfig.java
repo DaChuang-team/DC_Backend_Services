@@ -35,8 +35,8 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         // 公开接口
-                        .requestMatchers("/api/users/register/**", "/api/users/login/**","/api/users/info/check").permitAll()
-                        .requestMatchers("/api/merchants/register/**", "/api/merchants/login/**", "/api/merchants/info/check").permitAll()
+                        .requestMatchers("/api/users/register/**", "/api/users/login/**","/api/users/info/check","/api/users/resetPwSmsSend","/api/users/resetPwBySms").permitAll()
+                        .requestMatchers("/api/merchants/register/**", "/api/merchants/login/**", "/api/merchants/info/check","/api/merchants/resetPwSmsSend", "/api/merchants/resetPwBySms").permitAll()
                         .requestMatchers("/api/admins/register", "/api/admins/login").permitAll()
                         .requestMatchers("/api/products/approved", "/api/products/search").permitAll()
                         .requestMatchers("/api/image/sysImgGet").permitAll()

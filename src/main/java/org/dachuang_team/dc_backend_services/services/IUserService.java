@@ -14,7 +14,8 @@ public interface IUserService {
     String authenticateUserBySms(String userPhone, String smsCode);
     String registerChecker(String userPhone, String userName);
     boolean updateNormalInfo(Long userId, UserUpdateDTO dto);
-    UserVO updateUserPwd(UserPwUpdateDTO dto, Long userId);
+    UserVO updateUserPwd(UserPwUpdateDTO dto, Long userId, String userPhone);
+
     UserVO updateUserPhone(UserPhoneUpdateDTO dto, Long userId);
 
 
