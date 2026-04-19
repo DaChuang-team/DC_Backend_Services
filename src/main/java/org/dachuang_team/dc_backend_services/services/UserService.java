@@ -476,6 +476,7 @@ public class UserService implements IUserService {
         }
 
         BeanUtils.copyProperties(addressDTO, existingAddress, "id", "userId", "createdAt", "updatedAt");
+        existingAddress.setDefault(addressDTO.isDefault());
         existingAddress.setUpdatedAt(LocalDateTime.now());
 
         addressRepository.save(existingAddress);

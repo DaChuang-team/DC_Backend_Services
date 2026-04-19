@@ -12,7 +12,7 @@ public interface UserAvatarRecordRepository extends CrudRepository<UserAvatar, L
     UserAvatar findByAvatarUrl(String avatarUrl);
 
     List<UserAvatar> findByUserId(Long userId);
-    List<UserAvatar> findAllByUploadAtBeforeAndIsLinkedFalse(LocalDateTime time);
+    List<UserAvatar> findAllByUploadAtBeforeAndIsLinkedFalse(LocalDateTime cutoffTime);
 
     void deleteByAvatarUrl(String url);
 }
