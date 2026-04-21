@@ -2,11 +2,15 @@ package org.dachuang_team.dc_backend_services.controller;
 
 import org.dachuang_team.dc_backend_services.common.Result;
 import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.*;
+import org.dachuang_team.dc_backend_services.domain.VO.MessageVO;
+import org.dachuang_team.dc_backend_services.enumeration.ConversationUserRole;
 import org.dachuang_team.dc_backend_services.enumeration.SysImagePurpose;
 import org.dachuang_team.dc_backend_services.domain.VO.FileUploadVO;
 import org.dachuang_team.dc_backend_services.repository.*;
 import org.dachuang_team.dc_backend_services.services.IStorageService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -37,6 +41,8 @@ public class ImageController {
     private ShopBannerImgRepository shopBannerImgRepository;
     @Autowired
     private AccommodationImgRepository accommodationImgRepository;
+    @Autowired
+    private ConversationImgRepository conversationImgRepository;
 
     @PutMapping("/productImgUpload")
     public Result<FileUploadVO> uploadImg(@RequestParam("file") MultipartFile file) {
@@ -170,6 +176,64 @@ public class ImageController {
 
         return Result.success("上传成功", response);
     }
+
+    @PutMapping("/chatImgUpload")
+    public Result<FileUploadVO> uploadChatImg(@RequestParam("file") MultipartFile file) {
+        if (file == null || file.isEmpty()) return Result.error(406, "文件不能为空", null);
+
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication == null || authentication.getPrincipal() == null) {
+                return Result.error(401, "用户未登录", null);
+            }
+
+            Long senderId;
+            Object principal = authentication.getPrincipal();
+            if (principal instanceof Long) {
+                senderId = (Long) principal;
+            } else if (principal instanceof Number) {
+                senderId = ((Number) principal).longValue();
+            } else {
+                return Result.error(401, "无效的用户身份信息", null);
+            }
+
+            String senderRoleStr = authentication.getAuthorities().stream()
+                    .findFirst()
+                    .map(GrantedAuthority::getAuthority)
+                    .map(role -> role.replaceFirst("^ROLE_", ""))
+                    .orElse(null);
+
+            if (senderRoleStr == null) {
+                return Result.error(403, "无法识别用户角色", null);
+            }
+
+            ConversationUserRole senderRole;
+            try {
+                senderRole = ConversationUserRole.valueOf(senderRoleStr);
+            } catch (IllegalArgumentException e) {
+                return Result.error(400, "不支持的用户角色: " + senderRoleStr, null);
+            }
+
+            IStorageService.StorageResult result = storageService.uploadByFile(file);
+
+            ConversationImg record = new ConversationImg();
+            record.setUploadUserRole(senderRole);
+            record.setUploadUserId(senderId);
+            record.setImgUrl(result.getUrl());
+            record.setUploadAt(LocalDateTime.now());
+            conversationImgRepository.save(record);
+
+            FileUploadVO response = new FileUploadVO();
+            response.setId(record.getId());
+            response.setUrl(result.getUrl());
+            response.setFileName(result.getFileName());
+
+            return Result.success("上传成功", response);
+        } catch (Exception e) {
+            return Result.error(500, "聊天图片上传失败: " + e.getMessage(), null);
+        }
+    }
+
 
 
     //用户中途取消上传商品时，清理已上传但未绑定的图片记录和物理文件，不可用于修改商品时删除已绑定的图片

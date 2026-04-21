@@ -30,21 +30,19 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
         registry.setApplicationDestinationPrefixes("/app");
 
-        // 点对点（User）频道前缀。客户端订阅时使用 /user/queue/message
-        // 服务端 convertAndSendToUser("userId", "/queue/message", payload) 时，
-        // STOMP会自动推送给该订阅者。
+        // 点对点频道前缀。客户端订阅时使用 /user/queue/message
         registry.setUserDestinationPrefix("/user");
     }
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        // 支持原生 WebSocket，例如微信小程序和较新的前端框架
+        // 支持原生WebSocket
         registry.addEndpoint("/ws")
                 .setHandshakeHandler(customHandshakeHandler())
                 .addInterceptors(webSocketAuthInterceptor)
                 .setAllowedOriginPatterns("*");
 
-        // 兼容不支持原生 WebSocket 的旧版浏览器（前端需配合 sockjs-client）
+        // 兼容不支持原生WebSocket的旧版浏览器
         registry.addEndpoint("/sockjs-ws")
                 .setHandshakeHandler(customHandshakeHandler())
                 .addInterceptors(webSocketAuthInterceptor)
@@ -60,8 +58,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
             protected Principal determineUser(ServerHttpRequest request,
                                               WebSocketHandler wsHandler,
                                               Map<String, Object> attributes) {
-                // Interceptor 已经把 principalName 写进 attributes
-                // 这里取出来包装成 Principal 返回给框架
+                // 包装成Principal返回给框架
                 String principalName = (String) attributes.get("principalName");
                 if (principalName == null) return null;
                 return () -> principalName;

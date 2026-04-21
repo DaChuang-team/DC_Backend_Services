@@ -70,6 +70,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/image/productImgUpload","/api/image/accommodationImgUpload").hasRole("MERCHANT")
                         .requestMatchers("/api/image/AIInteractionImgUpload", "/api/image/userAvatarUpload","/api/image/refundEvidenceImgUpload").hasRole("USER")
                         .requestMatchers("/api/image/sysImgUpload").hasAnyRole("ADMIN","SUPER_ADMIN")
+                        .requestMatchers("/api/image/chatImgUpload").authenticated()
                         .requestMatchers("/api/image/uploadPurge","/api/image/shopBannerImgUpload").permitAll()
 
                         .requestMatchers("/api/accommodations/merchant/**").hasRole("MERCHANT")

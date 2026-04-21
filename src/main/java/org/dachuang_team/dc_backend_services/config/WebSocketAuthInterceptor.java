@@ -48,9 +48,6 @@ public class WebSocketAuthInterceptor implements HandshakeInterceptor {
             return false;
         }
 
-        // 和 TokenAuthFilter 里的 authority 格式对齐
-        // TokenAuthFilter：new SimpleGrantedAuthority("ROLE_" + session.getUserRole())
-        // 这里取 role 直接用原始值，Principal 不需要加 ROLE_ 前缀
         String principalName = userId + "_" + userRole;
         attributes.put("principalName", principalName);
 
@@ -65,8 +62,7 @@ public class WebSocketAuthInterceptor implements HandshakeInterceptor {
     }
 
     private String extractToken(ServerHttpRequest request) {
-        // WS 握手本质是 HTTP 请求，先尝试从 Header 取
-        // 客户端 WS 连接时在 Header 带上 Authorization: Bearer xxx
+        // 先尝试从Header取
         List<String> authHeaders = request.getHeaders().get("Authorization");
         if (authHeaders != null && !authHeaders.isEmpty()) {
             String bearer = authHeaders.get(0);
@@ -76,9 +72,8 @@ public class WebSocketAuthInterceptor implements HandshakeInterceptor {
             }
         }
 
-        // 备用：从 URL 参数取
+        // 从URL参数取
         // ws://localhost:8080/ws?token=xxx
-        // 部分前端 WS 库不支持自定义 Header，只能走这个方式
         URI uri = request.getURI();
         String query = uri.getQuery();
         if (query != null) {
