@@ -82,6 +82,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/admins/all", "/api/admins/updateUserStatus").permitAll()
                         .requestMatchers("/api/attractions/**", "/api/hotels/**", "/api/images/**").permitAll()
 
+                        .requestMatchers("/ws/**", "/sockjs-ws/**").permitAll()
+
                         // 其他任何请求都需要认证
                         .anyRequest().authenticated()
                 )
