@@ -79,10 +79,11 @@ public class MerchantController {
 
 
     @PostMapping("/login/byPassword")
-    public Result<MerchantVO> loginMerchant(@RequestBody MerchantLoginDTO merchantLoginDTO) {
+    public Result<MerchantVO> loginMerchantByPw(@RequestBody MerchantLoginDTO merchantLoginDTO) {
         try {
             MerchantVO resp = merchantService.merchantLoginByPassword(merchantLoginDTO);
-            return Result.success("商户 " + merchantLoginDTO.getLoginID() + " 登录成功", resp);
+            return Result.success("商户 " + (merchantLoginDTO.getLoginID() == null ? merchantLoginDTO.getMerchantPhone() : merchantLoginDTO.getLoginID()) + " 登录成功", resp);
+
         } catch (IllegalArgumentException e) {
             return Result.error(400, "参数错误" + e.getMessage(), null);
         } catch (Exception e) {
@@ -102,15 +103,10 @@ public class MerchantController {
         }
     }
 
-    @PostMapping("/update/resetPwSmsSend")
-    public Result<String> resetPwSmsSend(){
-        Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+    @PostMapping("/resetPwSmsSend")
+    public Result<String> resetPwSmsSend(@RequestParam String merchantPhone){
         try {
-            Merchant merchant = merchantRepository.findMerchantById(currentMerchantId);
-            if(merchant == null){
-                return Result.error(401, "商户不存在", null);
-            }
-            String resp = merchantService.sendVerificationCode(merchant.getMerchantPhone(), SmsScene.RESET_PWD);
+            String resp = merchantService.sendVerificationCode(merchantPhone, SmsScene.RESET_PWD);
             return Result.success("验证码发送成功", resp);
         }  catch (IllegalArgumentException e) {
             return Result.error(400, "参数错误" + e.getMessage(), null);
@@ -119,15 +115,31 @@ public class MerchantController {
         }
     }
 
+    @PostMapping("/resetPwBySms")
+    public Result<Map<String, Object>> resetPasswordBySms(
+            @RequestParam String merchantPhone,
+            @RequestBody @Valid MerchantPwUpdateDTO dto) {
+        try {
+            Map<String, Object> resp = merchantService.updateMerchantPwd(dto, null, merchantPhone);
+            return Result.success("密码更新成功", resp);
+        } catch (IllegalArgumentException e) {
+            return Result.error(400, "参数错误: " + e.getMessage(), null);
+        } catch (Exception e) {
+            return Result.error(500, "密码更新失败，这可能不是你的问题: " + e.getMessage(), null);
+        }
+    }
 
-    @PostMapping("/update/resetPwConfirm")
-    public Result<Map<String, Object>> resetPassword(@RequestBody MerchantPwUpdateDTO dto){
+    @PostMapping("/update/resetPwByOldPw")
+    public Result<Map<String, Object>> resetPasswordByOldPw(@RequestBody @Valid MerchantPwUpdateDTO dto) {
         try {
             Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-            Map<String, Object> resp = merchantService.updateMerchantPwd(dto, currentMerchantId);
+            if (currentMerchantId == null) {
+                return Result.error(401, "未认证，无法修改密码", null);
+            }
+            Map<String, Object> resp = merchantService.updateMerchantPwd(dto, currentMerchantId, null);
             return Result.success("密码更新成功", resp);
-        }  catch (IllegalArgumentException e) {
-            return Result.error(400, "参数错误" + e.getMessage(), null);
+        } catch (IllegalArgumentException e) {
+            return Result.error(400, "参数错误: " + e.getMessage(), null);
         } catch (Exception e) {
             return Result.error(500, "密码更新失败，这可能不是你的问题: " + e.getMessage(), null);
         }

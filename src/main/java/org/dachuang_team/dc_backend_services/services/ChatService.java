@@ -17,7 +17,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 
@@ -37,6 +40,9 @@ public class ChatService implements IChatService {
 
     @Autowired
     private ProductRepository productRepository;
+
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
 
     @Transactional(rollbackOn = Exception.class)
     public ConversationVO createConversation(CreateConversationDTO dto, Long initiatorId, String role) {
@@ -156,7 +162,21 @@ public class ChatService implements IChatService {
         conversation.setUpdatedAt(now);
         conversationRepository.save(conversation);
 
-        return buildMessageVO(message);
+        MessageVO vo = buildMessageVO(message);
+
+        //确保事务提交后再推送
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    pushNewMessage(conversation, senderId, senderRole, vo);
+                } catch (Exception e) {
+                    System.err.println("消息推送失败: " + e.getMessage());
+                }
+            }
+        });
+
+        return vo;
     }
 
     @Override
@@ -298,6 +318,31 @@ public class ChatService implements IChatService {
         vo.setLastMessageTime(conversation.getUpdatedAt());
 
         return vo;
+    }
+
+    private void pushNewMessage(Conversation conv, Long senderId, String senderRole, MessageVO vo) {
+        Long receiverId;
+        String receiverRole;
+
+        if (conv.getInitiatorId().equals(senderId) && conv.getInitiatorRole().name().equals(senderRole)) {
+            receiverId   = conv.getTargetId();
+            // 注意：这里需要配合枚举获取名字
+            receiverRole = conv.getTargetRole().name();
+        } else {
+            receiverId   = conv.getInitiatorId();
+            receiverRole = conv.getInitiatorRole().name();
+        }
+
+        // principalName 格式和 Interceptor 一致 userId_userRole
+        String principalName = receiverId + "_" + receiverRole;
+
+        // convertAndSendToUser 最终实际通道会被映射到： /user/{principalName}/queue/message
+        // 客户端主动订阅 /user/queue/message 即可
+        messagingTemplate.convertAndSendToUser(
+                principalName,
+                "/queue/message",
+                vo
+        );
     }
 
 }

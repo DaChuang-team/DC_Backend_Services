@@ -7,6 +7,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
@@ -47,11 +48,14 @@ public class AuthService {
         if (sessionOptional.isPresent()) {
             logger.info("Token [{}] 信息从数据库中读取", token);
             // 如果数据库中存在，加入Redis缓存
-            redisTemplate.opsForValue().set(
-                    redisKey, sessionOptional.get(),
-                    sessionOptional.get().getExpiredAt().minusSeconds(LocalDateTime.now().getSecond()).getSecond(),
-                    TimeUnit.SECONDS
-            );
+            long remainingSeconds = Duration.between(LocalDateTime.now(), sessionOptional.get().getExpiredAt()).getSeconds();
+            if (remainingSeconds > 0) {
+                redisTemplate.opsForValue().set(
+                        redisKey, sessionOptional.get(),
+                        remainingSeconds,
+                        TimeUnit.SECONDS
+                );
+            }
         } else {
             logger.info("Token [{}] 信息不存在", token);
         }

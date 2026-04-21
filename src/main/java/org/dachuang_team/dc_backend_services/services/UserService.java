@@ -215,46 +215,63 @@ public class UserService implements IUserService {
 
     @Override
     @Transactional(rollbackOn = Exception.class)
-    public UserVO updateUserPwd(UserPwUpdateDTO dto, Long userId){
+    public UserVO updateUserPwd(UserPwUpdateDTO dto, Long userId, String userPhone) {
         try {
-            UserGeneral user = userRepository.findById(userId)
-                    .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+            UserGeneral user;
 
-            // 优先旧密码+新密码
-            if (dto.getOldPassword() != null && !dto.getOldPassword().isBlank()
-                    && dto.getNewPassword() != null && !dto.getNewPassword().isBlank()) {
+            // 如果userId不为null则使用userId查找；如果userId为null则根据userPhone查找
+            if (userId != null) {
+                user = userRepository.findById(userId)
+                        .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+            } else if (userPhone != null && !userPhone.isBlank()) {
+                user = userRepository.findByUserPhone(userPhone);
+                if (user == null) {
+                    throw new IllegalArgumentException("用户不存在");
+                }
+            } else {
+                throw new IllegalArgumentException("用户标识缺失");
+            }
+
+            boolean hasOldPwdFlow = dto.getOldPassword() != null && !dto.getOldPassword().isBlank();
+            boolean hasSmsFlow = dto.getCode() != null && !dto.getCode().isBlank();
+
+            if (hasOldPwdFlow && hasSmsFlow) {
+                throw new IllegalArgumentException("旧密码和验证码模式不能同时使用");
+            }
+            if (dto.getNewPassword() == null || dto.getNewPassword().isBlank()) {
+                throw new IllegalArgumentException("新密码不能为空");
+            }
+
+            // 旧密码修改（已登录）
+            if (hasOldPwdFlow) {
                 if (!passwordEncoder.matches(dto.getOldPassword(), user.getUserPassword())) {
                     throw new IllegalArgumentException("旧密码错误");
                 }
-                String encodedPassword = passwordEncoder.encode(dto.getNewPassword());
-                user.setUserPassword(encodedPassword);
-                user.setUpdatedAt(LocalDateTime.now());
-                userRepository.save(user);
             }
-            // 新密码+验证码
-            else if (dto.getCode() != null && !dto.getCode().isBlank()
-                    && dto.getNewPassword() != null && !dto.getNewPassword().isBlank()) {
-                boolean isCodeValid = smsCodeService.verifyCode(user.getUserPhone(), dto.getCode(), SmsScene.RESET_PWD);
-                if (!isCodeValid) {
+            // 验证码修改（免登录）
+            else if (hasSmsFlow) {
+                boolean ok = smsCodeService.verifyCode(user.getUserPhone(), dto.getCode(), SmsScene.RESET_PWD);
+                if (!ok) {
                     throw new IllegalArgumentException("验证码错误");
                 }
-                String encodedPassword = passwordEncoder.encode(dto.getNewPassword());
-                user.setUserPassword(encodedPassword);
-                user.setUpdatedAt(LocalDateTime.now());
-                userRepository.save(user);
+            } else {
+                throw new IllegalArgumentException("参数错误：请选择旧密码方式或验证码方式");
             }
-            else {
-                throw new IllegalArgumentException("参数错误");
-            }
+
+            user.setUserPassword(passwordEncoder.encode(dto.getNewPassword()));
+            user.setUpdatedAt(LocalDateTime.now());
+            userRepository.save(user);
+
             UserVO userVO = new UserVO();
             BeanUtils.copyProperties(user, userVO);
             return userVO;
-        } catch (IllegalArgumentException e){
+        } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("密码更新失败: " + e.getMessage());
-        } catch (Exception e){
+        } catch (Exception e) {
             throw new RuntimeException("密码更新时发生服务器错误");
         }
     }
+
 
     @Override
     @Transactional(rollbackOn = Exception.class)

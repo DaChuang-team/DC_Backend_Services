@@ -255,35 +255,56 @@ public class MerchantService implements IMerchantService{
         }
     }
 
-
-
     @Override
     @Transactional(rollbackOn = Exception.class)
-    public Map<String, Object> updateMerchantPwd(MerchantPwUpdateDTO dto, Long merchantId) {
+    public Map<String, Object> updateMerchantPwd(MerchantPwUpdateDTO dto, Long merchantId, String merchantPhone) {
         try {
-            Merchant merchant = merchantRepository.findById(merchantId)
-                    .orElseThrow(() -> new IllegalArgumentException("商户不存在"));
+            Merchant merchant;
+
+            // merchantId优先；否则用merchantPhone定位商家
+            if (merchantId != null) {
+                merchant = merchantRepository.findById(merchantId)
+                        .orElseThrow(() -> new IllegalArgumentException("商户不存在"));
+            } else if (merchantPhone != null && !merchantPhone.isBlank()) {
+                merchant = merchantRepository.findByMerchantPhone(merchantPhone);
+                if (merchant == null) {
+                    throw new IllegalArgumentException("商户不存在");
+                }
+            } else {
+                throw new IllegalArgumentException("商户标识缺失");
+            }
+
             if (merchant.getStatus() == 3) {
-                throw new IllegalArgumentException("账号已被封禁，无法修改信息");
+                throw new IllegalArgumentException("账号已被封禁，无法修改密码");
             }
 
-            // 必须提供旧密码或验证码
-            if ((dto.getOldPassword() == null || dto.getOldPassword().isEmpty()) &&
-                    (dto.getCode() == null || dto.getCode().isEmpty())) {
-                throw new IllegalArgumentException("必须提供旧密码或验证码");
+            boolean hasOldPwdFlow = dto.getOldPassword() != null && !dto.getOldPassword().isBlank();
+            boolean hasSmsFlow = dto.getCode() != null && !dto.getCode().isBlank();
+
+            if (hasOldPwdFlow && hasSmsFlow) {
+                throw new IllegalArgumentException("旧密码和验证码模式不能同时使用");
+            }
+            if (dto.getNewPassword() == null || dto.getNewPassword().isBlank()) {
+                throw new IllegalArgumentException("新密码不能为空");
             }
 
-            if (dto.getOldPassword() != null && !dto.getOldPassword().isEmpty()) {
+            // 已登录：旧密码改密
+            if (hasOldPwdFlow) {
                 if (!passwordEncoder.matches(dto.getOldPassword(), merchant.getPassword())) {
                     throw new IllegalArgumentException("旧密码错误");
                 }
-            } else {
-                // 校验验证码
-                boolean isValidCode = smsCodeService.verifyCode(merchant.getMerchantPhone(), dto.getCode(), SmsScene.RESET_PWD);
+            }
+            // 免登录：短信验证码改密
+            else if (hasSmsFlow) {
+                boolean isValidCode = smsCodeService.verifyCode(
+                        merchant.getMerchantPhone(), dto.getCode(), SmsScene.RESET_PWD);
                 if (!isValidCode) {
                     throw new IllegalArgumentException("验证码错误或已过期");
                 }
+            } else {
+                throw new IllegalArgumentException("参数错误：请选择旧密码方式或验证码方式");
             }
+
             merchant.setPassword(passwordEncoder.encode(dto.getNewPassword()));
             merchant.setUpdatedAt(LocalDateTime.now());
             merchantRepository.save(merchant);
@@ -293,6 +314,7 @@ public class MerchantService implements IMerchantService{
             throw new IllegalArgumentException("密码更新失败: " + e.getMessage());
         }
     }
+
 
     @Override
     @Transactional(rollbackOn = Exception.class)
