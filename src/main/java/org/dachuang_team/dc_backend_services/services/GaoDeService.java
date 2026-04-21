@@ -345,6 +345,7 @@ public class GaoDeService implements IGaoDeService {
         }
     }
 
+    //已弃置暂时保留
     @Override
     public GaoDeApiDTO.IPLocationResponse ipLocation(String ip, String type) {
         try {
@@ -383,14 +384,29 @@ public class GaoDeService implements IGaoDeService {
                 // 检查 API 返回状态
                 String status = rootNode.has("status") ? rootNode.get("status").asText() : "0";
                 String info = rootNode.has("info") ? rootNode.get("info").asText() : "";
+                String infocode = rootNode.has("infocode") ? rootNode.get("infocode").asText() : "";
+                
+                logger.info("IP 定位 API 响应 - status: {}, info: {}, infocode: {}", status, info, infocode);
                 
                 if (!"1".equals(status)) {
+                    logger.error("IP 定位 API 返回失败 - status: {}, info: {}, infocode: {}", status, info, infocode);
                     throw new RuntimeException("IP 定位失败：" + info);
                 }
 
                 // 解析响应 - 注意：高德 IP 定位返回的可能是空数组 [] 或字符串
                 JsonNode provinceNode = rootNode.get("province");
                 JsonNode cityNode = rootNode.get("city");
+                
+                logger.debug("provinceNode: {} (isNull: {}, isArray: {}, isTextual: {})", 
+                    provinceNode, 
+                    provinceNode == null, 
+                    provinceNode != null && provinceNode.isArray(),
+                    provinceNode != null && provinceNode.isTextual());
+                logger.debug("cityNode: {} (isNull: {}, isArray: {}, isTextual: {})", 
+                    cityNode, 
+                    cityNode == null, 
+                    cityNode != null && cityNode.isArray(),
+                    cityNode != null && cityNode.isTextual());
                 
                 // 如果是数组且为空，说明 API Key 没有 IP 定位权限或该 IP 无法定位
                 if ((provinceNode.isArray() && provinceNode.isEmpty()) || 

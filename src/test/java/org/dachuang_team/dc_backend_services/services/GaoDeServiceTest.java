@@ -240,6 +240,7 @@ class GaoDeServiceTest {
      * 测试 IP 定位
      * 无法获取114.114.114.114（国内公共 DNS）的定位，原因推测：特殊用途 IP
      * 8.8.8.8（全球公共 DNS）Google DNS的定位也不行，原因推测：特殊用途 IP+国外 IP
+     * 无法获取数据中心IP，高德可能没有这些 IP 的精确定位数据
      */
     @Test
     void testIPLocation() {
@@ -326,6 +327,45 @@ class GaoDeServiceTest {
             System.out.println("  区县：" + (response.district().isEmpty() ? "(空)" : response.district()));
             System.out.println("  坐标：" + (response.location().isEmpty() ? "(空)" : response.location()));
             System.out.println("  运营商：" + (response.isp().isEmpty() ? "(空)" : response.isp()));
+            
+        } catch (Exception e) {
+            System.err.println("✗ IP 定位测试失败：" + e.getMessage());
+            e.printStackTrace();
+            fail("IP 定位测试失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 测试 IP 定位 - 使用阿里云服务器 IP（测试部署在阿里云的后端服务）
+     * 用于排查前端请求返回空结果的问题
+     * 失败：高德可能没有这些 IP 的精确定位数据
+     */
+    @Test
+    void testIPLocationAliyun() {
+        System.out.println("========== 测试 IP 定位（阿里云服务器） ==========");
+        
+        // 使用阿里云服务器 IP
+        String ip = "阿里云服务器";
+        String type = "4";
+        
+        try {
+            GaoDeApiDTO.IPLocationResponse response = gaoDeService.ipLocation(ip, type);
+            
+            assertNotNull(response, "响应不应为空");
+            
+            System.out.println("✓ IP 定位测试通过");
+            System.out.println("  IP 地址：" + ip);
+            System.out.println("  省份：" + (response.province().isEmpty() ? "(空)" : response.province()));
+            System.out.println("  城市：" + (response.city().isEmpty() ? "(空)" : response.city()));
+            System.out.println("  区县：" + (response.district().isEmpty() ? "(空)" : response.district()));
+            System.out.println("  坐标：" + (response.location().isEmpty() ? "(空)" : response.location()));
+            System.out.println("  运营商：" + (response.isp().isEmpty() ? "(空)" : response.isp()));
+            
+            // 检查是否返回空结果
+            if (response.province().isEmpty() && response.city().isEmpty()) {
+                System.err.println("⚠️  警告：省份和城市都为空，说明该 IP 无法定位！");
+                System.err.println("这可能是前端请求返回空结果的原因！");
+            }
             
         } catch (Exception e) {
             System.err.println("✗ IP 定位测试失败：" + e.getMessage());
