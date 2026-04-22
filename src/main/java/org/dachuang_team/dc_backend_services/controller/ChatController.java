@@ -125,6 +125,8 @@ public class ChatController {
             return Result.success(200, "消息发送成功", messageVO);
         } catch (IllegalArgumentException e) {
             return Result.error(400, "参数错误: " + e.getMessage(), null);
+        }catch (IllegalStateException e){
+            return Result.error(409, "会话状态异常: " + e.getMessage(), null);
         } catch (Exception e) {
             return Result.error(500, "服务器错误: " + e.getMessage(), null);
         }

@@ -143,6 +143,17 @@ public class ChatService implements IChatService {
             throw new IllegalArgumentException("无权在该会话中发送消息：当前用户不在该会话中");
         }
 
+        // 客服会话中，客服在会话已关闭时禁止发送
+        boolean isCustomerServiceConversation =
+                conversation.getConversationType() == ConversationType.USER_CUSTOMER_SERVICE
+                        || conversation.getConversationType() == ConversationType.MERCHANT_CUSTOMER_SERVICE;
+
+        if (isCustomerServiceConversation
+                && roleEnum == ConversationUserRole.ADMIN
+                && conversation.getStatus() == ConversationStatus.CLOSED) {
+            throw new IllegalStateException("会话已被关闭，客服不可继续发送消息");
+        }
+
         // 解析消息类型并落库
         MsgType msgTypeEnum;
         try {

@@ -68,4 +68,11 @@ public class TokenAuthFilter extends OncePerRequestFilter {
 
         return value;
     }
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String uri = request.getRequestURI();
+        return uri.startsWith("/ws") || uri.startsWith("/sockjs-ws");
+    }
+
 }

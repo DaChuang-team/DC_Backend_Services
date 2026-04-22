@@ -3,6 +3,7 @@ package org.dachuang_team.dc_backend_services.config;
 import org.dachuang_team.dc_backend_services.domain.PO.TokenSession;
 import org.dachuang_team.dc_backend_services.services.AuthService;
 import org.jetbrains.annotations.NotNull;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.stereotype.Component;
@@ -31,6 +32,7 @@ public class WebSocketAuthInterceptor implements HandshakeInterceptor {
 
         String token = extractToken(request);
         if (token == null) {
+            response.setStatusCode(HttpStatusCode.valueOf(401));
             return false;
         }
 
