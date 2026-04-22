@@ -4,10 +4,8 @@ import org.dachuang_team.dc_backend_services.common.Result;
 import org.dachuang_team.dc_backend_services.domain.DTO.ProductDTO;
 import org.dachuang_team.dc_backend_services.domain.PO.ProductPO.Product;
 import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.ProductImg;
-import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserGeneral;
 import org.dachuang_team.dc_backend_services.repository.ProductImageRecordRepository;
 import org.dachuang_team.dc_backend_services.repository.ProductRepository;
-import org.dachuang_team.dc_backend_services.repository.UserRepository;
 import org.dachuang_team.dc_backend_services.services.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -25,9 +23,6 @@ import java.util.stream.Collectors;
 public class ProductController {
     @Autowired
     private ProductRepository productRepository;
-
-    @Autowired
-    private UserRepository userRepository;
 
     @Autowired
     private ProductService productService;
@@ -60,7 +55,7 @@ public class ProductController {
             Long currentUserId = getCurrentUserId();
             long totalItems = productRepository.countByApprovedFalse(); // 获取总记录数
             Pageable pageable = validateAndPreparePageable(page, size, totalItems);
-            Page<Product> productPage = productRepository.findByApprovedTrue(pageable);
+            Page<Product> productPage = productRepository.findByApprovedFalse(pageable);
 
             // 构建分页响应数据
             return getProductsMapResult(productPage);
@@ -94,25 +89,15 @@ public class ProductController {
         try {
             Long currentUserId = getCurrentUserId();
 
-            // 根据userId查询User_General实例
-            UserGeneral seller = userRepository.findById(currentUserId)
-                    .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
-
-            long totalItems = productRepository.countBySeller(seller); // 获取总记录数
-
+            long totalItems = productRepository.countBySellerId(currentUserId);
             Pageable pageable = validateAndPreparePageable(page, size, totalItems);
-
-            // 查询与该User_General关联的产品
-            Page<Product> productPage = productRepository.findBySeller(seller, pageable);
+            Page<Product> productPage = productRepository.findBySellerId(currentUserId, pageable);
 
             return getProductsMapResult(productPage);
-        } catch (IllegalArgumentException e) {
-            return Result.error(400, e.getMessage());
         } catch (Exception e) {
             return Result.error(500, "获取产品失败: " + e.getMessage());
         }
     }
-
 
 
 

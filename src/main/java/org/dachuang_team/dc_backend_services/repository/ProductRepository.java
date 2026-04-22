@@ -1,7 +1,6 @@
 package org.dachuang_team.dc_backend_services.repository;
 
 import org.dachuang_team.dc_backend_services.domain.PO.ProductPO.Product;
-import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserGeneral;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -18,7 +17,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     Page<Product> findByApprovedFalse(Pageable pageable);
 
-    Page<Product> findBySeller(UserGeneral seller, Pageable pageable);
+    Page<Product> findBySellerId(Long sellerId, Pageable pageable);
 
     Page<Product> findByProductNameContainingIgnoreCase(String keyword, Pageable pageable);
 
@@ -28,7 +27,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     long countByApprovedFalse();
 
-    long countBySeller(UserGeneral seller);
+    long countBySellerId(Long sellerId);
 
     long countByProductNameContainingIgnoreCase(String keyword);
 

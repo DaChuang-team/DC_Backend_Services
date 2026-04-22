@@ -54,7 +54,7 @@ public class ChatService implements IChatService {
         }
 
         if (typeEnum == ConversationType.USER_MERCHANT) {
-            // USER_MERCHANT 规定只能由 USER 主动发起，商家只能复用已有的会话
+            // USER_MERCHANT只能由USER主动发起，商家只能复用已有的会话
             if (!"USER".equals(role)) {
                 throw new IllegalStateException("只有普通用户可以主动发起与商家的会话");
             }
@@ -72,9 +72,9 @@ public class ChatService implements IChatService {
             );
 
             if (conversation != null) {
-                // 存在旧会话，检查是否需要更新 entryProductId
+                // 存在旧会话，检查是否需要更新entryProductId
                 if (dto.getEntryProductId() != null) {
-                    // 验证这个 productId 是否有效
+                    // 验证productId是否有效
                     if(productRepository.existsById(dto.getEntryProductId())) {
                         conversation.setEntryProductId(dto.getEntryProductId());
                         conversation.setUpdatedAt(LocalDateTime.now());
@@ -106,7 +106,6 @@ public class ChatService implements IChatService {
                 conversation = conversationRepository.save(conversation);
             }
 
-            // 组装并返回 VO
             return buildConversationVO(conversation, initiatorId, initiatorRoleEnum);
         }
 
@@ -155,7 +154,7 @@ public class ChatService implements IChatService {
         Message message = new Message();
         message.setConversationId(conversation.getId());
         message.setMsgType(msgTypeEnum);
-        message.setSenderId(senderId);     // 为了安全，强制采用鉴权得到的id
+        message.setSenderId(senderId);     // 强制采用鉴权得到的id
         message.setSenderRole(roleEnum);   // 强制采用鉴权得到的role
         message.setContent(dto.getContent());
         message.setRead(false);            // 默认未读
@@ -259,7 +258,7 @@ public class ChatService implements IChatService {
             throw new IllegalArgumentException("非法的用户角色!");
         }
 
-        // 权限校验：确保查询人是该会话发起方或接受方
+        // 确保查询人是该会话发起方或接受方
         boolean isInitiator = userId.equals(conversation.getInitiatorId()) && roleEnum == conversation.getInitiatorRole();
         boolean isTarget = userId.equals(conversation.getTargetId()) && roleEnum == conversation.getTargetRole();
 
@@ -363,7 +362,7 @@ public class ChatService implements IChatService {
             @Override
             public void afterCommit() {
                 try {
-                    // 通知发起者：会话已受理
+                    // 通知发起者会话已受理
                     messagePushService.pushAccepted(
                             saved.getInitiatorId(),
                             saved.getInitiatorRole(),
@@ -371,7 +370,7 @@ public class ChatService implements IChatService {
                             adminId
                     );
 
-                    // 通知当前管理员：会话已受理（便于客服端统一事件流）
+                    // 通知当前管理员会话已受理
                     messagePushService.pushAccepted(
                             adminId,
                             ConversationUserRole.ADMIN,
@@ -420,6 +419,8 @@ public class ChatService implements IChatService {
             throw new IllegalArgumentException("当前会话不属于客服会话，无法关闭");
         }
 
+        ConversationStatus preStatus = conversation.getStatus();
+
         LocalDateTime now = LocalDateTime.now();
         conversation.setStatus(ConversationStatus.CLOSED);
         conversation.setClosedAt(now);
@@ -433,8 +434,8 @@ public class ChatService implements IChatService {
             @Override
             public void afterCommit() {
                 try {
-                    // 若是待受理状态被关闭，同步移出客服待受理列表
-                    if (saved.getStatus() == ConversationStatus.PENDING) {
+                    // 若是从待受理状态被关闭，同步移出客服待受理列表
+                    if (preStatus == ConversationStatus.PENDING){
                         messagePushService.broadcastPendingRequest("REMOVE", saved);
                     }
 
