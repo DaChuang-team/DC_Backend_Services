@@ -17,12 +17,12 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class ChatService implements IChatService {
@@ -32,8 +32,6 @@ public class ChatService implements IChatService {
     @Autowired
     private MessageRepository messageRepository;
 
-    @Autowired
-    private UserRepository userRepository;
 
     @Autowired
     private MerchantRepository merchantRepository;
@@ -42,13 +40,15 @@ public class ChatService implements IChatService {
     private ProductRepository productRepository;
 
     @Autowired
-    private SimpMessagingTemplate messagingTemplate;
+    private MessagePushService messagePushService;
 
     @Transactional(rollbackOn = Exception.class)
     public ConversationVO createConversation(CreateConversationDTO dto, Long initiatorId, String role) {
         ConversationType typeEnum;
+        ConversationUserRole initiatorRoleEnum;
         try {
             typeEnum = ConversationType.valueOf(dto.getConversationType());
+            initiatorRoleEnum = ConversationUserRole.valueOf(role);
         } catch (IllegalArgumentException | NullPointerException e) {
             throw new IllegalArgumentException("无效的会话类型: " + dto.getConversationType());
         }
@@ -63,7 +63,7 @@ public class ChatService implements IChatService {
                 throw new IllegalArgumentException("目标商家不存在！");
             }
 
-            ConversationUserRole initiatorRoleEnum = ConversationUserRole.valueOf(role);
+            initiatorRoleEnum = ConversationUserRole.valueOf(role);
             ConversationUserRole targetRoleEnum = ConversationUserRole.MERCHANT;
 
             // 查找是否已存在该 用户 和 商家 之间的会话
@@ -110,7 +110,14 @@ public class ChatService implements IChatService {
             return buildConversationVO(conversation, initiatorId, initiatorRoleEnum);
         }
 
-        //TODO: 如果后续支持其他会话类型，在这里继续添加分支处理
+        if (typeEnum == ConversationType.USER_CUSTOMER_SERVICE
+                || typeEnum == ConversationType.MERCHANT_CUSTOMER_SERVICE) {
+            Conversation conversation = handleCustomerServiceConversation(
+                    initiatorId, initiatorRoleEnum, typeEnum, dto.getEntryProductId()
+            );
+            return buildConversationVO(conversation, initiatorId, initiatorRoleEnum);
+        }
+
         throw new UnsupportedOperationException("暂不支持该会话类型: " + typeEnum.name());
     }
 
@@ -169,7 +176,18 @@ public class ChatService implements IChatService {
             @Override
             public void afterCommit() {
                 try {
-                    pushNewMessage(conversation, senderId, senderRole, vo);
+                    Long receiverId;
+                    ConversationUserRole receiverRole;
+
+                    if (isInitiator) {
+                        receiverId = conversation.getTargetId();
+                        receiverRole = conversation.getTargetRole();
+                    } else {
+                        receiverId = conversation.getInitiatorId();
+                        receiverRole = conversation.getInitiatorRole();
+                    }
+
+                    messagePushService.pushChatMessage(receiverId, receiverRole, vo);
                 } catch (Exception e) {
                     System.err.println("消息推送失败: " + e.getMessage());
                 }
@@ -178,6 +196,33 @@ public class ChatService implements IChatService {
 
         return vo;
     }
+
+    @Override
+    public Page<ConversationVO> getPendingConversations(Long adminId, String conversationType, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "createdAt"));
+        List<ConversationType> typeList;
+
+        if (conversationType != null && !conversationType.isBlank()) {
+            ConversationType typeEnum;
+            try {
+                typeEnum = ConversationType.valueOf(conversationType);
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("无效的会话类型: " + conversationType);
+            }
+            typeList = List.of(typeEnum);
+        } else {
+            typeList = List.of(ConversationType.USER_CUSTOMER_SERVICE, ConversationType.MERCHANT_CUSTOMER_SERVICE);
+        }
+
+        Page<Conversation> conversationPage = conversationRepository.findPendingCustomerServiceConversations(
+                ConversationStatus.PENDING,
+                typeList,
+                pageable
+        );
+
+        return conversationPage.map(conv -> buildConversationVO(conv, adminId, ConversationUserRole.ADMIN));
+    }
+
 
     @Override
     public Page<ConversationVO> getConversations(Long userId, String userRole, String conversationType, int page, int size) {
@@ -285,8 +330,222 @@ public class ChatService implements IChatService {
         messageRepository.markOtherMessagesAsRead(conversationId, userId, roleEnum);
     }
 
+    @Override
+    @Transactional(rollbackOn = Exception.class)
+    public ConversationVO handelServiceRequest(Long conversationId, Long adminId) {
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new IllegalArgumentException("当前会话不存在！"));
 
-    // 辅助方法：将实体转成 VO 返回
+        // 只允许处理客服相关会话
+        if (conversation.getConversationType() != ConversationType.USER_CUSTOMER_SERVICE
+                && conversation.getConversationType() != ConversationType.MERCHANT_CUSTOMER_SERVICE) {
+            throw new IllegalArgumentException("当前会话不是客服会话，不能受理");
+        }
+
+        // 只有待处理中的请求可以被受理
+        if (conversation.getStatus() != ConversationStatus.PENDING) {
+            throw new IllegalStateException("只有待处理状态的会话才能受理");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+
+        // 受理后绑定当前管理员
+        conversation.setTargetId(adminId);
+        conversation.setTargetRole(ConversationUserRole.ADMIN);
+        conversation.setStatus(ConversationStatus.ACTIVE);
+        conversation.setClosedAt(null);
+        conversation.setUpdatedAt(now);
+
+        Conversation saved = conversationRepository.save(conversation);
+
+        // 事务提交后再推送
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    // 通知发起者：会话已受理
+                    messagePushService.pushAccepted(
+                            saved.getInitiatorId(),
+                            saved.getInitiatorRole(),
+                            saved.getId(),
+                            adminId
+                    );
+
+                    // 通知当前管理员：会话已受理（便于客服端统一事件流）
+                    messagePushService.pushAccepted(
+                            adminId,
+                            ConversationUserRole.ADMIN,
+                            saved.getId(),
+                            adminId
+                    );
+
+                    // 从客服待受理列表移除
+                    messagePushService.broadcastPendingRequest("REMOVE", saved);
+                } catch (Exception e) {
+                    System.err.println("受理通知推送失败: " + e.getMessage());
+                }
+            }
+        });
+
+        return buildConversationVO(saved, adminId, ConversationUserRole.ADMIN);
+    }
+
+    @Override
+    @Transactional(rollbackOn = Exception.class)
+    public ConversationVO closeConversation(Long conversationId, Long operatorId, String operatorRole, String reason) {
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new IllegalArgumentException("当前会话不存在！"));
+
+        ConversationUserRole roleEnum;
+        try {
+            roleEnum = ConversationUserRole.valueOf(operatorRole);
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new IllegalArgumentException("非法的操作者角色: " + operatorRole);
+        }
+
+        // 必须属于会话双方之一才能关闭
+        boolean isInitiator = operatorId.equals(conversation.getInitiatorId()) && roleEnum == conversation.getInitiatorRole();
+        boolean isTarget = operatorId.equals(conversation.getTargetId()) && roleEnum == conversation.getTargetRole();
+
+        if (!isInitiator && !isTarget) {
+            throw new IllegalArgumentException("无权关闭该会话：当前用户不在该会话中");
+        }
+
+        if (conversation.getStatus() == ConversationStatus.CLOSED) {
+            throw new IllegalStateException("会话已是关闭状态");
+        }
+
+        if(conversation.getConversationType() != ConversationType.USER_CUSTOMER_SERVICE
+                && conversation.getConversationType() != ConversationType.MERCHANT_CUSTOMER_SERVICE) {
+            throw new IllegalArgumentException("当前会话不属于客服会话，无法关闭");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        conversation.setStatus(ConversationStatus.CLOSED);
+        conversation.setClosedAt(now);
+        conversation.setUpdatedAt(now);
+
+        Conversation saved = conversationRepository.save(conversation);
+
+        String closeReason = (reason == null || reason.isBlank()) ? "会话已关闭" : reason;
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    // 若是待受理状态被关闭，同步移出客服待受理列表
+                    if (saved.getStatus() == ConversationStatus.PENDING) {
+                        messagePushService.broadcastPendingRequest("REMOVE", saved);
+                    }
+
+                    // 通知发起方
+                    messagePushService.pushClosed(
+                            saved.getInitiatorId(),
+                            saved.getInitiatorRole(),
+                            saved.getId(),
+                            closeReason
+                    );
+
+                    // 通知承接方
+                    if (saved.getTargetId() != null && saved.getTargetRole() != null) {
+                        messagePushService.pushClosed(
+                                saved.getTargetId(),
+                                saved.getTargetRole(),
+                                saved.getId(),
+                                closeReason
+                        );
+                    }
+                } catch (Exception e) {
+                    System.err.println("关闭通知推送失败: " + e.getMessage());
+                }
+            }
+        });
+
+        return buildConversationVO(saved, operatorId, roleEnum);
+    }
+
+    private Conversation handleCustomerServiceConversation(Long initiatorId,
+                                                           ConversationUserRole initiatorRole,
+                                                           ConversationType conversationType,
+                                                           Long entryProductId) {
+        // 类型与发起角色强校验
+        if (conversationType == ConversationType.USER_CUSTOMER_SERVICE
+                && initiatorRole != ConversationUserRole.USER) {
+            throw new IllegalStateException("用户客服请求只能由用户发起");
+        }
+        if (conversationType == ConversationType.MERCHANT_CUSTOMER_SERVICE
+                && initiatorRole != ConversationUserRole.MERCHANT) {
+            throw new IllegalStateException("商家客服请求只能由商家发起");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+
+        // 查该发起者该类型下的历史会话（按最近活跃时间倒序）
+        var history = conversationRepository
+                .findByInitiatorIdAndInitiatorRoleAndConversationTypeOrderByUpdatedAtDesc(
+                        initiatorId, initiatorRole, conversationType
+                );
+
+        // 优先返回ACTIVE/PENDING
+        for (Conversation c : history) {
+            if (c.getStatus() == ConversationStatus.ACTIVE || c.getStatus() == ConversationStatus.PENDING) {
+                return c;
+            }
+        }
+
+        // 存在CLOSED，重设为PENDING并重新发起受理请求
+        for (Conversation c : history) {
+            if (c.getStatus() == ConversationStatus.CLOSED) {
+                c.setStatus(ConversationStatus.PENDING);
+                c.setClosedAt(null);
+                c.setUpdatedAt(now);
+
+                // 重新排队等待客服受理：目标客服置空，角色固定ADMIN
+                c.setTargetRole(ConversationUserRole.ADMIN);
+                c.setTargetId(null);
+
+                Conversation reopened = conversationRepository.save(c);
+                registerPendingRequestAfterCommit(reopened);
+                return reopened;
+            }
+        }
+
+        // 无历史会话，新建PENDING会话并发起受理请求
+        Conversation created = new Conversation();
+        created.setConversationType(conversationType);
+        created.setInitiatorId(initiatorId);
+        created.setInitiatorRole(initiatorRole);
+
+        // 未受理前尚未绑定具体客服
+        created.setTargetRole(ConversationUserRole.ADMIN);
+        created.setTargetId(null);
+
+        created.setEntryProductId(entryProductId);
+        created.setStatus(ConversationStatus.PENDING);
+        created.setCreatedAt(now);
+        created.setUpdatedAt(now);
+        created.setClosedAt(null);
+
+        created = conversationRepository.save(created);
+        registerPendingRequestAfterCommit(created);
+        return created;
+    }
+
+    private void registerPendingRequestAfterCommit(Conversation conversation) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    messagePushService.broadcastPendingRequest("ADD", conversation);
+                } catch (Exception e) {
+                    System.err.println("客服待受理请求广播失败: " + e.getMessage());
+                }
+            }
+        });
+    }
+
+
+
     private MessageVO buildMessageVO(Message message) {
         MessageVO vo = new MessageVO();
         vo.setId(message.getId());
@@ -318,31 +577,6 @@ public class ChatService implements IChatService {
         vo.setLastMessageTime(conversation.getUpdatedAt());
 
         return vo;
-    }
-
-    private void pushNewMessage(Conversation conv, Long senderId, String senderRole, MessageVO vo) {
-        Long receiverId;
-        String receiverRole;
-
-        if (conv.getInitiatorId().equals(senderId) && conv.getInitiatorRole().name().equals(senderRole)) {
-            receiverId   = conv.getTargetId();
-            // 注意：这里需要配合枚举获取名字
-            receiverRole = conv.getTargetRole().name();
-        } else {
-            receiverId   = conv.getInitiatorId();
-            receiverRole = conv.getInitiatorRole().name();
-        }
-
-        // principalName 格式和 Interceptor 一致 userId_userRole
-        String principalName = receiverId + "_" + receiverRole;
-
-        // convertAndSendToUser 最终实际通道会被映射到： /user/{principalName}/queue/message
-        // 客户端主动订阅 /user/queue/message 即可
-        messagingTemplate.convertAndSendToUser(
-                principalName,
-                "/queue/message",
-                vo
-        );
     }
 
 }

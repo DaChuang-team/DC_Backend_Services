@@ -47,6 +47,66 @@ public class ChatController {
         }
     }
 
+    @PostMapping("/service/handleServiceRequest")
+    public Result<ConversationVO> handleServiceRequest(@RequestParam Long conversationId) {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+            Long initiatorId = (Long) authentication.getPrincipal();
+
+            ConversationVO conversationVO = chatService.handelServiceRequest(conversationId, initiatorId);
+
+            return Result.success(200, "会话受理成功", conversationVO);
+        } catch (IllegalArgumentException e) {
+            return Result.error(400, "参数错误: " + e.getMessage(), null);
+        } catch (Exception e) {
+            return Result.error(500, "服务器错误: " + e.getMessage(), null);
+        }
+    }
+
+    @PostMapping("/closeConversation")
+    public Result<ConversationVO> closeConversation(@RequestParam Long conversationId,
+                                                    @RequestParam(required = false) String Reason) {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+            Long initiatorId = (Long) authentication.getPrincipal();
+
+            String initiatorRole = authentication.getAuthorities().stream()
+                    .findFirst()
+                    .map(GrantedAuthority::getAuthority)
+                    .map(role -> role.replaceFirst("^ROLE_", ""))
+                    .orElse(null);
+
+            ConversationVO conversationVO = chatService.closeConversation(conversationId, initiatorId, initiatorRole, Reason);
+            return Result.success(200, "会话关闭成功", conversationVO);
+        } catch (IllegalArgumentException e) {
+            return Result.error(400, "参数错误: " + e.getMessage(), null);
+        } catch (Exception e) {
+            return Result.error(500, "服务器错误: " + e.getMessage(), null);
+        }
+    }
+
+    @GetMapping("/service/pendingList")
+    public Result<Map<String, Object>> getPendingList(@RequestParam(defaultValue = "1") int page,
+                                                      @RequestParam(defaultValue = "10") int size,
+                                                      @RequestParam(required = false) String conversationType) {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+            Long initiatorId = (Long) authentication.getPrincipal();
+
+            Page<ConversationVO> conversationPage = chatService.getPendingConversations(initiatorId, conversationType, page - 1, size);
+
+            return getConversationsMapResponseEntity(conversationPage);
+        } catch (IllegalArgumentException e) {
+            return Result.error(400, "参数错误: " + e.getMessage(), null);
+        } catch (Exception e) {
+            return Result.error(500, "服务器错误: " + e.getMessage(), null);
+        }
+    }
+
+
     @PostMapping("/sendMessage")
     public Result<MessageVO> sendMessage(@Validated @RequestBody SendMessageDTO dto) {
         try {
@@ -70,10 +130,10 @@ public class ChatController {
         }
     }
 
-    //分页查询当前用户的会话列表（此处默认查询USER_MERCHANT类型的会话，预留拓展）
+    //分页查询当前用户的会话列表
     @GetMapping("/conversations")
     public Result<Map<String, Object>> getConversations(
-            @RequestParam(defaultValue = "USER_MERCHANT") String conversationType,
+            @RequestParam String conversationType,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
 

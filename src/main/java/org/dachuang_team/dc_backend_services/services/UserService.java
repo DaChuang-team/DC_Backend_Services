@@ -100,7 +100,7 @@ public class UserService implements IUserService {
     @Override
     public String registerChecker(String userPhone, String userName) {
         if (userPhone != null && !userPhone.isBlank() && userName != null && !userName.isBlank()) {
-            return "一次最多检验一个字段，请分开验证";
+            throw new IllegalArgumentException("一次只能检查一个参数");
         }
         if (userPhone != null && !userPhone.isBlank()) {
             return userRepository.existsByUserPhone(userPhone.trim()) ? "手机号已被注册" : "OK";
@@ -108,7 +108,7 @@ public class UserService implements IUserService {
         if (userName != null && !userName.isBlank()) {
             return userRepository.existsByUserName(userName.trim()) ? "用户名已存在" : "OK";
         }
-        return "OK";
+        throw new IllegalArgumentException("未提供参数或参数为空");
     }
 
 

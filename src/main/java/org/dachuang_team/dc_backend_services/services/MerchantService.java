@@ -144,7 +144,7 @@ public class MerchantService implements IMerchantService{
             }
             return "OK";
         }
-        return "OK";
+        throw new IllegalArgumentException("未提供参数或参数为空");
     }
 
 

@@ -61,7 +61,10 @@ public class SecurityConfig {
 
                         .requestMatchers("/api/tts/**").hasRole("USER")
 
-                        .requestMatchers("/api/chat/**").authenticated()
+                        .requestMatchers("/api/chat/createConversation","/api/chat/conversations",
+                                "/api/chat/closeConversation","/api/chat/markAsReadByConversationId","/api/chat/markAsReadByMessageId",
+                                "/api/chat/messages","/api/chat/sendMessage").authenticated()
+                        .requestMatchers("/api/chat/service/**").hasRole("ADMIN")
 
                         .requestMatchers("/api/products/currentUser", "/api/products/details").authenticated()
                         .requestMatchers("/api/products/all", "/api/products/unApproved", "/api/products/approve", "/api/products/disApprove").hasRole("ADMIN")
