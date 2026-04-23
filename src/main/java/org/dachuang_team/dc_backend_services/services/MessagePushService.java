@@ -64,6 +64,18 @@ public class MessagePushService {
         messagingTemplate.convertAndSendToUser(principal, "/queue/notify", payload);
     }
 
+    // （系统消息）通知会话双方：消息被撤回
+    // 用户、商家、客服端订阅：/user/queue/notify
+    public void pushMessageCallback(Long userId, ConversationUserRole role, Long conversationId, String messageId) {
+        Map<String, Object> payload = Map.of(
+                "event", "MESSAGE_CALLBACK",
+                "conversationId", conversationId,
+                "messageId", messageId
+        );
+        String principal = buildPrincipal(userId, role);
+        messagingTemplate.convertAndSendToUser(principal, "/queue/notify", payload);
+    }
+
     private String buildPrincipal(Long userId, ConversationUserRole role) {
         return userId + "_" + role.name();
     }

@@ -297,6 +297,27 @@ public class OrderController {
         return getOrdersMapResponseEntity(orderPage);
     }
 
+    // 商家通过买家ID查询该买家在本商家的订单（支持按状态筛选）
+    @GetMapping("/seller/orders/by-buyer")
+    public ResponseEntity<Result<Map<String, Object>>> getSellerOrdersByBuyer(
+            @RequestParam Long buyerId,
+            @RequestParam(required = false) OrderStatus status,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+        if (!OrderStatus.isValidStatus(String.valueOf(status))) {
+            status = null;
+        }
+
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by("createdAt").descending());
+        Page<Order> orderPage = orderService.getSellerOrdersByBuyerId(currentMerchantId, buyerId, status, pageable);
+
+        return getOrdersMapResponseEntity(orderPage);
+    }
+
+
     @NotNull
     private ResponseEntity<Result<Map<String, Object>>> getOrdersMapResponseEntity(Page<Order> orderPage) {
         List<OrderVO> orderVOList = orderPage.getContent().stream()

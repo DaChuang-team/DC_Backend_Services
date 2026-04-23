@@ -25,4 +25,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query("SELECT o FROM Order o WHERE o.orderNumber LIKE %:orderNumber% AND (o.sellerId = :userId OR o.buyerId = :userId)")
     Page<Order> findByOrderNumberLikeAndUser(@Param("orderNumber") String orderNumber, @Param("userId") Long userId, Pageable pageable);
 
+    Page<Order> findBySellerIdAndBuyerId(Long sellerId, Long buyerId, Pageable pageable);
+
+    Page<Order> findBySellerIdAndBuyerIdAndStatus(Long sellerId, Long buyerId, OrderStatus status, Pageable pageable);
+
 }

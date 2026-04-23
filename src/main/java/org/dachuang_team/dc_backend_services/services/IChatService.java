@@ -7,6 +7,7 @@ import org.dachuang_team.dc_backend_services.domain.VO.MessageVO;
 import org.springframework.data.domain.Page;
 
 import java.util.List;
+import java.util.Map;
 
 public interface IChatService {
     ConversationVO createConversation(CreateConversationDTO createConversationDTO, Long InitiatorId, String InitiatorRole);
@@ -27,4 +28,6 @@ public interface IChatService {
     void setReadByMessageId(Long messageId, Long ConversationId, Long userId, String userRole);
 
     void markAsReadByConversationId(Long conversationId, Long userId, String userRole);
+
+    Map<String, Object> getUserNameAndAvatar(Long userId);
 }

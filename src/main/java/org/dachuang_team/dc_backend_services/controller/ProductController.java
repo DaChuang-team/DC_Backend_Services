@@ -4,6 +4,7 @@ import org.dachuang_team.dc_backend_services.common.Result;
 import org.dachuang_team.dc_backend_services.domain.DTO.ProductDTO;
 import org.dachuang_team.dc_backend_services.domain.PO.ProductPO.Product;
 import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.ProductImg;
+import org.dachuang_team.dc_backend_services.domain.VO.FavoritesVO;
 import org.dachuang_team.dc_backend_services.repository.ProductImageRecordRepository;
 import org.dachuang_team.dc_backend_services.repository.ProductRepository;
 import org.dachuang_team.dc_backend_services.services.ProductService;
@@ -165,6 +166,57 @@ public class ProductController {
             return Result.error(400, e.getMessage());
         } catch (Exception e) {
             return Result.error(500, "更新商品失败: " + e.getMessage());
+        }
+    }
+
+    // 添加收藏
+    @PostMapping("/products/favorite")
+    public Result<Void> favoriteProduct(@RequestParam Long productId) {
+        try {
+            Long currentUserId = getCurrentUserId();
+            String msg = productService.favoriteProduct(productId, currentUserId);
+            return Result.success(msg, null);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return Result.error(400, "参数错误" + e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "收藏失败: " + e.getMessage());
+        }
+    }
+
+    // 删除收藏
+    @DeleteMapping("/products/favorite")
+    public Result<Void> cancelFavorite(@RequestParam Long productId) {
+        try {
+            Long currentUserId = getCurrentUserId();
+            String msg = productService.dislikeProduct(productId, currentUserId);
+            return Result.success(msg, null);
+        } catch (IllegalArgumentException e) {
+            return Result.error(400, "参数错误: " + e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "取消收藏失败: " + e.getMessage());
+        }
+    }
+
+    // 分页查询收藏
+    @GetMapping("/products/favorites")
+    public Result<Map<String, Object>> getMyFavorites(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        try {
+            Long currentUserId = getCurrentUserId();
+            Page<FavoritesVO> favoritesPage = productService.getUserFavorites(currentUserId, page, size);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("items", favoritesPage.getContent());
+            response.put("currentPage", favoritesPage.getNumber() + 1);
+            response.put("totalItems", favoritesPage.getTotalElements());
+            response.put("totalPages", favoritesPage.getTotalPages());
+
+            return Result.success("获取收藏列表成功", response);
+        } catch (IllegalArgumentException e) {
+            return Result.error(400, "参数错误: " + e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "获取收藏列表失败: " + e.getMessage());
         }
     }
 

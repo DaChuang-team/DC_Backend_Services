@@ -11,6 +11,7 @@ public class ConversationVO {
     private Long initiatorId; // 发起者ID
     private String targetRole; // 目标角色
     private Long targetId; // 目标ID
+    private Long entryProductId; // 关联的商品ID（如果有）
 
 
     public String getTargetRole() {
@@ -60,5 +61,11 @@ public class ConversationVO {
     }
     public void setTargetId(Long targetId) {
         this.targetId = targetId;
+    }
+    public Long getEntryProductId() {
+        return entryProductId;
+    }
+    public void setEntryProductId(Long entryProductId) {
+        this.entryProductId = entryProductId;
     }
 }

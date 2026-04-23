@@ -280,6 +280,12 @@ public class OrderService {
         assertStatus(order, OrderStatus.RECEIVED, "确认收货");
 
         sendEvent(order, OrderEvent.COMPLETE, null);
+
+        // 订单完成后，增加销量
+        for (OrderItem item : order.getItems()) {
+            productRepository.incrementSales(item.getProductId(), item.getQuantity());
+        }
+
         order.setCompletedAt(LocalDateTime.now());
 
         Order saved = orderRepository.save(order);
@@ -760,6 +766,20 @@ public class OrderService {
                 .map(this::convertToRefundRequestVO)
                 .toList();
     }
+
+    // 商家按买家ID查询订单；status为空时查询所有状态
+    @Transactional
+    public Page<Order> getSellerOrdersByBuyerId(Long sellerId, Long buyerId, OrderStatus status, Pageable pageable) {
+        if (sellerId == null || buyerId == null) {
+            throw new IllegalArgumentException("sellerId 和 buyerId 不能为空");
+        }
+
+        if (status != null) {
+            return orderRepository.findBySellerIdAndBuyerIdAndStatus(sellerId, buyerId, status, pageable);
+        }
+        return orderRepository.findBySellerIdAndBuyerId(sellerId, buyerId, pageable);
+    }
+
 
     // 根据退款申请编号查询退款申请详情
     public Page<RefundRequestVO> getRefundRequestsByRefundNo(String refundNo, Long relatedUserId, Pageable pageable) {

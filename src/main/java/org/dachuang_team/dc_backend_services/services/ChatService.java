@@ -5,6 +5,7 @@ import org.dachuang_team.dc_backend_services.domain.DTO.CreateConversationDTO;
 import org.dachuang_team.dc_backend_services.domain.DTO.SendMessageDTO;
 import org.dachuang_team.dc_backend_services.domain.PO.Conversations.Conversation;
 import org.dachuang_team.dc_backend_services.domain.PO.Conversations.Message;
+import org.dachuang_team.dc_backend_services.domain.PO.UserPO.UserGeneral;
 import org.dachuang_team.dc_backend_services.domain.VO.ConversationVO;
 import org.dachuang_team.dc_backend_services.domain.VO.MessageVO;
 import org.dachuang_team.dc_backend_services.enumeration.ConversationStatus;
@@ -23,6 +24,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class ChatService implements IChatService {
@@ -32,7 +34,6 @@ public class ChatService implements IChatService {
     @Autowired
     private MessageRepository messageRepository;
 
-
     @Autowired
     private MerchantRepository merchantRepository;
 
@@ -41,6 +42,9 @@ public class ChatService implements IChatService {
 
     @Autowired
     private MessagePushService messagePushService;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @Transactional(rollbackOn = Exception.class)
     public ConversationVO createConversation(CreateConversationDTO dto, Long initiatorId, String role) {
@@ -556,6 +560,16 @@ public class ChatService implements IChatService {
         });
     }
 
+    @Override
+    public Map<String, Object> getUserNameAndAvatar(Long userId) {
+        UserGeneral user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在！"));
+        return Map.of(
+                "name", user.getUserName(),
+                "avatar", user.getUserAvatarURL()
+        );
+    }
+
 
 
     private MessageVO buildMessageVO(Message message) {
@@ -577,6 +591,11 @@ public class ChatService implements IChatService {
         vo.setInitiatorRole(conversation.getInitiatorRole().name());
         vo.setTargetId(conversation.getTargetId());
         vo.setTargetRole(conversation.getTargetRole().name());
+        if(conversation.getEntryProductId() != null) {
+            vo.setEntryProductId(conversation.getEntryProductId());
+        } else {
+            vo.setEntryProductId(null);
+        }
 
         // 使用加入视角的未读数统计
         vo.setUnreadCount(messageRepository.countUnreadMessagesForCurrentUser(

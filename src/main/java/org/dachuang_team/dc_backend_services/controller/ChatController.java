@@ -224,6 +224,19 @@ public class ChatController {
         }
     }
 
+    // 获取用户的用户名和头像URL用于聊天界面显示
+    // 注意：只能查询用户的头像和昵称
+    @GetMapping("/userInfo")
+    public Result<Map<String, Object>> getUserInfo(@RequestParam Long userId) {
+        try {
+            Map<String, Object> userInfo = chatService.getUserNameAndAvatar(userId);
+            return Result.success(200, "查询成功", userInfo);
+        } catch (IllegalArgumentException e) {
+            return Result.error(400, "参数错误: " + e.getMessage(), null);
+        } catch (Exception e) {
+            return Result.error(500, "服务器错误: " + e.getMessage(), null);
+        }
+    }
 
 
     private Result<Map<String, Object>> getConversationsMapResponseEntity(Page<ConversationVO> page) {

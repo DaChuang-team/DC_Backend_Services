@@ -5,13 +5,20 @@ import org.dachuang_team.dc_backend_services.common.ImageProcessUtils;
 import org.dachuang_team.dc_backend_services.domain.DTO.ProductDTO;
 import org.dachuang_team.dc_backend_services.domain.PO.MerchantPO.Merchant;
 import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.ProductImg;
+import org.dachuang_team.dc_backend_services.domain.PO.ProductPO.Favorites;
 import org.dachuang_team.dc_backend_services.domain.PO.ProductPO.Product;
+import org.dachuang_team.dc_backend_services.domain.VO.FavoritesVO;
+import org.dachuang_team.dc_backend_services.repository.FavoritesRepository;
 import org.dachuang_team.dc_backend_services.repository.MerchantRepository;
 import org.dachuang_team.dc_backend_services.repository.ProductImageRecordRepository;
 import org.dachuang_team.dc_backend_services.repository.ProductRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
@@ -33,6 +40,9 @@ public class ProductService implements IProductService {
 
     @Autowired
     private MerchantRepository merchantRepository;
+
+    @Autowired
+    private FavoritesRepository favoritesRepository;
 
     @Override
     public Product addProduct(ProductDTO productDTO, Long MerchantId) {
@@ -57,6 +67,8 @@ public class ProductService implements IProductService {
             product.setStock(productDTO.getStock() != null ? productDTO.getStock() : 0);
             product.setPublishedAt(LocalDateTime.now());
             product.setLastModifiedAt(LocalDateTime.now());
+            product.setSales(0);
+            product.setApproved(false); // 新增商品默认未审核
 
             // 先保存商品，拿到 productId
             product = productRepository.save(product);
@@ -165,6 +177,79 @@ public class ProductService implements IProductService {
             throw e;
         }
     }
+
+    @Override
+    @Transactional(rollbackOn = Exception.class)
+    public String favoriteProduct(Long productId, Long userId) {
+        if (productId == null || userId == null) {
+            throw new IllegalArgumentException("productId 或 userId 不能为空");
+        }
+
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new IllegalArgumentException("商品不存在"));
+
+        if (Boolean.FALSE.equals(product.getApproved())) {
+            throw new IllegalStateException("该商品未上架，无法收藏");
+        }
+
+        if (favoritesRepository.existsByUserIdAndProductId(userId, productId)) {
+            return "该商品已收藏";
+        }
+
+        Favorites favorite = new Favorites();
+        favorite.setUserId(userId);
+        favorite.setProductId(product.getProductId());
+        favorite.setProductName(product.getProductName());
+        favorite.setTbImageUrl(product.getTbImageUrl());
+        favorite.setPrice(BigDecimal.valueOf(product.getPrice()));
+        favorite.setSellerId(product.getSellerId());
+        favorite.setFavoriteAt(LocalDateTime.now());
+
+        favoritesRepository.save(favorite);
+        return "收藏成功";
+    }
+
+    @Override
+    @Transactional(rollbackOn = Exception.class)
+    public String dislikeProduct(Long productId, Long userId) {
+        if (productId == null || userId == null) {
+            throw new IllegalArgumentException("productId 或 userId 不能为空");
+        }
+
+        int affected = favoritesRepository.deleteByUserIdAndProductId(userId, productId);
+        if (affected == 0) {
+            throw new IllegalArgumentException("收藏记录不存在，无法取消收藏");
+        }
+
+        return "取消收藏成功";
+    }
+
+    @Override
+    public Page<FavoritesVO> getUserFavorites(Long userId, int page, int size) {
+        if (userId == null) {
+            throw new IllegalArgumentException("userId 不能为空");
+        }
+        if (page < 1 || size < 1 || size > 100) {
+            throw new IllegalArgumentException("非法的页码或页大小");
+        }
+
+        Pageable pageable = PageRequest.of(page - 1, size);
+        Page<Favorites> favoritesPage = favoritesRepository.findByUserId(userId, pageable);
+
+        return favoritesPage.map(this::toFavoritesVO);
+    }
+
+    private FavoritesVO toFavoritesVO(Favorites favorite) {
+        FavoritesVO vo = new FavoritesVO();
+        vo.setProductId(favorite.getProductId());
+        vo.setProductName(favorite.getProductName());
+        vo.setTbImageUrl(favorite.getTbImageUrl());
+        vo.setPrice(favorite.getPrice());
+        vo.setSellerId(favorite.getSellerId());
+        vo.setFavoriteAt(favorite.getFavoriteAt());
+        return vo;
+    }
+
 
     // 绑定 + 处理图片（压缩、裁剪、生成缩略图）
     private void bindAndProcessImages(Long productId, List<Long> imageIds) {

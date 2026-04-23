@@ -40,4 +40,10 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Modifying
     @Query("UPDATE Product p SET p.stock = p.stock + :quantity WHERE p.productId = :productId")
     int incrementStock(@Param("productId") Long productId, @Param("quantity") Integer quantity);
+
+    // 增加销量
+    @Modifying
+    @Query("UPDATE Product p SET p.sales = COALESCE(p.sales, 0) + :quantity WHERE p.productId = :productId")
+    int incrementSales(@Param("productId") Long productId, @Param("quantity") Integer quantity);
+
 }
