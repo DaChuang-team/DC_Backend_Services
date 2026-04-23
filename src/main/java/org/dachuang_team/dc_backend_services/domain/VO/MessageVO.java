@@ -1,11 +1,9 @@
 package org.dachuang_team.dc_backend_services.domain.VO;
 
-import org.dachuang_team.dc_backend_services.enumeration.MsgType;
-
 import java.time.LocalDateTime;
 
 public class MessageVO {
-    private Long id;
+    private Long messageId;
     private Long conversationId;
     private String msgType;
     private String senderRole;
@@ -21,12 +19,12 @@ public class MessageVO {
         this.content = content;
     }
 
-    public Long getId() {
-        return id;
+    public Long getMessageId() {
+        return messageId;
     }
 
-    public void setId(Long id) {
-        this.id = id;
+    public void setMessageId(Long messageId) {
+        this.messageId = messageId;
     }
 
     public Long getConversationId() {

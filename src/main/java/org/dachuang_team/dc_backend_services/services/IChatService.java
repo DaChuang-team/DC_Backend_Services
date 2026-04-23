@@ -14,6 +14,8 @@ public interface IChatService {
 
     MessageVO sendMessage(SendMessageDTO dto, Long senderId, String senderRole);
 
+    void callBackMessage(Long conversationId, Long messageId, Long senderId, String senderRole);
+
     ConversationVO handelServiceRequest(Long conversationId, Long adminId);
 
     ConversationVO closeConversation(Long conversationId, Long operatorId, String operatorRole, String reason);

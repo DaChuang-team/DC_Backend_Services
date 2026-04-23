@@ -25,6 +25,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 public class ChatService implements IChatService {
@@ -131,6 +132,10 @@ public class ChatService implements IChatService {
         Conversation conversation = conversationRepository.findById(dto.getConversationId())
                 .orElseThrow(() -> new IllegalArgumentException("当前会话不存在！"));
 
+        if(!Objects.equals(dto.getMsgType(), MsgType.IMAGE.name()) && !Objects.equals(dto.getMsgType(), MsgType.TEXT.name())) {
+            throw new IllegalArgumentException("只能发送文本或图片消息！");
+        }
+
         // 将发送者的role字符串转换为枚举
         ConversationUserRole roleEnum;
         try {
@@ -139,7 +144,7 @@ public class ChatService implements IChatService {
             throw new IllegalArgumentException("非法的发送者角色: " + senderRole);
         }
 
-        // 验证当前的(senderId, senderRole)是否就是这则会话的发起方或承接方
+        // 验证当前的(senderId, senderRole)是否是这则会话的发起方或承接方
         boolean isInitiator = senderId.equals(conversation.getInitiatorId()) && roleEnum == conversation.getInitiatorRole();
         boolean isTarget = senderId.equals(conversation.getTargetId()) && roleEnum == conversation.getTargetRole();
 
@@ -209,6 +214,87 @@ public class ChatService implements IChatService {
         });
 
         return vo;
+    }
+
+    @Override
+    @Transactional(rollbackOn = Exception.class)
+    public void callBackMessage(Long conversationId, Long messageId, Long senderId, String senderRole) {
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new IllegalArgumentException("当前会话不存在！"));
+
+        // 角色校验
+        ConversationUserRole roleEnum;
+        try {
+            roleEnum = ConversationUserRole.valueOf(senderRole);
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new IllegalArgumentException("非法的操作者角色: " + senderRole);
+        }
+
+        // 会话参与者校验
+        boolean isInitiator = senderId.equals(conversation.getInitiatorId()) && roleEnum == conversation.getInitiatorRole();
+        boolean isTarget = senderId.equals(conversation.getTargetId()) && roleEnum == conversation.getTargetRole();
+        if (!isInitiator && !isTarget) {
+            throw new IllegalArgumentException("无权撤回该会话消息：当前用户不在该会话中");
+        }
+
+        // 消息存在校验
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new IllegalArgumentException("消息不存在！"));
+
+        // 消息会话从属校验
+        if (!conversationId.equals(message.getConversationId())) {
+            throw new IllegalArgumentException("消息不属于当前会话");
+        }
+
+        // 只能撤回自己的消息
+        boolean isOwnMessage = senderId.equals(message.getSenderId()) && roleEnum == message.getSenderRole();
+        if (!isOwnMessage) {
+            throw new IllegalArgumentException("只能撤回自己的消息");
+        }
+
+        // 只能撤回2分钟以内的消息
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime createdAt = message.getCreatedAt();
+        if (createdAt == null || createdAt.plusMinutes(2).isBefore(now)) {
+            throw new IllegalStateException("消息发送已超过2分钟，无法撤回");
+        }
+
+        //
+        if (message.getMsgType() == MsgType.SYS && "该消息已撤回".equals(message.getContent())) {
+            throw new IllegalStateException("该消息已撤回，请勿重复操作");
+        }
+
+        // 覆盖内容为撤回提示，并改为系统消息
+        message.setContent("该消息已撤回");
+        message.setMsgType(MsgType.SYS);
+        message.setRead(true);
+        messageRepository.save(message);
+
+        // 推送撤回通知
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    messagePushService.pushMessageCallback(
+                            conversation.getInitiatorId(),
+                            conversation.getInitiatorRole(),
+                            conversationId,
+                            String.valueOf(messageId)
+                    );
+
+                    if (conversation.getTargetId() != null && conversation.getTargetRole() != null) {
+                        messagePushService.pushMessageCallback(
+                                conversation.getTargetId(),
+                                conversation.getTargetRole(),
+                                conversationId,
+                                String.valueOf(messageId)
+                        );
+                    }
+                } catch (Exception e) {
+                    System.err.println("撤回通知推送失败: " + e.getMessage());
+                }
+            }
+        });
     }
 
     @Override
@@ -574,7 +660,7 @@ public class ChatService implements IChatService {
 
     private MessageVO buildMessageVO(Message message) {
         MessageVO vo = new MessageVO();
-        vo.setId(message.getId());
+        vo.setMessageId(message.getId());
         vo.setConversationId(message.getConversationId());
         vo.setMsgType(message.getMsgType().name());
         vo.setSenderRole(message.getSenderRole().name());

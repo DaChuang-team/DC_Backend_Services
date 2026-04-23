@@ -132,6 +132,29 @@ public class ChatController {
         }
     }
 
+    @PostMapping("/callBackMessage")
+    public Result<String> callBackMessage(@RequestParam Long conversationId,
+                                         @RequestParam Long messageId) {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+            Long senderId = (Long) authentication.getPrincipal();
+
+            String senderRole = authentication.getAuthorities().stream()
+                    .findFirst()
+                    .map(GrantedAuthority::getAuthority)
+                    .map(role -> role.replaceFirst("^ROLE_", ""))
+                    .orElse(null);
+
+            chatService.callBackMessage(conversationId, messageId, senderId, senderRole);
+            return Result.success(200, "消息撤回成功", null);
+        } catch (IllegalArgumentException e) {
+            return Result.error(400, "参数错误: " + e.getMessage(), null);
+        } catch (Exception e) {
+            return Result.error(500, "服务器错误: " + e.getMessage(), null);
+        }
+    }
+
     //分页查询当前用户的会话列表
     @GetMapping("/conversations")
     public Result<Map<String, Object>> getConversations(
