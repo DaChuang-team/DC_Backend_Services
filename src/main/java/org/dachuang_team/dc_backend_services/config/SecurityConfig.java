@@ -66,9 +66,9 @@ public class SecurityConfig {
                                 "/api/chat/messages","/api/chat/sendMessage").authenticated()
                         .requestMatchers("/api/chat/service/**").hasRole("ADMIN")
 
-                        .requestMatchers("/api/products/currentUser", "/api/products/details").authenticated()
+                        .requestMatchers("/api/products/approvedBySeller", "/api/products/details").authenticated()
                         .requestMatchers("/api/products/all", "/api/products/unApproved", "/api/products/approve", "/api/products/disApprove").hasRole("ADMIN")
-                        .requestMatchers("/api/products/delete", "/api/products/update","/api/products/add").hasRole("MERCHANT")
+                        .requestMatchers("/api/products/delete", "/api/products/update","/api/products/add","/api/products/currentMerchant").hasRole("MERCHANT")
                         .requestMatchers("/api/products/favorite", "/api/products/favorites").hasRole("USER")
 
                         .requestMatchers("/api/image/productImgUpload","/api/image/accommodationImgUpload").hasRole("MERCHANT")

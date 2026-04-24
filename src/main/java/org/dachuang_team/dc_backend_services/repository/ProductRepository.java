@@ -21,9 +21,13 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     Page<Product> findByProductNameContainingIgnoreCase(String keyword, Pageable pageable);
 
+    Page<Product> findBySellerIdAndApprovedTrue(Long sellerId, Pageable pageable);
+
     Optional<Product> findByproductId(Long pid);
 
     long countByApprovedTrue();
+
+    long countBySellerIdAndApprovedTrue(Long sellerId);
 
     long countByApprovedFalse();
 
@@ -46,4 +50,5 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query("UPDATE Product p SET p.sales = COALESCE(p.sales, 0) + :quantity WHERE p.productId = :productId")
     int incrementSales(@Param("productId") Long productId, @Param("quantity") Integer quantity);
 
+    boolean existsBySellerId(Long sellerId);
 }

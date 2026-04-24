@@ -772,6 +772,15 @@ public class OrderService {
 
         OrderItemReview saved = orderItemReviewRepository.save(review);
 
+        Product product = productRepository.findById(targetItem.getProductId()).orElse(null);
+        // 如果商品已被删除，则不更新评分统计信息
+        if(product != null) {
+            // 更新商品的评分统计信息，评分数量加1，评分总和加上当前评分
+            product.setRatingCount(product.getRatingCount() + 1);
+            product.setSumRating(product.getSumRating() + rating);
+            productRepository.save(product);
+        }
+
         OrderItemReviewVO vo = new OrderItemReviewVO();
         vo.setBuyerId(saved.getBuyerId());
         vo.setProductId(saved.getProductId());

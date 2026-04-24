@@ -82,17 +82,41 @@ public class ProductController {
         }
     }
 
-    //返回当前用户的所有产品，分页返回
-    @GetMapping("/products/currentUser")
+    //返回商户自己的所有产品，分页返回
+    @GetMapping("/products/currentMerchant")
     public Result<Map<String, Object>> getCurrentUserProducts(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
         try {
-            Long currentUserId = getCurrentUserId();
+            Long currentSellerId = getCurrentUserId();
 
-            long totalItems = productRepository.countBySellerId(currentUserId);
+            if(!productRepository.existsBySellerId(currentSellerId)) {
+                return Result.error(404, "商户不存在");
+            }
+
+            long totalItems = productRepository.countBySellerId(currentSellerId);
             Pageable pageable = validateAndPreparePageable(page, size, totalItems);
-            Page<Product> productPage = productRepository.findBySellerId(currentUserId, pageable);
+            Page<Product> productPage = productRepository.findBySellerId(currentSellerId, pageable);
+
+            return getProductsMapResult(productPage);
+        } catch (Exception e) {
+            return Result.error(500, "获取产品失败: " + e.getMessage());
+        }
+    }
+
+    // 根据商户id查询商户的所有已审核的商品，分页返回
+    @GetMapping("/products/approvedBySeller")
+    public Result<Map<String, Object>> getApprovedProductsBySeller(
+            @RequestParam Long sellerId,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        try {
+            if(!productRepository.existsBySellerId(sellerId)) {
+                return Result.error(404, "商户不存在");
+            }
+            long totalItems = productRepository.countBySellerIdAndApprovedTrue(sellerId);
+            Pageable pageable = validateAndPreparePageable(page, size, totalItems);
+            Page<Product> productPage = productRepository.findBySellerIdAndApprovedTrue(sellerId, pageable);
 
             return getProductsMapResult(productPage);
         } catch (Exception e) {
@@ -335,6 +359,8 @@ public class ProductController {
             productMap.put("price", product.getPrice());
             productMap.put("category", product.getCategory());
             productMap.put("TbImageUrl", product.getTbImageUrl()); // 首图缩略图URL
+            productMap.put("sumRating", product.getSumRating());
+            productMap.put("rating_count", product.getRatingCount());
 
             return productMap;
         }).toList();
@@ -364,6 +390,8 @@ public class ProductController {
         productDetails.put("description", savedProduct.getDescription());
         productDetails.put("stock", savedProduct.getStock());
         productDetails.put("sellerId", savedProduct.getSellerId());
+        productDetails.put("sumRating", savedProduct.getSumRating());
+        productDetails.put("rating_count", savedProduct.getRatingCount());
 
         // 获取productId
         Long productId = savedProduct.getProductId();

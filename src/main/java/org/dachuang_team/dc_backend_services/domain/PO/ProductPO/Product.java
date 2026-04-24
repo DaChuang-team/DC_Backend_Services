@@ -24,7 +24,7 @@ public class Product {
     private int category; //分类
     @Column(name = "origin", length = 30)
     private String origin; //地区
-    @Column(name = "TbImage_URL", length = 255)
+    @Column(name = "tb_image_URL", length = 255)
     private String TbImageUrl; // 首图缩略图URL
     @Column(name = "approved")
     private Boolean approved = false; //审核状态，默认为 false，表示未审核通过
@@ -44,6 +44,12 @@ public class Product {
 
     @Column(name = "seller_id", nullable = false, updatable = false)
     private Long sellerId;
+
+    @Column(name = "sum_rating", columnDefinition = "INT DEFAULT 0")
+    private Integer sumRating; //累计评分总和，初始值为0，每次评价提交后增加
+
+    @Column(name = "rating_count", columnDefinition = "INT DEFAULT 0")
+    private Integer ratingCount; //评价次数，初始值为0，每次评价提交后增加
 
     // Getters and Setters
 
@@ -157,5 +163,21 @@ public class Product {
 
     public void setSales(Integer sales) {
         this.sales = sales;
+    }
+
+    public Integer getSumRating() {
+        return sumRating;
+    }
+
+    public void setSumRating(Integer sumRating) {
+        this.sumRating = sumRating;
+    }
+
+    public Integer getRatingCount() {
+        return ratingCount;
+    }
+
+    public void setRatingCount(Integer ratingCount) {
+        this.ratingCount = ratingCount;
     }
 }
