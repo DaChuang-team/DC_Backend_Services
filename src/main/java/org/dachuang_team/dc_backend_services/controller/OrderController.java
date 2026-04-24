@@ -3,10 +3,12 @@ package org.dachuang_team.dc_backend_services.controller;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import jakarta.validation.Valid;
 import org.dachuang_team.dc_backend_services.common.Result;
+import org.dachuang_team.dc_backend_services.domain.DTO.CreateOrderItemReviewDTO;
 import org.dachuang_team.dc_backend_services.domain.DTO.CreateOrderRequestDTO;
 import org.dachuang_team.dc_backend_services.domain.DTO.RefundProcessDTO;
 import org.dachuang_team.dc_backend_services.domain.DTO.RefundRequestDTO;
 import org.dachuang_team.dc_backend_services.domain.PO.OrderPO.Order;
+import org.dachuang_team.dc_backend_services.domain.VO.OrderItemReviewVO;
 import org.dachuang_team.dc_backend_services.domain.VO.OrderVO;
 import org.dachuang_team.dc_backend_services.domain.VO.RefundRequestVO;
 import org.dachuang_team.dc_backend_services.enumeration.OrderStatus;
@@ -166,6 +168,62 @@ public class OrderController {
                 "订单编号： " + vo.getOrderNumber() + " 下的退款请求 " + refundNo + " 已拒绝，拒绝原因：" + rejectReason;
         return ResponseEntity.ok(Result.success(200, message, vo));
     }
+
+    // 买家创建订单项评价
+    @PostMapping("/user/review/create")
+    public ResponseEntity<Result<OrderItemReviewVO>> createOrderItemReview(
+            @RequestBody @Valid CreateOrderItemReviewDTO request) {
+        try {
+            Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            OrderItemReviewVO vo = orderService.createOrderItemReview(request, currentUserId);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(Result.success(201, "评价发表成功", vo));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Result.error(400, e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Result.error(409, e.getMessage()));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // 分页查询某商品的全部评价
+    @GetMapping("/user/reviews/product")
+    public ResponseEntity<Result<Map<String, Object>>> getProductReviews(
+            @RequestParam Long productId,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by("createdAt").descending());
+        Page<OrderItemReviewVO> reviewPage = orderService.getProductReviews(productId, pageable);
+        return getReviewsMapResponseEntity(reviewPage, "商品评价查询成功");
+    }
+
+    // 根据用户ID分页查询该用户的全部评价
+    @GetMapping("/user/reviews/by-user")
+    public ResponseEntity<Result<Map<String, Object>>> getUserReviews(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by("createdAt").descending());
+        Page<OrderItemReviewVO> reviewPage = orderService.getUserReviews(currentUserId, pageable);
+        return getReviewsMapResponseEntity(reviewPage, "用户评价查询成功");
+    }
+
+    // 商家分页查询自己商品的评价
+    @GetMapping("/seller/reviews")
+    public ResponseEntity<Result<Map<String, Object>>> getSellerReviews(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by("createdAt").descending());
+        Page<OrderItemReviewVO> reviewPage = orderService.getSellerReviews(currentMerchantId, pageable);
+        return getReviewsMapResponseEntity(reviewPage, "商家商品评价查询成功");
+    }
+
+
 
     // 买家查询订单列表
     @GetMapping("/user/orders")
@@ -345,5 +403,18 @@ public class OrderController {
 
         return ResponseEntity.ok(Result.success(200, "退款列表查询成功", response));
     }
+
+    @NotNull
+    private ResponseEntity<Result<Map<String, Object>>> getReviewsMapResponseEntity(
+            Page<OrderItemReviewVO> reviewPage, String msg) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("reviews", reviewPage.getContent());
+        response.put("totalItems", reviewPage.getTotalElements());
+        response.put("totalPages", reviewPage.getTotalPages());
+        response.put("currentPage", reviewPage.getNumber() + 1);
+
+        return ResponseEntity.ok(Result.success(200, msg, response));
+    }
+
 
 }

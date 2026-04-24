@@ -5,10 +5,13 @@ import jakarta.transaction.Transactional;
 import org.dachuang_team.dc_backend_services.common.ImageProcessUtils;
 import org.dachuang_team.dc_backend_services.common.OrderStateInterceptor;
 import org.dachuang_team.dc_backend_services.common.OrderStateListener;
+import org.dachuang_team.dc_backend_services.domain.DTO.CreateOrderItemReviewDTO;
 import org.dachuang_team.dc_backend_services.domain.DTO.RefundRequestDTO;
 import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.RefundImg;
+import org.dachuang_team.dc_backend_services.domain.PO.OrderPO.OrderItemReview;
 import org.dachuang_team.dc_backend_services.domain.PO.OrderPO.RefundRequest;
 import org.dachuang_team.dc_backend_services.domain.PO.ProductPO.Product;
+import org.dachuang_team.dc_backend_services.domain.VO.OrderItemReviewVO;
 import org.dachuang_team.dc_backend_services.domain.VO.RefundImgVO;
 import org.dachuang_team.dc_backend_services.domain.VO.RefundRequestVO;
 import org.dachuang_team.dc_backend_services.enumeration.OrderEvent;
@@ -17,10 +20,7 @@ import org.dachuang_team.dc_backend_services.domain.DTO.CreateOrderRequestDTO;
 import org.dachuang_team.dc_backend_services.domain.PO.OrderPO.Order;
 import org.dachuang_team.dc_backend_services.domain.PO.OrderPO.OrderItem;
 import org.dachuang_team.dc_backend_services.enumeration.RefundStatus;
-import org.dachuang_team.dc_backend_services.repository.RefundImgRepository;
-import org.dachuang_team.dc_backend_services.repository.RefundRequestRepository;
-import org.dachuang_team.dc_backend_services.repository.OrderRepository;
-import org.dachuang_team.dc_backend_services.repository.ProductRepository;
+import org.dachuang_team.dc_backend_services.repository.*;
 import org.dachuang_team.dc_backend_services.services.ServiceException.OrderAccessDeniedException;
 import org.dachuang_team.dc_backend_services.services.ServiceException.OrderNotFoundException;
 import org.dachuang_team.dc_backend_services.services.ServiceException.OrderStateException;
@@ -68,6 +68,9 @@ public class OrderService {
 
     @Autowired
     private ImageProcessUtils imageProcessUtils;
+
+    @Autowired
+    private OrderItemReviewRepository orderItemReviewRepository;
 
     public OrderService(StateMachineFactory<OrderStatus, OrderEvent> stateMachineFactory,
                         OrderStateInterceptor interceptor,
@@ -705,7 +708,82 @@ public class OrderService {
         return vo;
     }
 
-    // 11.查询相关
+    // 11.订单评价相关
+
+    // 买家对订单项进行评价，订单项只能被订单相关的买家评价，且只能评价一次，评价后不可删除不可修改
+    @Transactional
+    public OrderItemReviewVO createOrderItemReview(CreateOrderItemReviewDTO reviewDTO, Long buyerId) {
+        if (reviewDTO == null) {
+            throw new IllegalArgumentException("评价参数不能为空");
+        }
+
+        String orderNumber = reviewDTO.getOrderNumber();
+        if (orderNumber == null || orderNumber.isBlank()) {
+            throw new IllegalArgumentException("orderNumber不能为空");
+        }
+
+        Order order = orderRepository.findByOrderNumber(orderNumber);
+        if (order == null) {
+            throw new OrderNotFoundException("订单不存在: " + orderNumber);
+        }
+        if (order.getStatus() != OrderStatus.COMPLETED) {
+            throw new OrderStateException("仅已完成订单可评价");
+        }
+        if (!order.getBuyerId().equals(buyerId)) {
+            throw new OrderAccessDeniedException("无权评价此订单");
+        }
+
+        Long orderItemId = reviewDTO.getOrderItemId();
+        if (orderItemId == null) {
+            throw new IllegalArgumentException("orderItemId不能为空");
+        }
+
+        OrderItem targetItem = order.getItems().stream()
+                .filter(item -> orderItemId.equals(item.getId()))
+                .findFirst()
+                .orElseThrow(() -> new OrderAccessDeniedException("订单中不存在此订单项"));
+
+        Integer rating = reviewDTO.getRating();
+        if (rating == null || rating < 1 || rating > 5) {
+            throw new IllegalArgumentException("评分必须在1~5之间");
+        }
+
+        String content = reviewDTO.getContent();
+        if (content == null || content.isBlank()) {
+            content = "该用户未填写评价内容";
+        }
+
+        // 重复评价校验
+        if (orderItemReviewRepository.existsByOrderItemId(orderItemId)) {
+            throw new IllegalStateException("该订单项已评价，不可重复评价");
+        }
+
+        OrderItemReview review = new OrderItemReview();
+        review.setOrderNumber(order.getOrderNumber());
+        review.setOrderItemId(targetItem.getId());
+        review.setProductId(targetItem.getProductId());
+        review.setSellerId(order.getSellerId());
+        review.setBuyerId(order.getBuyerId());
+        review.setAnonymous(Boolean.TRUE.equals(reviewDTO.getAnonymous()));
+        review.setRating(rating);
+        review.setContent(content.trim());
+        review.setProductNameSnapshot(targetItem.getProductName());
+        review.setCreatedAt(LocalDateTime.now());
+
+        OrderItemReview saved = orderItemReviewRepository.save(review);
+
+        OrderItemReviewVO vo = new OrderItemReviewVO();
+        vo.setBuyerId(saved.getBuyerId());
+        vo.setProductId(saved.getProductId());
+        vo.setAnonymous(saved.getAnonymous());
+        vo.setRating(saved.getRating());
+        vo.setContent(saved.getContent());
+        vo.setProductNameSnapshot(saved.getProductNameSnapshot());
+        vo.setCreatedAt(saved.getCreatedAt());
+        return vo;
+    }
+
+    // 12.查询相关
 
     // 用户或商家查询订单列表，订单只能被订单相关的买家或卖家访问
     public Page<Order> getOrdersBySearch(String keyWord, String searchType, Long relatedUserId, Pageable pageable) {
@@ -797,6 +875,35 @@ public class OrderService {
         Page<RefundRequest> page = refundRequestRepository.findByRefundNoLikeAndUser(refundNo, relatedUserId, pageable);
         return page.map(this::convertToRefundRequestVO);
     }
+
+
+    // 根据商品ID分页查询评价
+    public Page<OrderItemReviewVO> getProductReviews(Long productId, Pageable pageable) {
+        if (productId == null) {
+            throw new IllegalArgumentException("productId 不能为空");
+        }
+        return orderItemReviewRepository.findByProductId(productId, pageable)
+                .map(this::convertToOrderItemReviewVO);
+    }
+
+    // 根据用户ID分页查询评价
+    public Page<OrderItemReviewVO> getUserReviews(Long buyerId, Pageable pageable) {
+        if (buyerId == null) {
+            throw new IllegalArgumentException("buyerId 不能为空");
+        }
+        return orderItemReviewRepository.findByBuyerId(buyerId, pageable)
+                .map(this::convertToOrderItemReviewVO);
+    }
+
+    // 根据商家ID分页查询该商家商品的评价
+    public Page<OrderItemReviewVO> getSellerReviews(Long sellerId, Pageable pageable) {
+        if (sellerId == null) {
+            throw new IllegalArgumentException("sellerId 不能为空");
+        }
+        return orderItemReviewRepository.findBySellerId(sellerId, pageable)
+                .map(this::convertToOrderItemReviewVO);
+    }
+
 
 
     private void sendEvent(Order order, OrderEvent event, String preStatus)
@@ -912,6 +1019,18 @@ public class OrderService {
                 .format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
         String random = String.format("%04d", new Random().nextInt(10000));
         return "RF" + timestamp + random;
+    }
+
+    private OrderItemReviewVO convertToOrderItemReviewVO(OrderItemReview review) {
+        OrderItemReviewVO vo = new OrderItemReviewVO();
+        vo.setBuyerId(review.getBuyerId());
+        vo.setProductId(review.getProductId());
+        vo.setAnonymous(review.getAnonymous());
+        vo.setRating(review.getRating());
+        vo.setContent(review.getContent());
+        vo.setProductNameSnapshot(review.getProductNameSnapshot());
+        vo.setCreatedAt(review.getCreatedAt());
+        return vo;
     }
 }
 
