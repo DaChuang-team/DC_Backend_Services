@@ -53,6 +53,10 @@ public class OrderStateMachineConfig
                 .event(OrderEvent.RECEIVE) // 已发货 -> 已收货，用户确认收货
                 .and()
                 .withExternal()
+                .source(OrderStatus.SHIPPING).target(OrderStatus.COMPLETED)
+                .event(OrderEvent.COMPLETE) // 已发货 -> 已完成，虽然允许这样的状态流转但是不建议这么做
+                .and()
+                .withExternal()
                 .source(OrderStatus.RECEIVED).target(OrderStatus.COMPLETED)
                 .event(OrderEvent.COMPLETE) // 已收货 -> 已完成，订单流程结束
 

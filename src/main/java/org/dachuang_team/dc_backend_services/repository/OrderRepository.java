@@ -29,4 +29,25 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     Page<Order> findBySellerIdAndBuyerIdAndStatus(Long sellerId, Long buyerId, OrderStatus status, Pageable pageable);
 
+    @Query(
+            value = """
+        SELECT DISTINCT o
+        FROM Order o
+        JOIN o.items i
+        WHERE (o.sellerId = :userId OR o.buyerId = :userId)
+          AND LOWER(i.productName) LIKE LOWER(CONCAT('%', :keyWord, '%'))
+        """,
+            countQuery = """
+        SELECT COUNT(DISTINCT o.id)
+        FROM Order o
+        JOIN o.items i
+        WHERE (o.sellerId = :userId OR o.buyerId = :userId)
+          AND LOWER(i.productName) LIKE LOWER(CONCAT('%', :keyWord, '%'))
+        """
+    )
+    Page<Order> findByItemKeywordLikeAndUser(@Param("keyWord") String keyWord,
+                                             @Param("userId") Long userId,
+                                             Pageable pageable);
+
+
 }

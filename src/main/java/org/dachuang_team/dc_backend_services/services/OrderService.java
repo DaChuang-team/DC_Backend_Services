@@ -58,10 +58,10 @@ public class OrderService {
     private final PaymentProvider paymentProvider;
 
     @Autowired
-    ProductRepository productRepository;
+    private ProductRepository productRepository;
 
     @Autowired
-    RefundRequestRepository refundRequestRepository;
+    private RefundRequestRepository refundRequestRepository;
 
     @Autowired
     private RefundImgRepository refundImgRepository;
@@ -247,7 +247,7 @@ public class OrderService {
         return saved;
     }
 
-    // 5.买家签收（通常来讲是自动的）
+    // 5.买家签收
 
      // 买家签收：SHIPPING → RECEIVED
      // 只有买家本人才能签收。
@@ -277,7 +277,12 @@ public class OrderService {
             throw new IllegalStateException("订单有待处理的退款申请，请先取消退款申请或联系商家处理退款申请后再确认收货");
         }
 
-        assertStatus(order, OrderStatus.RECEIVED, "确认收货");
+        // 订单状态可能是SHIPPING（商家发货但未签收）或者RECEIVED（已签收），两者都允许确认收货
+        if(order.getStatus().equals(OrderStatus.SHIPPING)) {
+            assertStatus(order, OrderStatus.SHIPPING, "确认收货");
+        } else {
+            assertStatus(order, OrderStatus.RECEIVED, "确认收货");
+        }
 
         sendEvent(order, OrderEvent.COMPLETE, null);
 
@@ -343,7 +348,7 @@ public class OrderService {
             throw new OrderStateException("当前订单状态不允许申请退款");
         }
 
-        // PS：非签收状态下应该允许退货退款，反正后面都是走退款的状态流转
+        //// 非签收状态下应该允许退货退款，反正后面都是走退款的状态流转
 
         // 查询该订单已通过的退款总额
         BigDecimal refundedTotal = order.getApprovedRefundAmount();
@@ -493,7 +498,7 @@ public class OrderService {
             } else if("ALL_RT".equals(refundRequest.getRefundType())) {
                 // 全额退款（退货退款），退款流程进从PENDING变更为PENDING_RETURN，等待买家提交退货物流单号
                 refundRequest.setStatus(RefundStatus.PENDING_RETURN);
-                // PS：在自动化确认收货的功能实现时，需要检查当前订单下是否还有不为REJECTED / CANCELLED / APPROVED / AUTO_APPROVED / REFUNDED的退款申请
+                //// PS：在自动化确认收货的功能实现时，需要检查当前订单下是否还有不为REJECTED / CANCELLED / APPROVED / AUTO_APPROVED / REFUNDED的退款申请
                 // 如果有则不自动确认收货，直到这些退款申请都处理完毕。
                 log.info("商家同意全额退款（退货退款）: refundNo={}", refundNo);
             } else {
@@ -617,7 +622,7 @@ public class OrderService {
         return convertToRefundRequestVO(refundRequest);
     }
 
-    // 商家确认签收退货（通常来讲是自动的）
+    // 商家确认签收退货
     // RETURNING -> RETURN_RECEIVED
     @Transactional
     public RefundRequestVO receiveReturnedProduct(String refundNo, Long sellerId) {
@@ -702,15 +707,25 @@ public class OrderService {
 
     // 11.查询相关
 
-    // 用户或商家查询订单详情，订单只能被订单相关的买家或卖家访问
-    @Transactional
-    public Page<Order> getOrdersByOrderNumber(String orderNumber, Long relatedUserId, Pageable pageable) {
-        return orderRepository.findByOrderNumberLikeAndUser(orderNumber, relatedUserId, pageable);
+    // 用户或商家查询订单列表，订单只能被订单相关的买家或卖家访问
+    public Page<Order> getOrdersBySearch(String keyWord, String searchType, Long relatedUserId, Pageable pageable) {
+        if (keyWord == null || keyWord.isBlank()) {
+            throw new IllegalArgumentException("keyWord 不能为空");
+        }
+
+        String normalizedType = (searchType == null ? "NO" : searchType.trim().toUpperCase(Locale.ROOT));
+        String kw = keyWord.trim();
+
+        return switch (normalizedType) {
+            case "NO" -> orderRepository.findByOrderNumberLikeAndUser(kw, relatedUserId, pageable);
+            case "KW" -> orderRepository.findByItemKeywordLikeAndUser(kw, relatedUserId, pageable);
+            default -> throw new IllegalArgumentException("searchType仅支持KW或NO");
+        };
     }
 
 
-    // 买家查询自己的订单列表，支持按状态筛选
-    @Transactional
+
+    // 买家获取自己的订单列表，支持按状态筛选
     public Page<Order> getBuyerOrders(Long buyerId, OrderStatus status, Pageable pageable) {
         if (status != null) {
             return orderRepository.findByBuyerIdAndStatus(buyerId, status, pageable);
@@ -718,8 +733,7 @@ public class OrderService {
         return orderRepository.findByBuyerId(buyerId, pageable);
     }
 
-    // 商家查询自己的订单列表，支持按状态筛选
-    @Transactional
+    // 商家获取自己的订单列表，支持按状态筛选
     public Page<Order> getSellerOrders(Long sellerId, OrderStatus status, Pageable pageable) {
         if (status != null) {
             return orderRepository.findBySellerIdAndStatus(sellerId, status, pageable);
@@ -728,7 +742,6 @@ public class OrderService {
     }
 
     // 商家查询自己的退款列表，支持按状态筛选
-    @Transactional
     public Page<RefundRequestVO> getSellerRefundRequests(Long sellerId, RefundStatus status, Pageable pageable) {
         Page<RefundRequest> refundRequests;
         if (status != null) {
@@ -740,7 +753,6 @@ public class OrderService {
     }
 
     // 买家查询自己的退款列表，支持按状态筛选
-    @Transactional
     public Page<RefundRequestVO> getBuyerRefundRequests(Long buyerId, RefundStatus status, Pageable pageable) {
         Page<RefundRequest> refundRequests;
         if (status != null) {
@@ -768,7 +780,6 @@ public class OrderService {
     }
 
     // 商家按买家ID查询订单；status为空时查询所有状态
-    @Transactional
     public Page<Order> getSellerOrdersByBuyerId(Long sellerId, Long buyerId, OrderStatus status, Pageable pageable) {
         if (sellerId == null || buyerId == null) {
             throw new IllegalArgumentException("sellerId 和 buyerId 不能为空");

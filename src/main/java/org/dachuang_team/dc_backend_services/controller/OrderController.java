@@ -273,27 +273,29 @@ public class OrderController {
         return getRefundsMapResponseEntity(refundPage);
     }
 
-    // 买家根据订单号模糊查询订单记录
+    // 商家根据订单号或关键字模糊查询订单记录
     @GetMapping("/user/order/search")
     public ResponseEntity<Result<Map<String, Object>>> searchUserOrders(
-            @RequestParam String orderNumber,
+            @RequestParam String keyWord,
+            @RequestParam(defaultValue = "NO") String searchType,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
         Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by("createdAt").descending());
-        Page<Order> orderPage = orderService.getOrdersByOrderNumber(orderNumber, currentUserId, pageable);
+        Page<Order> orderPage = orderService.getOrdersBySearch(keyWord, searchType, currentUserId, pageable);
         return getOrdersMapResponseEntity(orderPage);
     }
 
-    // 商家根据订单号模糊查询订单记录
+    // 商家根据订单号或关键字模糊查询订单记录
     @GetMapping("/seller/order/search")
     public ResponseEntity<Result<Map<String, Object>>> searchSellerOrders(
-            @RequestParam String orderNumber,
+            @RequestParam String keyWord,
+            @RequestParam(defaultValue = "NO") String searchType,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
         Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by("createdAt").descending());
-        Page<Order> orderPage = orderService.getOrdersByOrderNumber(orderNumber, currentMerchantId, pageable);
+        Page<Order> orderPage = orderService.getOrdersBySearch(keyWord, searchType, currentMerchantId, pageable);
         return getOrdersMapResponseEntity(orderPage);
     }
 
