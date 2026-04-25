@@ -29,6 +29,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.statemachine.StateMachine;
@@ -340,7 +342,7 @@ public class OrderService {
         Order order = getOrderAndValidateBuyer(request.getOrderNumber(), buyerId);
         OrderStatus status = order.getStatus();
 
-        if(refundRequest.getImages().size() > 5) {
+        if (request.getImageIds() != null && request.getImageIds().size() > 5) {
             throw new IllegalArgumentException("最多只能上传5张退款凭证图片");
         }
 
@@ -912,6 +914,233 @@ public class OrderService {
         return orderItemReviewRepository.findBySellerId(sellerId, pageable)
                 .map(this::convertToOrderItemReviewVO);
     }
+
+    //13.自动状态流转相关
+    // 活跃退款终态集合
+    private static final List<RefundStatus> ACTIVE_REFUND_TERMINAL_STATUSES = List.of(
+            RefundStatus.REJECTED,
+            RefundStatus.CANCELLED,
+            RefundStatus.APPROVED,
+            RefundStatus.AUTO_APPROVED,
+            RefundStatus.REFUNDED
+    );
+
+
+    // 自动签收SHIPPING且shippedAt<=cutoff的订单
+    // 只处理autoReceived=false的订单
+    @Transactional
+    public int autoReceiveExpiredOrders(LocalDateTime cutoff, int batchSize) {
+        int success = 0;
+        while (true) {
+            Page<Order> page = orderRepository.findByStatusAndShippedAtBeforeAndAutoReceivedFalse(
+                    OrderStatus.SHIPPING,
+                    cutoff,
+                    PageRequest.of(0, batchSize, Sort.by(Sort.Direction.ASC, "id"))
+            );
+
+            if (page.isEmpty()) {
+                break;
+            }
+
+            for (Order order : page.getContent()) {
+                try {
+                    sendEvent(order, OrderEvent.RECEIVE, null);
+                    order.setReceivedAt(LocalDateTime.now());
+                    order.setAutoReceived(true);
+                    orderRepository.save(order);
+                    success++;
+                } catch (Exception e) {
+                    log.warn("自动签收失败: orderNumber={}, err={}", order.getOrderNumber(), e.getMessage(), e);
+                }
+                log.info("自动签收: orderNumber={}, success={}", order.getOrderNumber(), success);
+            }
+        }
+        return success;
+    }
+
+    // 自动确认收货：RECEIVED且receivedAt<=cutoff的订单
+    // 只处理autoCompleted=false的订单
+    // 使用hasActiveRefundRequests()检查是否存在活跃退款申请，如果存在则跳过自动确认收货，直到这些退款申请都处理完毕
+    @Transactional
+    public int autoCompleteExpiredOrders(LocalDateTime cutoff, int batchSize) {
+        int success = 0;
+        while (true) {
+            Page<Order> page = orderRepository.findByStatusAndReceivedAtBeforeAndAutoCompletedFalse(
+                    OrderStatus.RECEIVED,
+                    cutoff,
+                    PageRequest.of(0, batchSize, Sort.by(Sort.Direction.ASC, "id"))
+            );
+
+            if (page.isEmpty()) {
+                break;
+            }
+
+            for (Order order : page.getContent()) {
+                try {
+                    // 自动确认收货前，检查是否存在活跃退款
+                    if (hasActiveRefundRequests(order.getOrderNumber())) {
+                        log.info("跳过自动确认收货(存在活跃退款): orderNumber={}", order.getOrderNumber());
+                        continue;
+                    }
+
+                    sendEvent(order, OrderEvent.COMPLETE, null);
+
+                    // 完成后增加销量
+                    for (OrderItem item : order.getItems()) {
+                        productRepository.incrementSales(item.getProductId(), item.getQuantity());
+                    }
+
+                    order.setCompletedAt(LocalDateTime.now());
+                    order.setAutoCompleted(true);
+                    orderRepository.save(order);
+                    success++;
+                } catch (Exception e) {
+                    log.warn("自动确认收货失败: orderNumber={}, err={}", order.getOrderNumber(), e.getMessage(), e);
+                }
+                log.info("自动确认收货: orderNumber={}, success={}", order.getOrderNumber(), success);
+            }
+        }
+        return success;
+    }
+
+    // 自动处理超时未处理的退款申请：PENDING且requestTime<=resolveRefundAutoHandleDeadline()的退款申请
+    // 默认48h超时
+    // 签收后的仅退款（ALL_NO_RT）申请为72h超时
+    @Transactional
+    public int autoHandlePendingRefundTimeout(LocalDateTime now, int batchSize) {
+        int success = 0;
+
+        while (true) {
+            Page<RefundRequest> page = refundRequestRepository.findByStatusOrderByRequestTimeAsc(
+                    RefundStatus.PENDING,
+                    PageRequest.of(0, batchSize)
+            );
+
+            if (page.isEmpty()) {
+                break;
+            }
+
+            int handledInThisBatch = 0;
+
+            for (RefundRequest refundRequest : page.getContent()) {
+                try {
+                    if (refundRequest.getRequestTime() == null) {
+                        log.warn("退款申请requestTime为空，跳过: refundNo={}", refundRequest.getRefundNo());
+                        continue;
+                    }
+
+                    Order order = orderRepository.findByOrderNumber(refundRequest.getOrderNumber());
+                    if (order == null) {
+                        log.warn("退款申请对应订单不存在，跳过: refundNo={}, orderNumber={}",
+                                refundRequest.getRefundNo(), refundRequest.getOrderNumber());
+                        continue;
+                    }
+
+                    LocalDateTime deadline = resolveRefundAutoHandleDeadline(refundRequest, order);
+                    if (now.isBefore(deadline)) {
+                        break;
+                    }
+
+                    autoApproveRefundInternal(order, refundRequest, now);
+                    handledInThisBatch++;
+                    success++;
+
+                } catch (Exception e) {
+                    log.warn("自动处理退款失败: refundNo={}, err={}",
+                            refundRequest.getRefundNo(), e.getMessage(), e);
+                }
+                log.info("自动处理退款: refundNo={}, handledInThisBatch={}, success={}",
+                        refundRequest.getRefundNo(), handledInThisBatch, success);
+            }
+
+            if (handledInThisBatch == 0) {
+                break;
+            }
+        }
+        return success;
+    }
+
+    // 活跃退款判断（用于自动确认收货前检查）
+    public boolean hasActiveRefundRequests(String orderNumber) {
+        return refundRequestRepository.existsByOrderNumberAndStatusNotIn(
+                orderNumber,
+                ACTIVE_REFUND_TERMINAL_STATUSES
+        );
+    }
+
+     // 计算退款超时截止时间：
+     // 默认 48h
+     // 签收后的仅退款(ALL_NO_RT) 72h
+    private LocalDateTime resolveRefundAutoHandleDeadline(RefundRequest refundRequest, Order order) {
+        LocalDateTime requestTime = refundRequest.getRequestTime();
+
+        boolean signedOnlyRefund = "ALL_NO_RT".equals(refundRequest.getRefundType())
+                && order.getReceivedAt() != null
+                && !requestTime.isBefore(order.getReceivedAt()); // requestTime >= receivedAt
+
+        return requestTime.plusHours(signedOnlyRefund ? 72 : 48);
+    }
+
+    // 自动审批退款内部逻辑并设置autoRefund标记。
+    private void autoApproveRefundInternal(Order order, RefundRequest refundRequest, LocalDateTime now)
+            throws OrderStateException {
+
+        if (!RefundStatus.PENDING.equals(refundRequest.getStatus())) {
+            return;
+        }
+
+        String refundType = refundRequest.getRefundType();
+
+        switch (refundType) {
+            case "PARTIAL" -> {
+                paymentProvider.refund(order, refundRequest.getRefundAmount());
+                order.addApprovedRefundAmount(refundRequest.getRefundAmount());
+                order.setHasRefund(true);
+                order.setHasPartialRefund(true);
+                order.setAutoRefund(true);
+                refundRequest.setStatus(RefundStatus.AUTO_APPROVED);
+            }
+            case "ALL_NO_RT" -> {
+                paymentProvider.refund(order, refundRequest.getRefundAmount());
+                sendEvent(order, OrderEvent.FULLY_REFUND, null);
+
+                order.addApprovedRefundAmount(refundRequest.getRefundAmount());
+                order.setHasRefund(true);
+                order.setAutoRefund(true);
+
+                for (OrderItem item : order.getItems()) {
+                    productRepository.incrementStock(item.getProductId(), item.getQuantity());
+                }
+
+                refundRequest.setStatus(RefundStatus.AUTO_APPROVED);
+            }
+            case "ALL_RT" -> {
+                paymentProvider.refund(order, refundRequest.getRefundAmount());
+                sendEvent(order, OrderEvent.FULLY_REFUND, null);
+
+                order.addApprovedRefundAmount(refundRequest.getRefundAmount());
+                order.setHasRefund(true);
+                order.setAutoRefund(true);
+
+                refundRequest.setStatus(RefundStatus.AUTO_APPROVED);
+            }
+            default -> throw new IllegalArgumentException("未知的退款类型: " + refundType);
+        }
+
+        refundRequest.setLastHandleTime(now);
+        refundRequestRepository.save(refundRequest);
+
+        boolean stillHasPending = refundRequestRepository.existsByOrderNumberAndStatus(
+                order.getOrderNumber(), RefundStatus.PENDING
+        );
+        order.setHasPendingRefund(stillHasPending);
+
+        orderRepository.save(order);
+
+        log.info("自动处理退款成功: refundNo={}, orderNumber={}, refundType={}, status={}",
+                refundRequest.getRefundNo(), order.getOrderNumber(), refundType, refundRequest.getStatus());
+    }
+
 
 
 

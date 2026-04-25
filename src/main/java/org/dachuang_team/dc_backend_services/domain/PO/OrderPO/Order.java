@@ -111,13 +111,13 @@ public class Order {
     private List<OrderItem> items = new ArrayList<>();
 
     @Column(name = "auto_refund", nullable = false)
-    private Boolean autoRefund = false; //自动退款标记
+    private Boolean autoRefund = false; // 存在自动退款标记
 
     @Column(name = "auto_received", nullable = false)
-    private Boolean autoReceived = false; // 自动签收标记
+    private Boolean autoReceived = false; // 存在自动签收标记
 
     @Column(name = "auto_completed", nullable = false)
-    private Boolean autoCompleted = false; // 自动完成标记
+    private Boolean autoCompleted = false; // 存在自动完成标记
 
     protected Order() {}
 

@@ -89,8 +89,8 @@ public class SecurityConfig {
 
                         .requestMatchers("/ws/**", "/sockjs-ws/**").permitAll()
 
-                        // 其他任何请求都需要认证
-                        .anyRequest().authenticated()
+                        // 其他任何请求都拒绝访问
+                        .anyRequest().denyAll()
                 )
                 // 异常处理
                 .exceptionHandling(exceptions -> exceptions

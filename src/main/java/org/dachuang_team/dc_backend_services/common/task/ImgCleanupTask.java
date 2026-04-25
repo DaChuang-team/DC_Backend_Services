@@ -1,11 +1,7 @@
 package org.dachuang_team.dc_backend_services.common.task;
 
-import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.AIInteractionImg;
-import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.UserAvatar;
-import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.ProductImg;
-import org.dachuang_team.dc_backend_services.repository.AIInteractionImgRepository;
-import org.dachuang_team.dc_backend_services.repository.ProductImageRecordRepository;
-import org.dachuang_team.dc_backend_services.repository.UserAvatarRecordRepository;
+import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.*;
+import org.dachuang_team.dc_backend_services.repository.*;
 import org.dachuang_team.dc_backend_services.services.IStorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,13 +19,22 @@ import java.util.List;
 public class ImgCleanupTask {
 
     @Autowired
-    private ProductImageRecordRepository productImageRecordRepository;
+    private ProductImageRecordRepository productImageRecordRepository; // 商品图片记录
 
     @Autowired
-    private UserAvatarRecordRepository userAvatarRecordRepository;
+    private UserAvatarRecordRepository userAvatarRecordRepository; // 用户头像记录
 
     @Autowired
-    private AIInteractionImgRepository aiInteractionImgRepository;
+    private AIInteractionImgRepository aiInteractionImgRepository; // AI交互图片记录
+
+    @Autowired
+    private ShopBannerImgRepository shopBannerImgRepository; // 店铺首页横幅图片记录
+
+    @Autowired
+    private RefundImgRepository refundImgRepository; // 退款图片记录
+    
+    @Autowired
+    private AccommodationImgRepository accommodationImgRepository; // 酒店图片记录
 
     @Autowired
     private IStorageService storageService;
@@ -52,22 +57,37 @@ public class ImgCleanupTask {
             LocalDateTime threeDaysAgo = LocalDateTime.now().minusDays(3);
 
             // 查询符合条件的记录
-            List<ProductImg> PdRecordsToDelete = productImageRecordRepository
-                    .findAllByCreatedAtBeforeAndIsLinkedFalse(threeDaysAgo);
+            List<ProductImg> PdImgsToDelete =
+                    productImageRecordRepository.findAllByCreatedAtBeforeAndIsLinkedFalse(threeDaysAgo);
 
-            List<UserAvatar> avatarRecordsToDelete = userAvatarRecordRepository
-                    .findAllByUploadAtBeforeAndIsLinkedFalse(threeDaysAgo);
+            List<UserAvatar> avatarImgsToDelete =
+                    userAvatarRecordRepository.findAllByUploadAtBeforeAndIsLinkedFalse(threeDaysAgo);
 
-            List<AIInteractionImg> AIRecordToDelete =
+            List<AIInteractionImg> AIImgsToDelete =
                     aiInteractionImgRepository.findAllByUploadTimeBefore(threeDaysAgo);
 
-            if (PdRecordsToDelete.isEmpty() && avatarRecordsToDelete.isEmpty() && AIRecordToDelete.isEmpty()) {
+            List<ShopBannerImg> shopBannerImgsToDelete =
+                    shopBannerImgRepository.findAllByUploadTimeBeforeAndIsLinkedFalse(threeDaysAgo);
+
+            List<RefundImg> refundImgsToDelete =
+                    refundImgRepository.findAllByUploadTimeBeforeAndIsLinkedFalse(threeDaysAgo);
+            
+            List<AccommodationImg> accommodationImgsToDelete =
+                    accommodationImgRepository.findAllByIsLinkedFalseAndCreatedAtBefore(threeDaysAgo);
+                    
+
+            if (PdImgsToDelete.isEmpty() &&
+                    avatarImgsToDelete.isEmpty() &&
+                    AIImgsToDelete.isEmpty() &&
+                    shopBannerImgsToDelete.isEmpty() &&
+                    refundImgsToDelete.isEmpty() &&
+                    accommodationImgsToDelete.isEmpty()){
                 logger.info("没有需要清理的图片资源");
                 return;
             }
 
             // 循环处理删除商品图片记录
-            for (ProductImg record : PdRecordsToDelete) {
+            for (ProductImg record : PdImgsToDelete) {
                 String url = record.getUrl();
                 if(record.getThumbnailUrl() != null) {
                     // 先删云端缩略图
@@ -90,7 +110,7 @@ public class ImgCleanupTask {
             }
 
             // 循环处理删除用户头像记录
-            for (UserAvatar record : avatarRecordsToDelete) {
+            for (UserAvatar record : avatarImgsToDelete) {
                 String url = record.getAvatarUrl();
                 try {
                     // 先删云端
@@ -105,7 +125,7 @@ public class ImgCleanupTask {
             }
 
             // 循环处理删除AI交互缓存图片记录
-            for (AIInteractionImg img : AIRecordToDelete) {
+            for (AIInteractionImg img : AIImgsToDelete) {
                 String url = img.getImageUrl();
                 try {
                     // 先删云端
@@ -118,8 +138,55 @@ public class ImgCleanupTask {
                     logger.warn("删除AI交互缓存图片失败 URL: {} 错误: {}", url, e.getMessage(), e);
                 }
             }
+            
+            // 循环处理商家首页横幅图片记录
+            for(ShopBannerImg img : shopBannerImgsToDelete) {
+                String url = img.getImgUrl();
+                try {
+                    storageService.delete(url);
+                    shopBannerImgRepository.deleteByImgUrl(url);
+                    deletedCount++;
+                } catch (Exception e) {
+                    logger.warn("删除店铺横幅冗余图片失败 URL: {} 错误: {}", url, e.getMessage(), e);
+                }
+            }
 
-            logger.info("已尝试清理 {} 张业务冗余图片", PdRecordsToDelete.size() + avatarRecordsToDelete.size() + AIRecordToDelete.size());
+            // 循环处理删除退款图片记录，
+            for(RefundImg img : refundImgsToDelete) {
+                String url = img.getImageUrl();
+                try {
+                    storageService.delete(url);
+                    refundImgRepository.deleteById(img.getId());
+                    deletedCount++;
+                } catch (Exception e) {
+                    logger.warn("删除退款冗余图片失败 URL: {} 错误: {}", url, e.getMessage(), e);
+                }
+            }
+
+            // 循环处理删除酒店图片记录。需要处理两种情况：有缩略图和无缩略图
+            for(AccommodationImg img : accommodationImgsToDelete) {
+                String url = img.getUrl();
+                String thumbnailUrl = img.getThumbnailUrl();
+                try {
+                    // 先删云端缩略图（如果有）
+                    if(thumbnailUrl != null) {
+                        try {
+                            storageService.delete(thumbnailUrl);
+                        } catch (Exception e) {
+                            logger.warn("删除酒店冗余图片缩略图失败 URL: {} 错误: {}", thumbnailUrl, e.getMessage(), e);
+                        }
+                    }
+                    // 再删云端原图
+                    storageService.delete(url);
+                    // 最后删数据库记录
+                    accommodationImgRepository.deleteById(img.getId());
+                    deletedCount++;
+                } catch (Exception e) {
+                    logger.warn("删除酒店冗余图片失败 URL: {} 错误: {}", url, e.getMessage(), e);
+                }
+            }
+
+            logger.info("已尝试清理 {} 张业务冗余图片", PdImgsToDelete.size() + avatarImgsToDelete.size() + AIImgsToDelete.size() + shopBannerImgsToDelete.size() + refundImgsToDelete.size() + accommodationImgsToDelete.size());
                 logger.info("成功清理 {} 张业务冗余图片", deletedCount);
         } catch (Exception e) {
             logger.error("自动清理业务冗余图片失败: {}", e.getMessage(), e);

@@ -36,5 +36,5 @@ public interface RefundRequestRepository extends JpaRepository<RefundRequest, Lo
     @Query("SELECT r FROM RefundRequest r WHERE r.refundNo LIKE %:refundNo% AND (r.sellerId = :userId OR r.buyerId = :userId)")
     Page<RefundRequest> findByRefundNoLikeAndUser(@Param("refundNo") String refundNo, @Param("userId") Long userId, Pageable pageable);
 
-
+    Page<RefundRequest> findByStatusOrderByRequestTimeAsc(RefundStatus status, Pageable pageable);
 }

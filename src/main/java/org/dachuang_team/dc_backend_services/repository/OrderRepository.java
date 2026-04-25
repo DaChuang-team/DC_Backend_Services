@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
+
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
@@ -48,6 +50,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Page<Order> findByItemKeywordLikeAndUser(@Param("keyWord") String keyWord,
                                              @Param("userId") Long userId,
                                              Pageable pageable);
+
+    Page<Order> findByStatusAndShippedAtBeforeAndAutoReceivedFalse(
+            OrderStatus status, LocalDateTime shippedAt, Pageable pageable);
+
+    Page<Order> findByStatusAndReceivedAtBeforeAndAutoCompletedFalse(
+            OrderStatus status, LocalDateTime receivedAt, Pageable pageable);
 
 
 }
