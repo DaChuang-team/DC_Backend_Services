@@ -12,6 +12,7 @@ public class ConversationVO {
     private String targetRole; // 目标角色
     private Long targetId; // 目标ID
     private Long entryProductId; // 关联的商品ID（如果有）
+    private String status; // 会话状态：PENDING, ACTIVE, CLOSED
 
 
     public String getTargetRole() {
@@ -67,5 +68,11 @@ public class ConversationVO {
     }
     public void setEntryProductId(Long entryProductId) {
         this.entryProductId = entryProductId;
+    }
+    public String getStatus() {
+        return status;
+    }
+    public void setStatus(String status) {
+        this.status = status;
     }
 }

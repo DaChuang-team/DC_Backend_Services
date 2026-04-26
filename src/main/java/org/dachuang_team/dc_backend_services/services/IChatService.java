@@ -12,6 +12,8 @@ import java.util.Map;
 public interface IChatService {
     ConversationVO createConversation(CreateConversationDTO createConversationDTO, Long InitiatorId, String InitiatorRole);
 
+    ConversationVO requestServiceAcceptance(Long conversationId, Long requesterId, String requesterRole);
+
     MessageVO sendMessage(SendMessageDTO dto, Long senderId, String senderRole);
 
     void callBackMessage(Long conversationId, Long messageId, Long senderId, String senderRole);

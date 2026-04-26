@@ -47,6 +47,31 @@ public class ChatController {
         }
     }
 
+    @PostMapping("/requestAcceptance")
+    public Result<ConversationVO> requestServiceAcceptance(@RequestParam Long conversationId) {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            Long requesterId = (Long) authentication.getPrincipal();
+            String requesterRole = authentication.getAuthorities().stream()
+                    .findFirst()
+                    .map(GrantedAuthority::getAuthority)
+                    .map(role -> role.replaceFirst("^ROLE_", ""))
+                    .orElse(null);
+
+            ConversationVO conversationVO =
+                    chatService.requestServiceAcceptance(conversationId, requesterId, requesterRole);
+
+            return Result.success(200, "已提交客服受理请求", conversationVO);
+        } catch (IllegalArgumentException e) {
+            return Result.error(400, "参数错误: " + e.getMessage(), null);
+        } catch (IllegalStateException e) {
+            return Result.error(409, "状态错误: " + e.getMessage(), null);
+        } catch (Exception e) {
+            return Result.error(500, "服务器错误: " + e.getMessage(), null);
+        }
+    }
+
+
     @PostMapping("/service/handleServiceRequest")
     public Result<ConversationVO> handleServiceRequest(@RequestParam Long conversationId) {
         try {

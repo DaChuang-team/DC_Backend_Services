@@ -63,7 +63,7 @@ public class SecurityConfig {
 
                         .requestMatchers("/api/chat/createConversation","/api/chat/conversations",
                                 "/api/chat/closeConversation","/api/chat/markAsReadByConversationId","/api/chat/markAsReadByMessageId",
-                                "/api/chat/messages","/api/chat/sendMessage").authenticated()
+                                "/api/chat/messages","/api/chat/sendMessage","/api/chat/requestAcceptance").authenticated()
                         .requestMatchers("/api/chat/service/**").hasRole("ADMIN")
 
                         .requestMatchers("/api/products/approvedBySeller", "/api/products/details").authenticated()
