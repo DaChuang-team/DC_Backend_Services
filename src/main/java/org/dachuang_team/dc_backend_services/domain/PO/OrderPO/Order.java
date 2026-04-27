@@ -110,6 +110,9 @@ public class Order {
             fetch = FetchType.LAZY, orphanRemoval = true)
     private List<OrderItem> items = new ArrayList<>();
 
+    @Column(name = "auto_cancel", nullable = false)
+    private Boolean autoCancel = false; // 存在自动取消标记
+
     @Column(name = "auto_refund", nullable = false)
     private Boolean autoRefund = false; // 存在自动退款标记
 
@@ -248,5 +251,11 @@ public class Order {
     }
     public BigDecimal remainingRefundable() {
         return this.totalAmount.subtract(this.approvedRefundAmount);
+    }
+    public Boolean getAutoCancel() {
+        return autoCancel;
+    }
+    public void setAutoCancel(Boolean autoCancel) {
+        this.autoCancel = autoCancel;
     }
 }

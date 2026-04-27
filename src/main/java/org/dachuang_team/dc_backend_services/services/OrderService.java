@@ -180,7 +180,12 @@ public class OrderService {
     @Transactional
     public Order payOrder(String orderNumber, Long buyerId) throws OrderStateException {
         Order order = getOrderAndValidateBuyer(orderNumber, buyerId);
+
         assertStatus(order, OrderStatus.PENDING_PAYMENT, "支付");
+
+        if(order.getCreatedAt().plusMinutes(15).isBefore(LocalDateTime.now())) {
+            throw new IllegalStateException("订单已超时，请取消后重新下单");
+        }
 
         // 支付插槽调用
         String paymentResult = paymentProvider.pay(order);
@@ -953,6 +958,40 @@ public class OrderService {
                     log.warn("自动签收失败: orderNumber={}, err={}", order.getOrderNumber(), e.getMessage(), e);
                 }
                 log.info("自动签收: orderNumber={}, success={}", order.getOrderNumber(), success);
+            }
+        }
+        return success;
+    }
+
+    // 自动取消未支付订单：PENDING_PAYMENT且createdAt<=cutoff的订单
+    @Transactional
+    public int autoCancelExpiredUnpaidOrders(LocalDateTime cutoff, int batchSize) {
+        int success = 0;
+        while (true) {
+            Page<Order> page = orderRepository.findByStatusAndCreatedAtBefore(
+                    OrderStatus.PENDING_PAYMENT,
+                    cutoff,
+                    PageRequest.of(0, batchSize, Sort.by(Sort.Direction.ASC, "id"))
+            );
+
+            if (page.isEmpty()) {
+                break;
+            }
+
+            for (Order order : page.getContent()) {
+                try {
+                    sendEvent(order, OrderEvent.CANCEL, null);
+                    order.setAutoCancel(true);
+                    // 取消订单后增加库存
+                    for(OrderItem item : order.getItems()) {
+                        productRepository.incrementStock(item.getProductId(), item.getQuantity());
+                    }
+                    orderRepository.save(order);
+                    success++;
+                } catch (Exception e) {
+                    log.warn("自动取消订单失败: orderNumber={}, err={}", order.getOrderNumber(), e.getMessage(), e);
+                }
+                log.info("自动取消订单: orderNumber={}, success={}", order.getOrderNumber(), success);
             }
         }
         return success;

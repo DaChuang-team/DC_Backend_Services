@@ -28,11 +28,11 @@ public class OrderRefundLifecycleScheduler {
     public void runAutoTransition() {
         LocalDateTime now = LocalDateTime.now();
 
+        int autoCancelled = orderService.autoCancelExpiredUnpaidOrders(now.minusMinutes(15), BATCH_SIZE);
         int autoReceived = orderService.autoReceiveExpiredOrders(now.minusDays(7), BATCH_SIZE);
         int autoCompleted = orderService.autoCompleteExpiredOrders(now.minusDays(7), BATCH_SIZE);
         int autoRefunded = orderService.autoHandlePendingRefundTimeout(now, BATCH_SIZE);
 
-        log.info("订单/退款自动流转完成: autoReceived={}, autoCompleted={}, autoRefunded={}",
-                autoReceived, autoCompleted, autoRefunded);
+        log.info("订单/退款自动流转完成 ，自动取消订单: {}, 自动确认收货: {}, 自动完成订单: {}, 自动处理退款: {}", autoCancelled, autoReceived, autoCompleted, autoRefunded);
     }
 }

@@ -29,13 +29,18 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Result<?>> handleRuntimeException(RuntimeException ex) {
-        // 这里可以自定义返回的错误码和信息
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Result.error(500, ex.getMessage()));
     }
 
     @ExceptionHandler(OrderStateException.class)
     public ResponseEntity<Result<?>> handleOrderStateException(OrderStateException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Result.error(400, ex.getMessage()));
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Result<?>> handleIllegalStateException(IllegalStateException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(Result.error(400, ex.getMessage()));
     }

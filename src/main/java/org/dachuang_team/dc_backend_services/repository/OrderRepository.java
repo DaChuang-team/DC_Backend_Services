@@ -57,5 +57,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Page<Order> findByStatusAndReceivedAtBeforeAndAutoCompletedFalse(
             OrderStatus status, LocalDateTime receivedAt, Pageable pageable);
 
+    Page<Order> findByStatusAndCreatedAtBefore(
+            OrderStatus status, LocalDateTime createdAt, Pageable pageable);
 
 }
