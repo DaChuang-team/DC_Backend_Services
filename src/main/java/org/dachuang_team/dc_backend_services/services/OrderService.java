@@ -180,7 +180,12 @@ public class OrderService {
     @Transactional
     public Order payOrder(String orderNumber, Long buyerId) throws OrderStateException {
         Order order = getOrderAndValidateBuyer(orderNumber, buyerId);
+
         assertStatus(order, OrderStatus.PENDING_PAYMENT, "支付");
+
+        if(order.getCreatedAt().plusMinutes(15).isBefore(LocalDateTime.now())) {
+            throw new IllegalStateException("订单已超时，请取消后重新下单");
+        }
 
         // 支付插槽调用
         String paymentResult = paymentProvider.pay(order);
