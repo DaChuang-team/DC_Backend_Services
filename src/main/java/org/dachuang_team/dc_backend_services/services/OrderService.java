@@ -1099,6 +1099,127 @@ public class OrderService {
         return success;
     }
 
+    @Transactional
+    public int autoCancelPendingReturnTimeout(LocalDateTime cutoff, int batchSize) {
+        int success = 0;
+        while (true) {
+            Page<RefundRequest> page = refundRequestRepository.findByStatusAndLastHandleTimeBefore(
+                    RefundStatus.PENDING_RETURN,
+                    cutoff,
+                    PageRequest.of(0, batchSize, Sort.by(Sort.Direction.ASC, "lastHandleTime"))
+            );
+
+            if (page.isEmpty()) break;
+
+            for (RefundRequest refundRequest : page.getContent()) {
+                try {
+                    // 已填退货单号不自动取消
+                    if (refundRequest.getReturnTrackingNo() != null && !refundRequest.getReturnTrackingNo().isBlank()) {
+                        continue;
+                    }
+
+                    refundRequest.setStatus(RefundStatus.CANCELLED);
+                    refundRequest.setLastHandleTime(LocalDateTime.now());
+                    refundRequestRepository.save(refundRequest);
+
+                    Order order = orderRepository.findByOrderNumber(refundRequest.getOrderNumber());
+                    if (order != null) {
+                        boolean stillHasPending = refundRequestRepository
+                                .existsByOrderNumberAndStatus(refundRequest.getOrderNumber(), RefundStatus.PENDING);
+                        order.setHasPendingRefund(stillHasPending);
+                        orderRepository.save(order);
+                    }
+
+                    success++;
+                } catch (Exception e) {
+                    log.warn("自动取消超时未寄回退款失败: refundNo={}, err={}",
+                            refundRequest.getRefundNo(), e.getMessage(), e);
+                }
+            }
+        }
+        return success;
+    }
+
+
+    @Transactional
+    public int autoReceiveReturnedShipments(LocalDateTime cutoff, int batchSize) {
+        int success = 0;
+        while (true) {
+            Page<RefundRequest> page = refundRequestRepository.findByStatusAndReturnShippedTimeBefore(
+                    RefundStatus.RETURNING,
+                    cutoff,
+                    PageRequest.of(0, batchSize, Sort.by(Sort.Direction.ASC, "returnShippedTime"))
+            );
+
+            if (page.isEmpty()) break;
+
+            for (RefundRequest refundRequest : page.getContent()) {
+                try {
+                    refundRequest.setStatus(RefundStatus.RETURN_RECEIVED);
+                    refundRequest.setReturnReceivedTime(LocalDateTime.now());
+                    refundRequest.setLastHandleTime(LocalDateTime.now());
+                    refundRequestRepository.save(refundRequest);
+                    success++;
+                } catch (Exception e) {
+                    log.warn("自动签收退件失败: refundNo={}, err={}",
+                            refundRequest.getRefundNo(), e.getMessage(), e);
+                }
+            }
+        }
+        return success;
+    }
+
+    @Transactional
+    public int autoApproveReturnReceivedTimeout(LocalDateTime cutoff, int batchSize) {
+        int success = 0;
+        while (true) {
+            Page<RefundRequest> page = refundRequestRepository.findByStatusAndReturnReceivedTimeBefore(
+                    RefundStatus.RETURN_RECEIVED,
+                    cutoff,
+                    PageRequest.of(0, batchSize, Sort.by(Sort.Direction.ASC, "returnReceivedTime"))
+            );
+
+            if (page.isEmpty()) break;
+
+            for (RefundRequest refundRequest : page.getContent()) {
+                try {
+                    Order order = orderRepository.findByOrderNumber(refundRequest.getOrderNumber());
+                    if (order == null) {
+                        log.warn("自动同意退款跳过，订单不存在: refundNo={}, orderNumber={}",
+                                refundRequest.getRefundNo(), refundRequest.getOrderNumber());
+                        continue;
+                    }
+
+                    paymentProvider.refund(order, refundRequest.getRefundAmount());
+                    sendEvent(order, OrderEvent.FULLY_REFUND, null);
+
+                    order.addApprovedRefundAmount(refundRequest.getRefundAmount());
+                    order.setHasRefund(true);
+                    order.setAutoRefund(true);
+                    for (OrderItem item : order.getItems()) {
+                        productRepository.incrementStock(item.getProductId(), item.getQuantity());
+                    }
+
+                    refundRequest.setStatus(RefundStatus.AUTO_APPROVED);
+                    refundRequest.setLastHandleTime(LocalDateTime.now());
+                    refundRequestRepository.save(refundRequest);
+
+                    boolean stillHasPending = refundRequestRepository
+                            .existsByOrderNumberAndStatus(order.getOrderNumber(), RefundStatus.PENDING);
+                    order.setHasPendingRefund(stillHasPending);
+
+                    orderRepository.save(order);
+                    success++;
+                } catch (Exception e) {
+                    log.warn("自动同意退件签收后超时退款失败: refundNo={}, err={}",
+                            refundRequest.getRefundNo(), e.getMessage(), e);
+                }
+            }
+        }
+        return success;
+    }
+
+
     // 活跃退款判断（用于自动确认收货前检查）
     public boolean hasActiveRefundRequests(String orderNumber) {
         return refundRequestRepository.existsByOrderNumberAndStatusNotIn(

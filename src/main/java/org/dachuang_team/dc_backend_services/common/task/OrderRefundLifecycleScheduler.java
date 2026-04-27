@@ -32,7 +32,12 @@ public class OrderRefundLifecycleScheduler {
         int autoReceived = orderService.autoReceiveExpiredOrders(now.minusDays(7), BATCH_SIZE);
         int autoCompleted = orderService.autoCompleteExpiredOrders(now.minusDays(7), BATCH_SIZE);
         int autoRefunded = orderService.autoHandlePendingRefundTimeout(now, BATCH_SIZE);
+        int autoCancelPendingReturn = orderService.autoCancelPendingReturnTimeout(now.minusHours(72), BATCH_SIZE);
+        int autoReceiveReturned = orderService.autoReceiveReturnedShipments(now.minusDays(7), BATCH_SIZE);
+        int autoApproveReturnReceived = orderService.autoApproveReturnReceivedTimeout(now.minusHours(48), BATCH_SIZE);
 
-        log.info("订单/退款自动流转完成 ，自动取消订单: {}, 自动确认收货: {}, 自动完成订单: {}, 自动处理退款: {}", autoCancelled, autoReceived, autoCompleted, autoRefunded);
+
+        log.info("订单/退款自动流转完成 ，自动取消过期未支付订单: {}, 自动确认收货过期订单: {}, 自动完成过期订单: {}, 自动处理待处理退款超时订单: {}, 自动取消待退货超时订单: {}, 自动确认收货退货包裹: {}, 自动审核退货包裹超时订单: {}",
+                autoCancelled, autoReceived, autoCompleted, autoRefunded, autoCancelPendingReturn, autoReceiveReturned, autoApproveReturnReceived);
     }
 }

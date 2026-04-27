@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -37,4 +38,14 @@ public interface RefundRequestRepository extends JpaRepository<RefundRequest, Lo
     Page<RefundRequest> findByRefundNoLikeAndUser(@Param("refundNo") String refundNo, @Param("userId") Long userId, Pageable pageable);
 
     Page<RefundRequest> findByStatusOrderByRequestTimeAsc(RefundStatus status, Pageable pageable);
+
+    Page<RefundRequest> findByStatusAndLastHandleTimeBefore(
+            RefundStatus status, LocalDateTime cutoff, Pageable pageable);
+
+    Page<RefundRequest> findByStatusAndReturnShippedTimeBefore(
+            RefundStatus status, LocalDateTime cutoff, Pageable pageable);
+
+    Page<RefundRequest> findByStatusAndReturnReceivedTimeBefore(
+            RefundStatus status, LocalDateTime cutoff, Pageable pageable);
+
 }
