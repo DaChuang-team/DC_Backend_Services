@@ -258,7 +258,7 @@ public class ImageController {
         if (file.isEmpty()) return Result.error(406, "文件不能为空", null);
         if (!"ROLE_ADMIN".equals(getCurrentUserRole())) return Result.error(403, "权限不足");
         if(purpose == null || purpose.isEmpty()) return Result.error(400, "用途参数不能为空");
-        if(SysImagePurpose.isValidPurpose(purpose)) return Result.error(400, "无效的用途参数");
+        if(!SysImagePurpose.isValidPurpose(purpose)) return Result.error(400, "无效的用途参数");
 
         IStorageService.StorageResult result = storageService.uploadByFile(file);
 
@@ -285,11 +285,26 @@ public class ImageController {
         if (records.isEmpty()) return Result.error(404, "所属用途的图片未找到");
 
         List<Map<String, Object>> result = records.stream().map(record -> Map.<String, Object>of(
+                "imageId",record.getImageId(),
                 "imageUrl", record.getImageUrl(),
                 "imageName", record.getImageName()
         )).toList();
 
         return Result.success("查询成功", result);
+    }
+
+    // 管理员接口，删除系统图片资源
+    @DeleteMapping("/sysImgDelete")
+    public Result<String> deleteSysImg(@RequestParam("imageId") Long imageId) {
+        if (!"ROLE_ADMIN".equals(getCurrentUserRole())) return Result.error(403, "权限不足");
+
+        SysImg record = sysImageRepository.findByImageId(imageId);
+        if (record == null) return Result.error(404, "图片未找到");
+
+        storageService.delete(record.getImageUrl());
+        sysImageRepository.delete(record);
+
+        return Result.success("删除成功", null);
     }
 
     private String getCurrentUserRole() {

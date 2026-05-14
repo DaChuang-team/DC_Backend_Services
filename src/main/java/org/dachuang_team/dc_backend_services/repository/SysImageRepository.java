@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface SysImageRepository extends JpaRepository<SysImg, Long> {
     List<SysImg> findByPurpose(String purpose);
+    SysImg findByImageId(Long imageId);
 }

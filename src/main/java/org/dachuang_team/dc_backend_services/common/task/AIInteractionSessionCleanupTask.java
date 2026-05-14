@@ -9,6 +9,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
@@ -23,6 +24,7 @@ public class AIInteractionSessionCleanupTask {
 
     // 程序启动时执行一次
     @EventListener(ApplicationReadyEvent.class)
+    @Transactional
     public void init() {
         cleanupExpiredSessions();
     }

@@ -60,4 +60,38 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Page<Order> findByStatusAndCreatedAtBefore(
             OrderStatus status, LocalDateTime createdAt, Pageable pageable);
 
+    Page<Order> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
+    Page<Order> findByStatus(OrderStatus status, Pageable pageable);
+
+    @Query("SELECT COUNT(o) FROM Order o WHERE o.createdAt >= :startDate")
+    long countByCreatedAtAfter(@Param("startDate") LocalDateTime startDate);
+
+    @Query("SELECT COALESCE(SUM(o.totalAmount), 0) FROM Order o WHERE o.createdAt >= :startDate")
+    java.math.BigDecimal sumTotalAmountByCreatedAtAfter(@Param("startDate") LocalDateTime startDate);
+
+    @Query("SELECT COUNT(o) FROM Order o WHERE o.createdAt >= :startDate AND o.createdAt < :endDate")
+    long countByCreatedAtBetween(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
+    @Query("SELECT COALESCE(SUM(o.totalAmount), 0) FROM Order o WHERE o.createdAt >= :startDate AND o.createdAt < :endDate")
+    java.math.BigDecimal sumTotalAmountByCreatedAtBetween(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
+    @Query(value = """
+            SELECT DATE(o.created_at) as date, COUNT(o.id) as count, COALESCE(SUM(o.total_amount), 0) as total
+            FROM orders o
+            WHERE o.created_at >= :startDate
+            GROUP BY DATE(o.created_at)
+            ORDER BY date ASC
+            """, nativeQuery = true)
+    java.util.List<Object[]> findDailyOrderStats(@Param("startDate") java.time.LocalDateTime startDate);
+
+    @Query(value = """
+            SELECT DATE_FORMAT(o.created_at, '%Y-%m') as month, COUNT(o.id) as count, COALESCE(SUM(o.total_amount), 0) as total
+            FROM orders o
+            WHERE o.created_at >= :startDate
+            GROUP BY DATE_FORMAT(o.created_at, '%Y-%m')
+            ORDER BY month ASC
+            """, nativeQuery = true)
+    java.util.List<Object[]> findMonthlyOrderStats(@Param("startDate") java.time.LocalDateTime startDate);
+
 }

@@ -1,9 +1,11 @@
 package org.dachuang_team.dc_backend_services.services;
 
 import org.dachuang_team.dc_backend_services.domain.DTO.*;
+import org.dachuang_team.dc_backend_services.domain.VO.MerchantAdminVO;
 import org.dachuang_team.dc_backend_services.domain.VO.MerchantVO;
 import org.dachuang_team.dc_backend_services.enumeration.SmsScene;
 
+import java.util.List;
 import java.util.Map;
 
 public interface IMerchantService {
@@ -23,4 +25,10 @@ public interface IMerchantService {
         Map<String, Object> updateMerchantPhone(MerchantPhoneUpdateDTO dto, Long merchantId);
 
         String sendVerificationCode(String merchantPhone, SmsScene scene);
+
+        MerchantVO getMerchantInfo(Long merchantId);
+
+        List<MerchantAdminVO> getAllMerchants();
+
+        boolean updateMerchantStatusByAdmin(Long merchantId, Integer status);
 }

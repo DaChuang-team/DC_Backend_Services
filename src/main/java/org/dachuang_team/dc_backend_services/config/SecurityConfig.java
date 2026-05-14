@@ -49,6 +49,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/users/all", "/api/users/delete").hasAnyRole("ADMIN","SUPER_ADMIN")
 
                         .requestMatchers("/api/merchants/update/**").hasRole("MERCHANT")
+                        .requestMatchers("/api/merchants/info").hasRole("MERCHANT")
 
                         .requestMatchers("/api/orders/create","/api/orders/pay","/api/orders/refund/request","/api/orders/refund/cancel",
                                 "/api/orders/cancel","/api/orders/receive","/api/orders/complete","/api/orders/refund/ship-return","/api/orders/user/**").hasRole("USER")
@@ -63,7 +64,8 @@ public class SecurityConfig {
 
                         .requestMatchers("/api/chat/createConversation","/api/chat/conversations",
                                 "/api/chat/closeConversation","/api/chat/markAsReadByConversationId","/api/chat/markAsReadByMessageId",
-                                "/api/chat/messages","/api/chat/sendMessage","/api/chat/requestAcceptance").authenticated()
+                                "/api/chat/messages","/api/chat/sendMessage","/api/chat/requestAcceptance",
+                                "/api/chat/callBackMessage","/api/chat/userInfo").authenticated()
                         .requestMatchers("/api/chat/service/**").hasRole("ADMIN")
 
                         .requestMatchers("/api/products/approvedBySeller", "/api/products/details").authenticated()
@@ -74,6 +76,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/image/productImgUpload","/api/image/accommodationImgUpload").hasRole("MERCHANT")
                         .requestMatchers("/api/image/AIInteractionImgUpload", "/api/image/userAvatarUpload","/api/image/refundEvidenceImgUpload").hasRole("USER")
                         .requestMatchers("/api/image/sysImgUpload").hasAnyRole("ADMIN","SUPER_ADMIN")
+                        .requestMatchers("/api/image/sysImgDelete").hasAnyRole("ADMIN","SUPER_ADMIN")
                         .requestMatchers("/api/image/chatImgUpload").authenticated()
                         .requestMatchers("/api/image/uploadPurge","/api/image/shopBannerImgUpload").permitAll()
 
@@ -82,6 +85,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/accommodations/get").authenticated()
 
                         .requestMatchers("/api/admins/admindelete").hasRole("SUPER_ADMIN")
+                        .requestMatchers("/api/admins/merchants/all", "/api/admins/merchants/updateStatus").hasAnyRole("ADMIN","SUPER_ADMIN")
+                        .requestMatchers("/api/admins/orders/all").hasAnyRole("ADMIN","SUPER_ADMIN")
+                        .requestMatchers("/api/admins/stats/**").hasAnyRole("ADMIN","SUPER_ADMIN")
 
                         // 测试/临时放行接口
                         .requestMatchers("/api/admins/all", "/api/admins/updateUserStatus").permitAll()

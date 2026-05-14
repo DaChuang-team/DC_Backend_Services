@@ -247,6 +247,12 @@ public class ProductService implements IProductService {
         vo.setPrice(favorite.getPrice());
         vo.setSellerId(favorite.getSellerId());
         vo.setFavoriteAt(favorite.getFavoriteAt());
+
+        Product product = productRepository.findById(favorite.getProductId()).orElse(null);
+        if (product != null) {
+            vo.setApproved(product.getApproved());
+        }
+
         return vo;
     }
 

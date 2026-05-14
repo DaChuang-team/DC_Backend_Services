@@ -4,6 +4,7 @@ import jakarta.transaction.Transactional;
 import org.dachuang_team.dc_backend_services.common.ImageProcessUtils;
 import org.dachuang_team.dc_backend_services.domain.DTO.*;
 import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.ShopBannerImg;
+import org.dachuang_team.dc_backend_services.domain.VO.MerchantAdminVO;
 import org.dachuang_team.dc_backend_services.domain.VO.MerchantVO;
 import org.dachuang_team.dc_backend_services.domain.PO.MerchantPO.Merchant;
 import org.dachuang_team.dc_backend_services.enumeration.SmsScene;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class MerchantService implements IMerchantService{
@@ -147,6 +149,16 @@ public class MerchantService implements IMerchantService{
         throw new IllegalArgumentException("未提供参数或参数为空");
     }
 
+
+    @Override
+    public MerchantVO getMerchantInfo(Long merchantId) {
+        Merchant merchant = merchantRepository.findById(merchantId)
+                .orElseThrow(() -> new IllegalArgumentException("商户不存在"));
+
+        MerchantVO merchantVO = new MerchantVO();
+        BeanUtils.copyProperties(merchant, merchantVO);
+        return merchantVO;
+    }
 
     @Override
     public String sendVerificationCode(String merchantPhone, SmsScene scene) {
@@ -444,5 +456,41 @@ public class MerchantService implements IMerchantService{
     private String maskPhone(String phone) {
         if (phone == null || phone.length() < 7) return "***";
         return phone.substring(0, 3) + "****" + phone.substring(7);
+    }
+
+    @Override
+    public List<MerchantAdminVO> getAllMerchants() {
+        List<Merchant> merchants = merchantRepository.findAll();
+        return merchants.stream().map(merchant -> {
+            MerchantAdminVO vo = new MerchantAdminVO();
+            vo.setId(merchant.getId());
+            vo.setMerchantName(merchant.getMerchantName());
+            vo.setShopName(merchant.getShopName());
+            vo.setMerchantPhone(merchant.getMerchantPhone());
+            vo.setLoginID(merchant.getLoginID());
+            vo.setMerchantAddress(merchant.getMerchantAddress());
+            vo.setDescription(merchant.getDescription());
+            vo.setStatus(merchant.getStatus());
+            vo.setCreatedAt(merchant.getCreatedAt());
+            vo.setUpdatedAt(merchant.getUpdatedAt());
+            return vo;
+        }).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(rollbackOn = Exception.class)
+    public boolean updateMerchantStatusByAdmin(Long merchantId, Integer status) {
+        if (status == null || status < 0 || status > 3) {
+            throw new IllegalArgumentException("状态值无效，必须为0-3之间的整数");
+        }
+
+        Merchant merchant = merchantRepository.findById(merchantId)
+                .orElseThrow(() -> new IllegalArgumentException("商户不存在"));
+
+        merchant.setStatus(status);
+        merchant.setUpdatedAt(LocalDateTime.now());
+        merchantRepository.save(merchant);
+
+        return true;
     }
 }

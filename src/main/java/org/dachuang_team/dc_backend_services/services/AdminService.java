@@ -4,15 +4,27 @@ import jakarta.transaction.Transactional;
 import org.dachuang_team.dc_backend_services.config.RedisConfig;
 import org.dachuang_team.dc_backend_services.domain.PO.Admin;
 import org.dachuang_team.dc_backend_services.domain.DTO.AdminDTO;
+import org.dachuang_team.dc_backend_services.domain.VO.DailyOrderStatsVO;
+import org.dachuang_team.dc_backend_services.domain.VO.MonthlyStatsVO;
+import org.dachuang_team.dc_backend_services.domain.VO.OrderStatsVO;
+import org.dachuang_team.dc_backend_services.domain.VO.ProductCategoryStatsVO;
+import org.dachuang_team.dc_backend_services.domain.VO.SixMonthStatsVO;
 import org.dachuang_team.dc_backend_services.repository.AdminRepository;
+import org.dachuang_team.dc_backend_services.repository.OrderRepository;
+import org.dachuang_team.dc_backend_services.repository.ProductRepository;
+import org.dachuang_team.dc_backend_services.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -24,6 +36,15 @@ public class AdminService implements IAdminService {
 
     @Autowired
     private AdminRepository adminRepository;
+
+    @Autowired
+    private OrderRepository orderRepository;
+
+    @Autowired
+    private ProductRepository productRepository;
+
+    @Autowired
+    private UserRepository userRepository;
 
     // 密码加密器，用于对管理员密码进行加密存储
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
@@ -177,5 +198,104 @@ public class AdminService implements IAdminService {
         // 删除管理员
         adminRepository.delete(admin);
         return true;
+    }
+
+    public Map<String, OrderStatsVO> getOrderStatsForPeriods() {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime sevenDaysAgo = now.minusDays(7);
+        LocalDateTime thirtyDaysAgo = now.minusDays(30);
+        LocalDateTime ninetyDaysAgo = now.minusDays(90);
+
+        long count7d = orderRepository.countByCreatedAtBetween(sevenDaysAgo, now);
+        BigDecimal sales7d = orderRepository.sumTotalAmountByCreatedAtBetween(sevenDaysAgo, now);
+
+        long count30d = orderRepository.countByCreatedAtBetween(thirtyDaysAgo, now);
+        BigDecimal sales30d = orderRepository.sumTotalAmountByCreatedAtBetween(thirtyDaysAgo, now);
+
+        long count90d = orderRepository.countByCreatedAtBetween(ninetyDaysAgo, now);
+        BigDecimal sales90d = orderRepository.sumTotalAmountByCreatedAtBetween(ninetyDaysAgo, now);
+
+        Map<String, OrderStatsVO> result = new HashMap<>();
+        result.put("last7Days", new OrderStatsVO(count7d, sales7d));
+        result.put("last30Days", new OrderStatsVO(count30d, sales30d));
+        result.put("last90Days", new OrderStatsVO(count90d, sales90d));
+
+        return result;
+    }
+
+    public List<ProductCategoryStatsVO> getProductCategoryStats() {
+        List<Object[]> results = productRepository.countByCategory();
+        List<ProductCategoryStatsVO> statsList = new ArrayList<>();
+        for (Object[] row : results) {
+            Integer category = (Integer) row[0];
+            Long count = (Long) row[1];
+            statsList.add(new ProductCategoryStatsVO(category, count));
+        }
+        return statsList;
+    }
+
+    public List<MonthlyStatsVO> getSixMonthStats() {
+        LocalDateTime sixMonthsAgo = LocalDateTime.now().minusMonths(6).truncatedTo(java.time.temporal.ChronoUnit.DAYS);
+
+        List<Object[]> userResults = userRepository.findMonthlyUserStats(sixMonthsAgo);
+        List<Object[]> orderResults = orderRepository.findMonthlyOrderStats(sixMonthsAgo);
+        List<Object[]> productResults = productRepository.findMonthlyProductStats(sixMonthsAgo);
+
+        Map<String, Long> userMap = new HashMap<>();
+        for (Object[] row : userResults) {
+            userMap.put(row[0].toString(), ((Number) row[1]).longValue());
+        }
+
+        Map<String, Long> orderMap = new HashMap<>();
+        Map<String, BigDecimal> salesMap = new HashMap<>();
+        for (Object[] row : orderResults) {
+            String month = row[0].toString();
+            orderMap.put(month, ((Number) row[1]).longValue());
+            salesMap.put(month, (BigDecimal) row[2]);
+        }
+
+        Map<String, Long> productMap = new HashMap<>();
+        for (Object[] row : productResults) {
+            productMap.put(row[0].toString(), ((Number) row[1]).longValue());
+        }
+
+        List<MonthlyStatsVO> monthlyStats = new ArrayList<>();
+        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM");
+        for (int i = 5; i >= 0; i--) {
+            String month = java.time.YearMonth.now().minusMonths(i).format(formatter);
+            Long users = userMap.getOrDefault(month, 0L);
+            Long orders = orderMap.getOrDefault(month, 0L);
+            BigDecimal sales = salesMap.getOrDefault(month, BigDecimal.ZERO);
+            Long products = productMap.getOrDefault(month, 0L);
+            monthlyStats.add(new MonthlyStatsVO(month, users, orders, sales, products));
+        }
+
+        return monthlyStats;
+    }
+
+    public List<DailyOrderStatsVO> getDailyOrderStatsForLast7Days() {
+        LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7).truncatedTo(java.time.temporal.ChronoUnit.DAYS);
+        List<Object[]> results = orderRepository.findDailyOrderStats(sevenDaysAgo);
+
+        Map<String, DailyOrderStatsVO> statsMap = new HashMap<>();
+        for (Object[] row : results) {
+            String date = row[0].toString();
+            Long count = ((Number) row[1]).longValue();
+            BigDecimal total = (BigDecimal) row[2];
+            statsMap.put(date, new DailyOrderStatsVO(date, count, total));
+        }
+
+        List<DailyOrderStatsVO> dailyStats = new ArrayList<>();
+        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        for (int i = 6; i >= 0; i--) {
+            String date = java.time.LocalDate.now().minusDays(i).format(formatter);
+            if (statsMap.containsKey(date)) {
+                dailyStats.add(statsMap.get(date));
+            } else {
+                dailyStats.add(new DailyOrderStatsVO(date, 0L, BigDecimal.ZERO));
+            }
+        }
+
+        return dailyStats;
     }
 }

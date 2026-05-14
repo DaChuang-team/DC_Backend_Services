@@ -10,6 +10,7 @@ public class FavoritesVO {
     private BigDecimal price;
     private Long sellerId;
     private LocalDateTime favoriteAt;
+    private Boolean approved;
 
     public Long getProductId() {
         return productId;
@@ -57,5 +58,13 @@ public class FavoritesVO {
 
     public void setFavoriteAt(LocalDateTime favoriteAt) {
         this.favoriteAt = favoriteAt;
+    }
+
+    public Boolean getApproved() {
+        return approved;
+    }
+
+    public void setApproved(Boolean approved) {
+        this.approved = approved;
     }
 }

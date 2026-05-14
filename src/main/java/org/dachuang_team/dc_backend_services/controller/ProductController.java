@@ -361,6 +361,7 @@ public class ProductController {
             productMap.put("TbImageUrl", product.getTbImageUrl()); // 首图缩略图URL
             productMap.put("sumRating", product.getSumRating());
             productMap.put("rating_count", product.getRatingCount());
+            productMap.put("approved", product.getApproved());
 
             return productMap;
         }).toList();

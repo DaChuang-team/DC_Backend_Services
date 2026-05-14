@@ -835,6 +835,14 @@ public class OrderService {
         return orderRepository.findBySellerId(sellerId, pageable);
     }
 
+    // 管理员获取全部订单列表，支持按状态筛选
+    public Page<Order> getAllOrders(OrderStatus status, Pageable pageable) {
+        if (status != null) {
+            return orderRepository.findByStatus(status, pageable);
+        }
+        return orderRepository.findAllByOrderByCreatedAtDesc(pageable);
+    }
+
     // 商家查询自己的退款列表，支持按状态筛选
     public Page<RefundRequestVO> getSellerRefundRequests(Long sellerId, RefundStatus status, Pageable pageable) {
         Page<RefundRequest> refundRequests;

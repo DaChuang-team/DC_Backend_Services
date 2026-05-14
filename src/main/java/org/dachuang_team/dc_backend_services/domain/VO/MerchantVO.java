@@ -1,5 +1,6 @@
 package org.dachuang_team.dc_backend_services.domain.VO;
 
+import java.time.LocalDateTime;
 
 public class MerchantVO {
 
@@ -12,6 +13,7 @@ public class MerchantVO {
     private String merchantAddress;
     private Integer status;
     private String token;
+    private LocalDateTime createdAt;
 
     public String getDescription() {
         return description;
@@ -67,5 +69,13 @@ public class MerchantVO {
     }
     public void setShopName(String shopName) {
         this.shopName = shopName;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
     }
 }

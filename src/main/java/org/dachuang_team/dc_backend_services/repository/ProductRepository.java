@@ -51,4 +51,19 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     int incrementSales(@Param("productId") Long productId, @Param("quantity") Integer quantity);
 
     boolean existsBySellerId(Long sellerId);
+
+    @Query("SELECT p.category, COUNT(p) FROM Product p GROUP BY p.category")
+    java.util.List<Object[]> countByCategory();
+
+    @Query("SELECT COUNT(p) FROM Product p WHERE p.publishedAt >= :startDate")
+    long countByPublishedAtAfter(@Param("startDate") java.time.LocalDateTime startDate);
+
+    @Query(value = """
+            SELECT DATE_FORMAT(p.published_at, '%Y-%m') as month, COUNT(p.product_id) as count
+            FROM product p
+            WHERE p.published_at >= :startDate
+            GROUP BY DATE_FORMAT(p.published_at, '%Y-%m')
+            ORDER BY month ASC
+            """, nativeQuery = true)
+    java.util.List<Object[]> findMonthlyProductStats(@Param("startDate") java.time.LocalDateTime startDate);
 }

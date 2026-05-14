@@ -208,4 +208,16 @@ public class MerchantController {
         }
     }
 
+    @GetMapping("/info")
+    public Result<MerchantVO> getMyInfo() {
+        try {
+            Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            MerchantVO merchantVO = merchantService.getMerchantInfo(currentMerchantId);
+            return Result.success("获取商户信息成功", merchantVO);
+        } catch (IllegalArgumentException e) {
+            return Result.error(404, e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "获取商户信息失败，这可能不是你的问题: " + e.getMessage(), null);
+        }
+    }
 }
