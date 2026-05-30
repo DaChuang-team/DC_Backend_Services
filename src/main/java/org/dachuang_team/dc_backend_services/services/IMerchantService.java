@@ -28,6 +28,8 @@ public interface IMerchantService {
 
         MerchantVO getMerchantInfo(Long merchantId);
 
+        MerchantVO getMerchantInfoById(Long merchantId);
+
         List<MerchantAdminVO> getAllMerchants();
 
         boolean updateMerchantStatusByAdmin(Long merchantId, Integer status);

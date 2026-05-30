@@ -1,7 +1,5 @@
 package org.dachuang_team.dc_backend_services.domain.DTO;
 
-import jakarta.validation.constraints.NotBlank;
-
 import java.math.BigDecimal;
 import java.util.List;
 

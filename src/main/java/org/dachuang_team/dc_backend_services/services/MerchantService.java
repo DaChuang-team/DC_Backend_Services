@@ -161,6 +161,16 @@ public class MerchantService implements IMerchantService{
     }
 
     @Override
+    public MerchantVO getMerchantInfoById(Long merchantId) {
+        Merchant merchant = merchantRepository.findById(merchantId)
+                .orElseThrow(() -> new IllegalArgumentException("商户不存在"));
+
+        MerchantVO merchantVO = new MerchantVO();
+        BeanUtils.copyProperties(merchant, merchantVO);
+        return merchantVO;
+    }
+
+    @Override
     public String sendVerificationCode(String merchantPhone, SmsScene scene) {
         // 如果是注册或者换绑手机号场景，校验手机号必须未被注册过；如果是登录、忘记密码或验证绑定手机号场景，校验手机号必须已经注册过
         if (scene == SmsScene.REGISTER || scene == SmsScene.CHECK_NEW_PHONE) {

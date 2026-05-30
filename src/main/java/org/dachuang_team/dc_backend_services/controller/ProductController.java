@@ -90,10 +90,6 @@ public class ProductController {
         try {
             Long currentSellerId = getCurrentUserId();
 
-            if(!productRepository.existsBySellerId(currentSellerId)) {
-                return Result.error(404, "商户不存在");
-            }
-
             long totalItems = productRepository.countBySellerId(currentSellerId);
             Pageable pageable = validateAndPreparePageable(page, size, totalItems);
             Page<Product> productPage = productRepository.findBySellerId(currentSellerId, pageable);
@@ -111,9 +107,6 @@ public class ProductController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
         try {
-            if(!productRepository.existsBySellerId(sellerId)) {
-                return Result.error(404, "商户不存在");
-            }
             long totalItems = productRepository.countBySellerIdAndApprovedTrue(sellerId);
             Pageable pageable = validateAndPreparePageable(page, size, totalItems);
             Page<Product> productPage = productRepository.findBySellerIdAndApprovedTrue(sellerId, pageable);
@@ -170,8 +163,8 @@ public class ProductController {
             // 查询商品是否存在
             Product existingProduct = productRepository.findById(Pid)
                     .orElseThrow(() -> new IllegalArgumentException("商品不存在"));
-            // 权限校验,用户只能更新自己的商品，管理员可以更新所有商品
-            if (Objects.equals(currentUserRole, "ROLE_USER")) {
+            // 权限校验,商户只能更新自己的商品，管理员可以更新所有商品
+            if (Objects.equals(currentUserRole, "ROLE_MERCHANT")) {
                 if (!existingProduct.getSeller().getId().equals(currentUserId)) {
                     return Result.error(403, "权限不足：您只能更新自己的商品");
                 }
@@ -362,6 +355,9 @@ public class ProductController {
             productMap.put("sumRating", product.getSumRating());
             productMap.put("rating_count", product.getRatingCount());
             productMap.put("approved", product.getApproved());
+            productMap.put("sellerId", product.getSellerId());
+            productMap.put("origin", product.getOrigin());
+            productMap.put("stock", product.getStock());
 
             return productMap;
         }).toList();

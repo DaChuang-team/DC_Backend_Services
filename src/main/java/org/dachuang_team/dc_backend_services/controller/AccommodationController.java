@@ -3,6 +3,8 @@ package org.dachuang_team.dc_backend_services.controller;
 import org.dachuang_team.dc_backend_services.common.Result;
 import org.dachuang_team.dc_backend_services.domain.DTO.AccommodationDTO;
 import org.dachuang_team.dc_backend_services.domain.DTO.ExternalLinkDTO;
+import org.dachuang_team.dc_backend_services.domain.PO.AccommodationPO.Accommodation;
+import org.dachuang_team.dc_backend_services.domain.VO.AccommodationExternalLinksVO;
 import org.dachuang_team.dc_backend_services.domain.VO.AccommodationVO;
 import org.dachuang_team.dc_backend_services.domain.VO.ExternalLinkVO;
 import org.dachuang_team.dc_backend_services.services.AccommodationService;
@@ -134,5 +136,41 @@ public class AccommodationController {
         Long currentMerchantId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         String message = accommodationService.unTopALink(externalLinkId, currentMerchantId);
         return ResponseEntity.ok(Result.success(200, message, null));
+    }
+
+    @PutMapping("/approve")
+    public ResponseEntity<Result<AccommodationVO>> approveAccommodation(@RequestParam Long accommodationId) {
+        AccommodationVO accommodationVO = accommodationService.approveAccommodation(accommodationId, true);
+        return ResponseEntity.ok(Result.success(200, "酒店审核通过", accommodationVO));
+    }
+
+    @PutMapping("/disApprove")
+    public ResponseEntity<Result<AccommodationVO>> disApproveAccommodation(@RequestParam Long accommodationId) {
+        AccommodationVO accommodationVO = accommodationService.approveAccommodation(accommodationId, false);
+        return ResponseEntity.ok(Result.success(200, "酒店审核不通过", accommodationVO));
+    }
+
+    @GetMapping("/all")
+    public ResponseEntity<Result<List<Accommodation>>> getAllAccommodations() {
+        List<Accommodation> accommodations = accommodationService.getAllAccommodations();
+        return ResponseEntity.ok(Result.success(200, "获取住宿列表成功", accommodations));
+    }
+
+    @PutMapping("/approveExternalLink")
+    public ResponseEntity<Result<ExternalLinkVO>> approveExternalLink(@RequestParam Long externalLinkId) {
+        ExternalLinkVO vo = accommodationService.approveExternalLink(externalLinkId, true);
+        return ResponseEntity.ok(Result.success(200, "外部链接审核通过", vo));
+    }
+
+    @PutMapping("/disApproveExternalLink")
+    public ResponseEntity<Result<ExternalLinkVO>> disApproveExternalLink(@RequestParam Long externalLinkId) {
+        ExternalLinkVO vo = accommodationService.approveExternalLink(externalLinkId, false);
+        return ResponseEntity.ok(Result.success(200, "外部链接审核不通过", vo));
+    }
+
+    @GetMapping("/allExternalLinks")
+    public ResponseEntity<Result<List<AccommodationExternalLinksVO>>> getAllAccommodationsWithExternalLinks() {
+        List<AccommodationExternalLinksVO> data = accommodationService.getAllAccommodationsWithExternalLinks();
+        return ResponseEntity.ok(Result.success(200, "获取所有住宿外链信息成功", data));
     }
 }

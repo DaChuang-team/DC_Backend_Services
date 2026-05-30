@@ -8,6 +8,7 @@ import org.dachuang_team.dc_backend_services.domain.PO.AccommodationPO.Accommoda
 import org.dachuang_team.dc_backend_services.domain.PO.AccommodationPO.ExternalLink;
 import org.dachuang_team.dc_backend_services.domain.PO.ImgPO.AccommodationImg;
 import org.dachuang_team.dc_backend_services.domain.PO.MerchantPO.Merchant;
+import org.dachuang_team.dc_backend_services.domain.VO.AccommodationExternalLinksVO;
 import org.dachuang_team.dc_backend_services.domain.VO.AccommodationImgVO;
 import org.dachuang_team.dc_backend_services.domain.VO.AccommodationVO;
 import org.dachuang_team.dc_backend_services.domain.VO.ExternalLinkVO;
@@ -608,5 +609,81 @@ public class AccommodationService implements IAccommodationService {
         vo.setSortOrder(img.getSortOrder());
         vo.setAccommodationId(img.getAccommodationId());
         return vo;
+    }
+
+    @Override
+    @Transactional(rollbackOn = Exception.class)
+    public AccommodationVO approveAccommodation(Long accommodationId, boolean approved) {
+        Accommodation accommodation = accommodationRepository.findById(accommodationId)
+                .orElseThrow(() -> new IllegalArgumentException("酒店不存在"));
+
+        accommodation.setApproved(approved);
+        accommodation.setLastModifiedAt(LocalDateTime.now());
+        accommodation = accommodationRepository.save(accommodation);
+
+        AccommodationVO vo = toVO(accommodation);
+
+        List<AccommodationImg> images = accommodationImgRepository.findByAccommodationId(accommodationId);
+        List<AccommodationImgVO> imageVOList = new ArrayList<>();
+        for (AccommodationImg img : images) {
+            imageVOList.add(toImgVO(img));
+        }
+        vo.setImages(imageVOList);
+        return vo;
+    }
+
+    @Override
+    public List<Accommodation> getAllAccommodations() {
+        return accommodationRepository.findAll();
+    }
+
+    @Override
+    @Transactional(rollbackOn = Exception.class)
+    public ExternalLinkVO approveExternalLink(Long externalLinkId, boolean approved) {
+        ExternalLink externalLink = externalLinkRepository.findById(externalLinkId)
+                .orElseThrow(() -> new IllegalArgumentException("外部链接不存在"));
+
+        externalLink.setApproved(approved);
+        externalLink.setUpdatedAt(LocalDateTime.now());
+        externalLink = externalLinkRepository.save(externalLink);
+
+        ExternalLinkVO vo = new ExternalLinkVO();
+        vo.setId(externalLink.getId());
+        vo.setPlatform(externalLink.getPlatform());
+        vo.setUrl(externalLink.getUrl());
+        vo.setTopped(externalLink.getTopped());
+        vo.setApproved(externalLink.getApproved());
+
+        return vo;
+    }
+
+    @Override
+    public List<AccommodationExternalLinksVO> getAllAccommodationsWithExternalLinks() {
+        List<Accommodation> accommodations = accommodationRepository.findAll();
+        List<AccommodationExternalLinksVO> result = new ArrayList<>();
+
+        for (Accommodation acc : accommodations) {
+            AccommodationExternalLinksVO vo = new AccommodationExternalLinksVO();
+            vo.setAccommodationId(acc.getAccommodationId().toString());
+            vo.setAccommodationName(acc.getAccommodationName());
+            vo.setType(acc.getType());
+            vo.setAddress(acc.getAddress());
+
+            List<ExternalLink> links = externalLinkRepository.findByAccommodationIdOrderByToppedDesc(acc.getAccommodationId());
+            List<ExternalLinkVO> linkVOs = links.stream().map(link -> {
+                ExternalLinkVO linkVO = new ExternalLinkVO();
+                linkVO.setId(link.getId());
+                linkVO.setPlatform(link.getPlatform());
+                linkVO.setUrl(link.getUrl());
+                linkVO.setTopped(link.getTopped());
+                linkVO.setApproved(link.getApproved());
+                return linkVO;
+            }).collect(Collectors.toList());
+
+            vo.setExternalLinks(linkVOs);
+            result.add(vo);
+        }
+
+        return result;
     }
 }

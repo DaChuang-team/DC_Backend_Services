@@ -50,6 +50,7 @@ public class SecurityConfig {
 
                         .requestMatchers("/api/merchants/update/**").hasRole("MERCHANT")
                         .requestMatchers("/api/merchants/info").hasRole("MERCHANT")
+                        .requestMatchers("/api/merchants/info/{merchantId}").authenticated()
 
                         .requestMatchers("/api/orders/create","/api/orders/pay","/api/orders/refund/request","/api/orders/refund/cancel",
                                 "/api/orders/cancel","/api/orders/receive","/api/orders/complete","/api/orders/refund/ship-return","/api/orders/user/**").hasRole("USER")
@@ -83,14 +84,16 @@ public class SecurityConfig {
                         .requestMatchers("/api/accommodations/merchant/**").hasRole("MERCHANT")
                         .requestMatchers("/api/accommodations/user/**").hasRole("USER")
                         .requestMatchers("/api/accommodations/get").authenticated()
+                        .requestMatchers("/api/accommodations/approve", "/api/accommodations/disApprove", "/api/accommodations/all", "/api/accommodations/approveExternalLink", "/api/accommodations/disApproveExternalLink", "/api/accommodations/allExternalLinks").hasAnyRole("ADMIN","SUPER_ADMIN")
 
                         .requestMatchers("/api/admins/admindelete").hasRole("SUPER_ADMIN")
+                        .requestMatchers("/api/admins/all").hasRole("SUPER_ADMIN")
                         .requestMatchers("/api/admins/merchants/all", "/api/admins/merchants/updateStatus").hasAnyRole("ADMIN","SUPER_ADMIN")
                         .requestMatchers("/api/admins/orders/all").hasAnyRole("ADMIN","SUPER_ADMIN")
                         .requestMatchers("/api/admins/stats/**").hasAnyRole("ADMIN","SUPER_ADMIN")
 
                         // 测试/临时放行接口
-                        .requestMatchers("/api/admins/all", "/api/admins/updateUserStatus").permitAll()
+                        .requestMatchers("/api/admins/updateUserStatus").permitAll()
                         .requestMatchers("/api/attractions/**", "/api/hotels/**", "/api/images/**").permitAll()
 
                         .requestMatchers("/ws/**", "/sockjs-ws/**").permitAll()

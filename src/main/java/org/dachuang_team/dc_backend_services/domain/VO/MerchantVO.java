@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 public class MerchantVO {
 
+    private Long id;
     private String merchantName;
     private String shopName;
     private String merchantPhone;
@@ -77,5 +78,13 @@ public class MerchantVO {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
     }
 }

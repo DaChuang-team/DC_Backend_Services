@@ -2,6 +2,8 @@ package org.dachuang_team.dc_backend_services.services;
 
 import org.dachuang_team.dc_backend_services.domain.DTO.AccommodationDTO;
 import org.dachuang_team.dc_backend_services.domain.DTO.ExternalLinkDTO;
+import org.dachuang_team.dc_backend_services.domain.PO.AccommodationPO.Accommodation;
+import org.dachuang_team.dc_backend_services.domain.VO.AccommodationExternalLinksVO;
 import org.dachuang_team.dc_backend_services.domain.VO.AccommodationVO;
 import org.dachuang_team.dc_backend_services.domain.VO.ExternalLinkVO;
 
@@ -35,5 +37,12 @@ public interface IAccommodationService {
 
     String unTopALink(Long externalLinkId, Long merchantId);
 
+    AccommodationVO approveAccommodation(Long accommodationId, boolean approved);
+
+    List<Accommodation> getAllAccommodations();
+
+    ExternalLinkVO approveExternalLink(Long externalLinkId, boolean approved);
+
+    List<AccommodationExternalLinksVO> getAllAccommodationsWithExternalLinks();
 
 }

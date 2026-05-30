@@ -220,4 +220,16 @@ public class MerchantController {
             return Result.error(500, "获取商户信息失败，这可能不是你的问题: " + e.getMessage(), null);
         }
     }
+
+    @GetMapping("/info/{merchantId}")
+    public Result<MerchantVO> getMerchantInfoById(@PathVariable Long merchantId) {
+        try {
+            MerchantVO merchantVO = merchantService.getMerchantInfoById(merchantId);
+            return Result.success("获取商户信息成功", merchantVO);
+        } catch (IllegalArgumentException e) {
+            return Result.error(404, e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "获取商户信息失败，这可能不是你的问题: " + e.getMessage(), null);
+        }
+    }
 }
