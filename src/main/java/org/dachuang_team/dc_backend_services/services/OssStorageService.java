@@ -3,6 +3,7 @@ package org.dachuang_team.dc_backend_services.services;
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
 import com.aliyun.oss.model.OSSObject;
+import org.dachuang_team.dc_backend_services.common.SystemLog;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,7 @@ public class OssStorageService implements IStorageService {
     private String bucketName;
 
     @Override
+    @SystemLog(module = "OSS存储", action = "上传文件")
     public StorageResult uploadByFile(MultipartFile file) {
         String originalFilename = file.getOriginalFilename();
         String suffix;

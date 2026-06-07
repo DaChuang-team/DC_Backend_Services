@@ -2,6 +2,7 @@ package org.dachuang_team.dc_backend_services.services;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
+import org.dachuang_team.dc_backend_services.common.BusinessLog;
 import org.dachuang_team.dc_backend_services.common.ImageProcessUtils;
 import org.dachuang_team.dc_backend_services.common.OrderStateInterceptor;
 import org.dachuang_team.dc_backend_services.common.OrderStateListener;
@@ -98,6 +99,7 @@ public class OrderService {
      * 但Service层不做此限制，保留扩展性。
      */
     @Transactional
+    @BusinessLog(module = "订单管理", action = "创建订单", targetType = "Order", message = "用户{1}创建了订单")
     public Order createOrder(CreateOrderRequestDTO request,Long buyerId) throws JsonProcessingException {
 
         Long orderSellerId = null; // 用于记录当前订单统一的卖家ID
@@ -178,6 +180,7 @@ public class OrderService {
      * 真实支付接入后，需要考虑支付回调的幂等处理（见注释）。
      */
     @Transactional
+    @BusinessLog(module = "订单管理", action = "支付订单", targetType = "Order", message = "用户{1}支付了订单{0}")
     public Order payOrder(String orderNumber, Long buyerId) throws OrderStateException {
         Order order = getOrderAndValidateBuyer(orderNumber, buyerId);
 
@@ -213,8 +216,9 @@ public class OrderService {
     // 3.商家确认
 
      // 商家确认订单：PAID - CONFIRMED
-     // 只有商家本人才能操作，校验 sellerId。
+    // 只有商家本人才能操作，校验 sellerId。
     @Transactional
+    @BusinessLog(module = "订单管理", action = "确认订单", targetType = "Order", message = "商家{1}确认了订单{0}")
     public Order confirmOrder(String orderNumber, Long sellerId) {
         Order order = getOrderAndValidateSeller(orderNumber, sellerId);
         assertStatus(order, OrderStatus.PAID, "确认");
@@ -230,8 +234,9 @@ public class OrderService {
     // 4.商家发货
 
      // 商家发货：CONFIRMED - SHIPPING
-     // 发货时必须提供物流单号，物流单号不能为空。
+    // 发货时必须提供物流单号，物流单号不能为空。
     @Transactional
+    @BusinessLog(module = "订单管理", action = "发货", targetType = "Order", message = "商家{1}对订单{0}发货, 运单号:{2}")
     public Order shipOrder(String orderNumber, Long sellerId, String trackingNo) throws OrderStateException {
 
         Order order = getOrderAndValidateSeller(orderNumber, sellerId);
@@ -260,8 +265,9 @@ public class OrderService {
     // 5.买家签收
 
      // 买家签收：SHIPPING → RECEIVED
-     // 只有买家本人才能签收。
+    // 只有买家本人才能签收。
     @Transactional
+    @BusinessLog(module = "订单管理", action = "签收订单", targetType = "Order", message = "用户{1}签收了订单{0}")
     public Order receiveOrder(String orderNumber, Long buyerId) {
         Order order = getOrderAndValidateBuyer(orderNumber, buyerId);
 
@@ -278,8 +284,9 @@ public class OrderService {
     // 6.买家确认收货（完成）
 
      // 买家确认收货：RECEIVED - COMPLETED
-     // 确认收货后订单进入终态，不可再发起退款。
+    // 确认收货后订单进入终态，不可再发起退款。
     @Transactional
+    @BusinessLog(module = "订单管理", action = "确认完成", targetType = "Order", message = "用户{1}确认完成了订单{0}")
     public Order completeOrder(String orderNumber, Long buyerId) {
         Order order = getOrderAndValidateBuyer(orderNumber, buyerId);
 
@@ -582,6 +589,7 @@ public class OrderService {
     // 仅待支付状态可取消，其他状态需走退款流程。
     // 只有买家本人可以取消。
     @Transactional
+    @BusinessLog(module = "订单管理", action = "取消订单", targetType = "Order", message = "用户{1}取消了订单{0}")
     public Order cancelOrder(String orderNumber, Long buyerId) {
         Order order = getOrderAndValidateBuyer(orderNumber, buyerId);
         assertStatus(order, OrderStatus.PENDING_PAYMENT, "取消");

@@ -29,6 +29,9 @@ public class Admin {
     @Column(name = "last_login") // 最近登录时间
     private LocalDateTime lastLogin;
 
+    @Column(name = "status", nullable = false, columnDefinition = "INT DEFAULT 0") // 状态：0-正常，1-禁用
+    private Integer status = 0;
+
     // --- Getters and Setters ---
 
     public Long getAdminId() {
@@ -69,6 +72,14 @@ public class Admin {
 
     public void setLastLogin(LocalDateTime lastLogin) {
         this.lastLogin = lastLogin;
+    }
+
+    public Integer getStatus() {
+        return status;
+    }
+
+    public void setStatus(Integer status) {
+        this.status = status;
     }
 
     @Override

@@ -7,6 +7,7 @@ import com.aliyun.dypnsapi20170525.models.SendSmsVerifyCodeResponse;
 import org.dachuang_team.dc_backend_services.enumeration.SmsScene;
 import org.dachuang_team.dc_backend_services.services.ServiceException.SmsVerifyException;
 import org.dachuang_team.dc_backend_services.services.ServiceException.SmsException;
+import org.dachuang_team.dc_backend_services.common.SystemLog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ public class SmsCodeService implements ISmsCodeService {
     }
 
     @Override
+    @SystemLog(module = "短信服务", action = "发送验证码")
     public String sendCode(String phone, SmsScene scene) {
         SendSmsVerifyCodeRequest request = new SendSmsVerifyCodeRequest()
                 .setPhoneNumber(phone)

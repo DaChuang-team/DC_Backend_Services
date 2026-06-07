@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.*;
 import org.dachuang_team.dc_backend_services.domain.DTO.GaoDeApiDTO;
+import org.dachuang_team.dc_backend_services.common.SystemLog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -41,6 +42,7 @@ public class GaoDeService implements IGaoDeService {
     }
 
     @Override
+    @SystemLog(module = "高德地图API", action = "地理编码")
     public GaoDeApiDTO.GeocodeResponse geocode(String address, String city) {
         try {
             // 构建请求 URL
@@ -96,6 +98,7 @@ public class GaoDeService implements IGaoDeService {
     }
 
     @Override
+    @SystemLog(module = "高德地图API", action = "逆地理编码")
     public GaoDeApiDTO.ReverseGeocodeResponse reverseGeocode(double longitude, double latitude, String extensions) {
         try {
             // 构建请求 URL
@@ -164,6 +167,7 @@ public class GaoDeService implements IGaoDeService {
     }
 
     @Override
+    @SystemLog(module = "高德地图API", action = "路径规划")
     public GaoDeApiDTO.RoutePlanningResponse routePlanning(
             double originLongitude, double originLatitude,
             double destinationLongitude, double destinationLatitude,
@@ -244,6 +248,7 @@ public class GaoDeService implements IGaoDeService {
     }
 
     @Override
+    @SystemLog(module = "高德地图API", action = "POI搜索")
     public List<GaoDeApiDTO.POISearchResponse> poiSearch(String keywords, String city, String type, int page, int pageSize) {
         try {
             // 构建请求 URL
@@ -271,6 +276,7 @@ public class GaoDeService implements IGaoDeService {
     }
 
     @Override
+    @SystemLog(module = "高德地图API", action = "周边搜索")
     public List<GaoDeApiDTO.POISearchResponse> poiAroundSearch(
             String keywords, double longitude, double latitude,
             String type, int radius, int page, int pageSize) {
@@ -347,6 +353,7 @@ public class GaoDeService implements IGaoDeService {
 
     //已弃置暂时保留
     @Override
+    @SystemLog(module = "高德地图API", action = "IP定位")
     public GaoDeApiDTO.IPLocationResponse ipLocation(String ip, String type) {
         try {
             // 构建请求 URL

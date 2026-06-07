@@ -256,7 +256,6 @@ public class ImageController {
             @RequestParam("file") MultipartFile file,
             @RequestParam("purpose") String purpose) { //purpose参数定义见sysImage实体类注释
         if (file.isEmpty()) return Result.error(406, "文件不能为空", null);
-        if (!"ROLE_ADMIN".equals(getCurrentUserRole())) return Result.error(403, "权限不足");
         if(purpose == null || purpose.isEmpty()) return Result.error(400, "用途参数不能为空");
         if(!SysImagePurpose.isValidPurpose(purpose)) return Result.error(400, "无效的用途参数");
 
@@ -296,8 +295,6 @@ public class ImageController {
     // 管理员接口，删除系统图片资源
     @DeleteMapping("/sysImgDelete")
     public Result<String> deleteSysImg(@RequestParam("imageId") Long imageId) {
-        if (!"ROLE_ADMIN".equals(getCurrentUserRole())) return Result.error(403, "权限不足");
-
         SysImg record = sysImageRepository.findByImageId(imageId);
         if (record == null) return Result.error(404, "图片未找到");
 

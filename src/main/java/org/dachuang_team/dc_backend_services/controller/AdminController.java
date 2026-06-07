@@ -2,10 +2,12 @@ package org.dachuang_team.dc_backend_services.controller;
 
 import org.dachuang_team.dc_backend_services.common.Result;
 import org.dachuang_team.dc_backend_services.domain.DTO.AdminDTO;
+import org.dachuang_team.dc_backend_services.domain.PO.OperationLog;
 import org.dachuang_team.dc_backend_services.domain.PO.OrderPO.Order;
 import org.dachuang_team.dc_backend_services.domain.VO.*;
 import org.dachuang_team.dc_backend_services.enumeration.OrderStatus;
 import org.dachuang_team.dc_backend_services.services.AdminService;
+import org.dachuang_team.dc_backend_services.services.LogService;
 import org.dachuang_team.dc_backend_services.services.MerchantService;
 import org.dachuang_team.dc_backend_services.services.OrderService;
 import org.dachuang_team.dc_backend_services.services.UserService;
@@ -13,8 +15,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.ByteArrayOutputStream;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -22,16 +32,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * 管理员控制层
- * 提供管理员注册、登录以及查询相关的接口
- */
 @RestController
 @RequestMapping("/api/admins")
 public class AdminController {
 
     @Autowired
     private AdminService adminService;
+
+    @Autowired
+    private LogService logService;
 
     @Autowired
     private UserService userService;
@@ -42,103 +51,62 @@ public class AdminController {
     @Autowired
     private OrderService orderService;
 
-    /**
-     * 管理员注册接口
-     *
-     * @param adminDTO 接收 JSON 格式的注册信息
-     * @return 响应结果
-     */
     @PostMapping("/register")
     public Result<String> register(@RequestBody AdminDTO adminDTO) {
         try {
-            // 调用服务层进行注册
             adminService.registerAdmin(adminDTO);
             return Result.success("管理员注册成功: " + adminDTO.getAdminName(), null);
         } catch (IllegalArgumentException e) {
-            // 处理业务异常
             return Result.error(400, "注册失败: " + e.getMessage());
         } catch (Exception e) {
-            // 处理服务器错误
             return Result.error(500, "服务器错误: " + e.getMessage());
         }
     }
 
-    /**
-     * 管理员登录接口
-     *
-     * @param adminDTO 接收 JSON 格式的登录信息
-     * @return 登录结果及管理员基本信息
-     */
     @PostMapping("/login")
     public Result<Map<String, Object>> login(@RequestBody AdminDTO adminDTO) {
-        try{
-            // 1. 调用服务层验证用户名和密码
+        try {
             String token = adminService.authenticateAdmin(adminDTO.getAdminName(), adminDTO.getAdminPassword());
             if (token != null) {
-                // 2. 验证成功，获取管理员详细信息
                 AdminDTO admin = adminService.getAdminByAdminName(adminDTO.getAdminName());
-
-                // 3. 构造返回给前端的数据
                 Map<String, Object> responseBody = new HashMap<>();
                 responseBody.put("token", token);
                 responseBody.put("adminName", admin.getAdminName());
                 responseBody.put("adminRole", admin.getAdminRole());
                 return Result.success("登录成功", responseBody);
-            }else {
-                // 4. 验证失败
+            } else {
                 return Result.error(401, "用户名或密码错误");
             }
-        }catch (Exception e) {
+        } catch (IllegalArgumentException e) {
+            return Result.error(403, e.getMessage());
+        } catch (Exception e) {
             return Result.error(500, "登录时发生服务器错误");
         }
-
     }
 
-    /**
-     * 获取所有管理员信息接口
-     *
-     * @return 格式化后的管理员列表
-     */
     @GetMapping("/all")
     public Result<List<Map<String, Object>>> getAllAdmins() {
-        // 1. 调用服务层获取所有管理员 DTO 列表
         List<AdminDTO> adminList = adminService.getAllAdmins();
-
-        // 2. 准备返回的数据列表
         List<Map<String, Object>> resultList = new ArrayList<>();
-
-        // 定义日期格式：年-月-日
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
         for (AdminDTO admin : adminList) {
             Map<String, Object> adminMap = new HashMap<>();
-
-            // 映射字段 (按照 Navicat 中的字段名)
             adminMap.put("admin_id", admin.getAdminId());
             adminMap.put("admin_name", admin.getAdminName());
             adminMap.put("admin_role", admin.getAdminRole());
-
-            // 格式化日期：最后登录时间
+            adminMap.put("status", admin.getStatus() != null ? admin.getStatus() : 0);
             if (admin.getLastLogin() != null) {
                 adminMap.put("last_login", admin.getLastLogin().format(formatter));
             } else {
                 adminMap.put("last_login", "从未登录");
             }
-
             resultList.add(adminMap);
         }
 
-        // 3. 返回统一 JSON 格式
         return Result.success("获取管理员列表成功", resultList);
     }
 
-    /**
-     * 管理员修改用户状态接口
-     *
-     * @param userName 用户名
-     * @param status   新状态 ('正常' 或 '异常')
-     * @return 响应结果
-     */
     @PutMapping("/updateUserStatus")
     public Result<String> updateUserStatus(@RequestParam String userName, @RequestParam String status) {
         try {
@@ -155,12 +123,6 @@ public class AdminController {
         }
     }
 
-    /**
-     * 删除管理员接口
-     *
-     * @param params 包含 targetAdminName, currentAdminName, currentAdminPassword，以JSON格式传递
-     * @return 响应结果
-     */
     @PostMapping("/admindelete")
     public Result<String> deleteAdmin(@RequestBody Map<String, String> params) {
         String targetAdminName = params.get("targetAdminName");
@@ -180,11 +142,188 @@ public class AdminController {
         }
     }
 
-    /**
-     * 获取所有商户信息接口
-     *
-     * @return 商户列表
-     */
+    @PutMapping("/updateStatus")
+    public Result<String> updateAdminStatus(@RequestParam Long adminId, @RequestParam Integer status) {
+        try {
+            adminService.updateAdminStatus(adminId, status);
+            String statusText = status == 0 ? "已启用" : "已禁用";
+            return Result.success("管理员 " + statusText, null);
+        } catch (IllegalArgumentException e) {
+            return Result.error(400, e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "服务器内部错误: " + e.getMessage());
+        }
+    }
+
+    @PutMapping("/resetPassword")
+    public Result<String> resetAdminPassword(@RequestBody Map<String, Object> request) {
+        try {
+            Long adminId = Long.valueOf(request.get("adminId").toString());
+            String newPassword = (String) request.get("newPassword");
+            adminService.resetAdminPassword(adminId, newPassword);
+            return Result.success("管理员密码重置成功", null);
+        } catch (IllegalArgumentException e) {
+            return Result.error(400, e.getMessage());
+        } catch (Exception e) {
+            return Result.error(500, "服务器内部错误: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/logs/business")
+    public Result<Map<String, Object>> getBusinessLogs(
+            @RequestParam(required = false) String module,
+            @RequestParam(required = false) String operator,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        try {
+            PageRequest pageable = PageRequest.of(page - 1, size, Sort.by("createdAt").descending());
+            Page<OperationLog> logPage = logService.getBusinessLogs(module, operator, startDate, endDate, pageable);
+
+            List<Map<String, Object>> logList = logPage.getContent().stream().map(log -> {
+                Map<String, Object> m = new HashMap<>();
+                m.put("id", log.getId());
+                m.put("module", log.getModule());
+                m.put("action", log.getAction());
+                m.put("operator", log.getOperator());
+                m.put("operatorId", log.getOperatorId());
+                m.put("targetType", log.getTargetType());
+                m.put("targetId", log.getTargetId());
+                m.put("detail", log.getDetail());
+                m.put("result", log.getResult());
+                m.put("createdAt", log.getCreatedAt() != null ? log.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : null);
+                return m;
+            }).collect(Collectors.toList());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("logs", logList);
+            response.put("currentPage", logPage.getNumber() + 1);
+            response.put("totalItems", logPage.getTotalElements());
+            response.put("totalPages", logPage.getTotalPages());
+
+            return Result.success("获取业务日志成功", response);
+        } catch (Exception e) {
+            return Result.error(500, "获取业务日志失败: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/logs/system")
+    public Result<Map<String, Object>> getSystemLogs(
+            @RequestParam(required = false) String module,
+            @RequestParam(required = false) String level,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        try {
+            PageRequest pageable = PageRequest.of(page - 1, size, Sort.by("createdAt").descending());
+            Page<OperationLog> logPage = logService.getSystemLogs(module, level, startDate, endDate, pageable);
+
+            List<Map<String, Object>> logList = logPage.getContent().stream().map(log -> {
+                Map<String, Object> m = new HashMap<>();
+                m.put("id", log.getId());
+                m.put("module", log.getModule());
+                m.put("action", log.getAction());
+                m.put("operator", log.getOperator());
+                m.put("targetType", log.getTargetType());
+                m.put("targetId", log.getTargetId());
+                m.put("detail", log.getDetail());
+                m.put("result", log.getResult());
+                m.put("createdAt", log.getCreatedAt() != null ? log.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : null);
+                return m;
+            }).collect(Collectors.toList());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("logs", logList);
+            response.put("currentPage", logPage.getNumber() + 1);
+            response.put("totalItems", logPage.getTotalElements());
+            response.put("totalPages", logPage.getTotalPages());
+
+            return Result.success("获取系统日志成功", response);
+        } catch (Exception e) {
+            return Result.error(500, "获取系统日志失败: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/logs/business/export")
+    public ResponseEntity<byte[]> exportBusinessLogs(
+            @RequestParam(required = false) String module,
+            @RequestParam(required = false) String operator,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
+        try {
+            PageRequest pageable = PageRequest.of(0, Integer.MAX_VALUE, Sort.by("createdAt").descending());
+            Page<OperationLog> logPage = logService.getBusinessLogs(module, operator, startDate, endDate, pageable);
+
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            OutputStreamWriter writer = new OutputStreamWriter(baos, StandardCharsets.UTF_8);
+
+            writer.write("ID,模块,操作,操作人,操作人ID,目标类型,目标ID,详情,结果,时间\n");
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            for (OperationLog log : logPage.getContent()) {
+                writer.write(log.getId() + ",");
+                writer.write(escapeCsv(log.getModule()) + ",");
+                writer.write(escapeCsv(log.getAction()) + ",");
+                writer.write(escapeCsv(log.getOperator()) + ",");
+                writer.write((log.getOperatorId() != null ? String.valueOf(log.getOperatorId()) : "") + ",");
+                writer.write(escapeCsv(log.getTargetType()) + ",");
+                writer.write(escapeCsv(log.getTargetId()) + ",");
+                writer.write(escapeCsv(log.getDetail()) + ",");
+                writer.write(escapeCsv(log.getResult()) + ",");
+                writer.write(log.getCreatedAt() != null ? log.getCreatedAt().format(formatter) : "");
+                writer.write("\n");
+            }
+            writer.flush();
+
+            byte[] bytes = baos.toByteArray();
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType("text/csv; charset=utf-8"));
+            headers.setContentDispositionFormData("attachment", "business_logs_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".csv");
+
+            return ResponseEntity.ok().headers(headers).body(bytes);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping("/logs/system/export")
+    public ResponseEntity<byte[]> exportSystemLogs(
+            @RequestParam(required = false) String module,
+            @RequestParam(required = false) String level,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
+        try {
+            PageRequest pageable = PageRequest.of(0, Integer.MAX_VALUE, Sort.by("createdAt").descending());
+            Page<OperationLog> logPage = logService.getSystemLogs(module, level, startDate, endDate, pageable);
+
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            OutputStreamWriter writer = new OutputStreamWriter(baos, StandardCharsets.UTF_8);
+
+            writer.write("ID,模块,操作,详情,结果,时间\n");
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            for (OperationLog log : logPage.getContent()) {
+                writer.write(log.getId() + ",");
+                writer.write(escapeCsv(log.getModule()) + ",");
+                writer.write(escapeCsv(log.getAction()) + ",");
+                writer.write(escapeCsv(log.getDetail()) + ",");
+                writer.write(escapeCsv(log.getResult()) + ",");
+                writer.write(log.getCreatedAt() != null ? log.getCreatedAt().format(formatter) : "");
+                writer.write("\n");
+            }
+            writer.flush();
+
+            byte[] bytes = baos.toByteArray();
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType("text/csv; charset=utf-8"));
+            headers.setContentDispositionFormData("attachment", "system_logs_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".csv");
+
+            return ResponseEntity.ok().headers(headers).body(bytes);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
     @GetMapping("/merchants/all")
     public Result<List<MerchantAdminVO>> getAllMerchants() {
         try {
@@ -195,13 +334,6 @@ public class AdminController {
         }
     }
 
-    /**
-     * 管理员修改商户状态接口
-     *
-     * @param merchantId 商户ID
-     * @param status     新状态 (0-待审核，1-审核通过，2-审核不通过，3-已冻结)
-     * @return 响应结果
-     */
     @PutMapping("/merchants/updateStatus")
     public Result<String> updateMerchantStatus(@RequestParam Long merchantId, @RequestParam Integer status) {
         try {
@@ -218,14 +350,6 @@ public class AdminController {
         }
     }
 
-    /**
-     * 获取全部订单信息接口
-     *
-     * @param status 订单状态（可选）
-     * @param page   页码（默认1）
-     * @param size   每页数量（默认10）
-     * @return 订单列表
-     */
     @GetMapping("/orders/all")
     public Result<Map<String, Object>> getAllOrders(
             @RequestParam(required = false) OrderStatus status,
@@ -251,11 +375,6 @@ public class AdminController {
         }
     }
 
-    /**
-     * 获取近7天、30天和90天的订单量和销售额统计接口
-     *
-     * @return 订单统计信息
-     */
     @GetMapping("/stats/orderStats")
     public Result<Map<String, OrderStatsVO>> getOrderStats() {
         try {
@@ -266,11 +385,6 @@ public class AdminController {
         }
     }
 
-    /**
-     * 获取产品品类和对应数量统计接口
-     *
-     * @return 产品品类统计信息
-     */
     @GetMapping("/stats/productCategoryStats")
     public Result<List<ProductCategoryStatsVO>> getProductCategoryStats() {
         try {
@@ -281,11 +395,6 @@ public class AdminController {
         }
     }
 
-    /**
-     * 获取近6个月每月的注册用户数、订单数、销售额和新商品数统计接口
-     *
-     * @return 近6个月每月统计信息列表
-     */
     @GetMapping("/stats/sixMonthStats")
     public Result<List<MonthlyStatsVO>> getSixMonthStats() {
         try {
@@ -296,11 +405,6 @@ public class AdminController {
         }
     }
 
-    /**
-     * 获取最近7天每天的订单量和销售额统计接口
-     *
-     * @return 最近7天每日订单统计信息
-     */
     @GetMapping("/stats/dailyOrderStats")
     public Result<List<DailyOrderStatsVO>> getDailyOrderStats() {
         try {
@@ -309,5 +413,15 @@ public class AdminController {
         } catch (Exception e) {
             return Result.error(500, "服务器内部错误: " + e.getMessage());
         }
+    }
+
+    private String escapeCsv(String value) {
+        if (value == null) {
+            return "";
+        }
+        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
     }
 }

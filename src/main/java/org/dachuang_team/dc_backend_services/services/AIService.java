@@ -6,6 +6,7 @@ import com.volcengine.ark.runtime.model.completion.chat.*;
 import com.volcengine.ark.runtime.model.responses.common.ResponsesCaching;
 import com.volcengine.ark.runtime.model.responses.common.ResponsesThinking;
 import com.volcengine.ark.runtime.model.responses.constant.ResponsesConstants;
+import org.dachuang_team.dc_backend_services.common.SystemLog;
 import com.volcengine.ark.runtime.model.responses.content.InputContentItemImage;
 import com.volcengine.ark.runtime.model.responses.item.ItemEasyMessage;
 import com.volcengine.ark.runtime.model.responses.item.MessageContent;
@@ -66,6 +67,7 @@ public class AIService implements IAIServices{
 
     @Override
     @Transactional(rollbackOn = Exception.class)
+    @SystemLog(module = "AI服务", action = "生成旅游规划")
     public AITextInteractionDTO.RuralTravelPlan generateTravelPlan(String query, int modelVersion, Long userId) {
         try {
             //定义消息列表
@@ -167,6 +169,7 @@ public class AIService implements IAIServices{
     @Override
     @Deprecated
     // 此接口仅供初始版本测试使用，目前已弃用。后续请使用recognizeImage方法，该方法支持上下文缓存和会话管理，更适合实际应用场景
+    @SystemLog(module = "AI服务", action = "图片识别")
     public AIImgInteractionDTO.ImageRecognitionResponse getImageRecognition(String query, int modelVersion, String imageUrl, String userLocation) {
         try {
             // 构造消息内容
@@ -271,6 +274,7 @@ public class AIService implements IAIServices{
     // 支持上下文缓存的图像识别接口，供前端新开启一个图像解析会话时调用，后续用户在同一会话中追加对话时可以使用返回的responseId进行上下文关联
     @Transactional(rollbackOn = Exception.class)
     @Override
+    @SystemLog(module = "AI服务", action = "图片识别(含上下文)")
     public AIImgInteractionDTO.ImageRecognitionResponse recognizeImage(Long userId, AIImgInteractionDTO.ImageRecognitionRequest requestDTO) {
         try {
             // 获取模型对应的EndpointId
@@ -383,6 +387,7 @@ public class AIService implements IAIServices{
 
     @Override
     @Transactional(rollbackOn = Exception.class)
+    @SystemLog(module = "AI服务", action = "AI对话追问")
     public AIImgInteractionDTO.FollowUpResponse continueConversation(Long userId, AIImgInteractionDTO.FollowUpRequest requestDTO) {
         try {
             // 查找会话上下文

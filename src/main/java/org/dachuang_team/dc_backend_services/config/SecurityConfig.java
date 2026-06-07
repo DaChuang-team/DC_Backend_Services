@@ -37,7 +37,8 @@ public class SecurityConfig {
                         // 公开接口
                         .requestMatchers("/api/users/register/**", "/api/users/login/**","/api/users/info/check","/api/users/resetPwSmsSend","/api/users/resetPwBySms").permitAll()
                         .requestMatchers("/api/merchants/register/**", "/api/merchants/login/**", "/api/merchants/info/check","/api/merchants/resetPwSmsSend", "/api/merchants/resetPwBySms").permitAll()
-                        .requestMatchers("/api/admins/register", "/api/admins/login").permitAll()
+                        .requestMatchers("/api/admins/login").permitAll()
+                        .requestMatchers("/api/admins/register").hasRole("SUPER_ADMIN")
                         .requestMatchers("/api/products/approved", "/api/products/search").permitAll()
                         .requestMatchers("/api/image/sysImgGet").permitAll()
 
@@ -76,8 +77,8 @@ public class SecurityConfig {
 
                         .requestMatchers("/api/image/productImgUpload","/api/image/accommodationImgUpload").hasRole("MERCHANT")
                         .requestMatchers("/api/image/AIInteractionImgUpload", "/api/image/userAvatarUpload","/api/image/refundEvidenceImgUpload").hasRole("USER")
-                        .requestMatchers("/api/image/sysImgUpload").hasAnyRole("ADMIN","SUPER_ADMIN")
-                        .requestMatchers("/api/image/sysImgDelete").hasAnyRole("ADMIN","SUPER_ADMIN")
+                        .requestMatchers("/api/image/sysImgUpload").hasRole("SUPER_ADMIN")
+                        .requestMatchers("/api/image/sysImgDelete").hasRole("SUPER_ADMIN")
                         .requestMatchers("/api/image/chatImgUpload").authenticated()
                         .requestMatchers("/api/image/uploadPurge","/api/image/shopBannerImgUpload").permitAll()
 
@@ -88,6 +89,9 @@ public class SecurityConfig {
 
                         .requestMatchers("/api/admins/admindelete").hasRole("SUPER_ADMIN")
                         .requestMatchers("/api/admins/all").hasRole("SUPER_ADMIN")
+                        .requestMatchers("/api/admins/updateStatus").hasRole("SUPER_ADMIN")
+                        .requestMatchers("/api/admins/resetPassword").hasRole("SUPER_ADMIN")
+                        .requestMatchers("/api/admins/logs/**").hasRole("SUPER_ADMIN")
                         .requestMatchers("/api/admins/merchants/all", "/api/admins/merchants/updateStatus").hasAnyRole("ADMIN","SUPER_ADMIN")
                         .requestMatchers("/api/admins/orders/all").hasAnyRole("ADMIN","SUPER_ADMIN")
                         .requestMatchers("/api/admins/stats/**").hasAnyRole("ADMIN","SUPER_ADMIN")

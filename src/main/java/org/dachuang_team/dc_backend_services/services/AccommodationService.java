@@ -298,8 +298,12 @@ public class AccommodationService implements IAccommodationService {
             throw new IllegalArgumentException("经度不合法");
         }
 
-        if(type != null && !type.isEmpty() && !type.equals("HOTEL") && !type.equals("HOSTEL") && !type.equals("RESORT"))
+        // type 为 null 或空字符串时，不筛选住宿类型，返回所有类型
+        if (type == null || type.isEmpty()) {
+            type = null;
+        } else if (!type.equals("HOTEL") && !type.equals("HOSTEL") && !type.equals("RESORT")) {
             type = null; // 无效的类型参数当作不传处理
+        }
 
         Pageable pageable = PageRequest.of(pageNo - 1, pageSize);
         Page<Object[]> resultPage;

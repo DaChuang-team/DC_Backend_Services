@@ -30,7 +30,11 @@ public class TokenAuthFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, @NotNull HttpServletResponse response, @NotNull FilterChain filterChain)
             throws ServletException, IOException {
 
-        String token = extractToken(request.getHeader("Authorization"));
+        String authHeader = request.getHeader("Authorization");
+        String token = extractToken(authHeader);
+        if (token == null || token.isEmpty()) {
+            token = request.getParameter("token");
+        }
 
         logger.info("获取token: " + token);
 

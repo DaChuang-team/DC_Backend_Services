@@ -14,6 +14,8 @@ public class AdminDTO {
     private String adminRole;     // 管理员角色
     private LocalDateTime lastLogin; // 最后登录时间
     private String inviteCode;    // 邀请码
+    private Integer status;       // 状态：0-正常，1-禁用
+    private String newPassword;   // 新密码（超级管理员重置密码时使用）
 
     // --- Getters and Setters ---
 
@@ -64,6 +66,23 @@ public class AdminDTO {
     public void setInviteCode(String inviteCode) {
         this.inviteCode = inviteCode;
     }
+
+    public Integer getStatus() {
+        return status;
+    }
+
+    public void setStatus(Integer status) {
+        this.status = status;
+    }
+
+    public String getNewPassword() {
+        return newPassword;
+    }
+
+    public void setNewPassword(String newPassword) {
+        this.newPassword = newPassword;
+    }
+
     @Override
     public String toString() {
         return "AdminDTO{" +
