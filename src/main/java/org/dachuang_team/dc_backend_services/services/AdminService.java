@@ -57,6 +57,14 @@ public class AdminService implements IAdminService {
         if (adminRepository.findByAdminName(adminDTO.getAdminName()) != null) {
             throw new IllegalArgumentException("管理员名称: " + adminDTO.getAdminName() + " 已存在");
         }
+        // 校验邀请码
+        String inviteCode = adminDTO.getInviteCode();
+        if ("ADMIN".equals(adminDTO.getAdminRole()) && !"xczlAdmin".equals(inviteCode)) {
+            throw new IllegalArgumentException("普通管理员邀请码错误");
+        }
+        if ("SUPER_ADMIN".equals(adminDTO.getAdminRole()) && !"xczlAdminPro".equals(inviteCode)) {
+            throw new IllegalArgumentException("超级管理员邀请码错误");
+        }
         Admin newAdmin = new Admin();
         newAdmin.setAdminName(adminDTO.getAdminName());
         String encodedPassword = passwordEncoder.encode(adminDTO.getAdminPassword());

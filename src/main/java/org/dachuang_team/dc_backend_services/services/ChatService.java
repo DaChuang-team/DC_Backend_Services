@@ -649,13 +649,7 @@ public class ChatService implements IChatService {
 
         for (Conversation c : history) {
             if (c.getStatus() == ConversationStatus.ACTIVE || c.getStatus() == ConversationStatus.PENDING) {
-                return c; //直接返回
-            }
-        }
-
-        for (Conversation c : history) {
-            if (c.getStatus() == ConversationStatus.CLOSED) {
-                return c; // 直接返回
+                return c; // 有进行中或待受理的会话，直接复用
             }
         }
 
