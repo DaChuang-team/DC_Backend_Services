@@ -20,7 +20,7 @@ public class SmsCodeService implements ISmsCodeService {
 
     private static final Logger log = LoggerFactory.getLogger(SmsCodeService.class);
 
-    private final String signName = "速通互联验证码";
+    private final String signName = "恒创联众";
 
     private final Client aliyunSmsClient;
 
