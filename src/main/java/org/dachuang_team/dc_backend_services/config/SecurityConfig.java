@@ -1,0 +1,120 @@
+package org.dachuang_team.dc_backend_services.config;
+
+import org.dachuang_team.dc_backend_services.services.AuthService; // 确保导入路径正确
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.config.Customizer;
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+
+    @Autowired
+    private AuthService authService;
+
+    @Autowired
+    private RestAccessDeniedHandler restAccessDeniedHandler;
+
+    @Autowired
+    private RestAuthenticationEntryPoint restAuthenticationEntryPoint;
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        // 实例化过滤器
+        TokenAuthFilter tokenAuthFilter = new TokenAuthFilter(authService);
+
+        http
+                .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        // 公开接口
+                        .requestMatchers("/api/users/register/**", "/api/users/login/**","/api/users/info/check","/api/users/resetPwSmsSend","/api/users/resetPwBySms").permitAll()
+                        .requestMatchers("/api/merchants/register/**", "/api/merchants/login/**", "/api/merchants/info/check","/api/merchants/resetPwSmsSend", "/api/merchants/resetPwBySms").permitAll()
+                        .requestMatchers("/api/admins/login").permitAll()
+                        .requestMatchers("/api/admins/register").hasRole("SUPER_ADMIN")
+                        .requestMatchers("/api/products/approved", "/api/products/search").permitAll()
+                        .requestMatchers("/api/image/sysImgGet").permitAll()
+
+                        // 受保护接口
+                        .requestMatchers("/api/users/update/**", "/api/users/checkIn", "/api/users/logout","/api/users/address",
+                                "/api/users/deleteAddress","/api/users/updateAddress","/api/users/setDefaultAddress",
+                                "/api/users/unsetDefaultAddress","/api/users/getDefaultAddress").hasRole("USER")
+                        .requestMatchers("/api/users/info", "/api/users/points/**").hasAnyRole("USER","ADMIN","SUPER_ADMIN")
+                        .requestMatchers("/api/users/all", "/api/users/delete").hasAnyRole("ADMIN","SUPER_ADMIN")
+
+                        .requestMatchers("/api/merchants/update/**").hasRole("MERCHANT")
+                        .requestMatchers("/api/merchants/info").hasRole("MERCHANT")
+                        .requestMatchers("/api/merchants/info/{merchantId}").authenticated()
+
+                        .requestMatchers("/api/orders/create","/api/orders/pay","/api/orders/refund/request","/api/orders/refund/cancel",
+                                "/api/orders/cancel","/api/orders/receive","/api/orders/complete","/api/orders/refund/ship-return","/api/orders/user/**").hasRole("USER")
+                        .requestMatchers("/api/orders/confirm","/api/orders/refund/process","/api/orders/ship","/api/orders/refund/return-receive",
+                                "/api/orders/refund/handel-return","/api/orders/seller/**").hasRole("MERCHANT")
+
+                        .requestMatchers("/api/ai/**").hasRole("USER")
+
+                        .requestMatchers("/api/gaode/**").hasRole("USER")
+
+                        .requestMatchers("/api/tts/**").hasRole("USER")
+
+                        .requestMatchers("/api/chat/createConversation","/api/chat/conversations",
+                                "/api/chat/closeConversation","/api/chat/markAsReadByConversationId","/api/chat/markAsReadByMessageId",
+                                "/api/chat/messages","/api/chat/sendMessage","/api/chat/requestAcceptance",
+                                "/api/chat/callBackMessage","/api/chat/userInfo").authenticated()
+                        .requestMatchers("/api/chat/service/**").hasRole("ADMIN")
+
+                        .requestMatchers("/api/products/approvedBySeller", "/api/products/details").authenticated()
+                        .requestMatchers("/api/products/all", "/api/products/unApproved", "/api/products/approve", "/api/products/disApprove").hasRole("ADMIN")
+                        .requestMatchers("/api/products/delete", "/api/products/update","/api/products/add","/api/products/currentMerchant").hasRole("MERCHANT")
+                        .requestMatchers("/api/products/favorite", "/api/products/favorites").hasRole("USER")
+
+                        .requestMatchers("/api/image/productImgUpload","/api/image/accommodationImgUpload").hasRole("MERCHANT")
+                        .requestMatchers("/api/image/AIInteractionImgUpload", "/api/image/userAvatarUpload","/api/image/refundEvidenceImgUpload").hasRole("USER")
+                        .requestMatchers("/api/image/sysImgUpload").hasRole("SUPER_ADMIN")
+                        .requestMatchers("/api/image/sysImgDelete").hasRole("SUPER_ADMIN")
+                        .requestMatchers("/api/image/chatImgUpload").authenticated()
+                        .requestMatchers("/api/image/uploadPurge","/api/image/shopBannerImgUpload").permitAll()
+
+                        .requestMatchers("/api/accommodations/merchant/**").hasRole("MERCHANT")
+                        .requestMatchers("/api/accommodations/user/**").hasRole("USER")
+                        .requestMatchers("/api/accommodations/get").authenticated()
+                        .requestMatchers("/api/accommodations/approve", "/api/accommodations/disApprove", "/api/accommodations/all", "/api/accommodations/approveExternalLink", "/api/accommodations/disApproveExternalLink", "/api/accommodations/allExternalLinks").hasAnyRole("ADMIN","SUPER_ADMIN")
+
+                        .requestMatchers("/api/admins/admindelete").hasRole("SUPER_ADMIN")
+                        .requestMatchers("/api/admins/all").hasRole("SUPER_ADMIN")
+                        .requestMatchers("/api/admins/updateStatus").hasRole("SUPER_ADMIN")
+                        .requestMatchers("/api/admins/resetPassword").hasRole("SUPER_ADMIN")
+                        .requestMatchers("/api/admins/logs/**").hasRole("SUPER_ADMIN")
+                        .requestMatchers("/api/admins/merchants/all", "/api/admins/merchants/updateStatus").hasAnyRole("ADMIN","SUPER_ADMIN")
+                        .requestMatchers("/api/admins/orders/all").hasAnyRole("ADMIN","SUPER_ADMIN")
+                        .requestMatchers("/api/admins/stats/**").hasAnyRole("ADMIN","SUPER_ADMIN")
+
+                        // 测试/临时放行接口
+                        .requestMatchers("/api/admins/updateUserStatus").permitAll()
+                        .requestMatchers("/api/attractions/**", "/api/hotels/**", "/api/images/**").permitAll()
+
+                        .requestMatchers("/ws/**", "/sockjs-ws/**").permitAll()
+
+                        // 其他任何请求都拒绝访问
+                        .anyRequest().denyAll()
+                )
+                // 异常处理
+                .exceptionHandling(exceptions -> exceptions
+                        // Token无效或缺失时触发
+                        .authenticationEntryPoint(restAuthenticationEntryPoint)
+                        // 无权访问接口时触发
+                        .accessDeniedHandler(restAccessDeniedHandler)
+                )
+                .addFilterBefore(tokenAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .httpBasic(Customizer.withDefaults());
+
+        return http.build();
+    }
+}
